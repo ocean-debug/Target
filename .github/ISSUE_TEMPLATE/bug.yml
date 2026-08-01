@@ -1,0 +1,42 @@
+name: Bug或科学可靠性问题
+description: 报告运行错误、不可追溯结果或科学边界问题
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: observed
+    attributes:
+      label: 实际现象
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望行为
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 复现步骤
+      description: 包含输入、命令、run_id和相关文件。
+    validations:
+      required: true
+  - type: dropdown
+    id: severity
+    attributes:
+      label: 严重性
+      options:
+        - blocking
+        - major
+        - minor
+        - info
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: 提交前检查
+      options:
+        - label: 已删除API Key、患者信息和本地绝对路径
+          required: true

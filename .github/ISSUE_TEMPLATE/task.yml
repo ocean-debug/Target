@@ -1,0 +1,56 @@
+name: 模块任务
+description: 创建一个有明确输入、输出和验收条件的开发任务
+title: "[模块] "
+labels: ["task"]
+body:
+  - type: dropdown
+    id: module
+    attributes:
+      label: 模块
+      options:
+        - Agent / Runtime
+        - Evidence / RAG
+        - Omics
+        - Perturbation
+        - Genetics
+        - Target / Drug
+        - Provenance / Reviewer
+        - Report / UI
+        - Demo / Documentation
+    validations:
+      required: true
+  - type: textarea
+    id: objective
+    attributes:
+      label: 目标
+      description: 用一句可验收的话说明要完成什么。
+    validations:
+      required: true
+  - type: textarea
+    id: inputs
+    attributes:
+      label: 输入与依赖
+      description: 上游文件、Schema、数据、模型或接口。
+    validations:
+      required: true
+  - type: textarea
+    id: outputs
+    attributes:
+      label: 交付物
+      description: 明确到代码、配置、报告、样例或Trace路径。
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 验收条件
+      description: 至少包含成功案例和失败/OOD案例。
+    validations:
+      required: true
+  - type: input
+    id: owner
+    attributes:
+      label: 主责人与复核人
+      placeholder: "主责 @...；科学复核 @...；接口复核 @..."
+    validations:
+      required: true

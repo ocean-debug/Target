@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://target-agent.local/schemas/perturbation_result.schema.json",
+  "title": "PerturbationResult",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "perturbation_id", "result_type", "target", "context", "status", "direction", "provenance"],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "perturbation_id": { "type": "string" },
+    "result_type": { "type": "string", "enum": ["OBSERVED", "PREDICTED"] },
+    "target": { "type": "string" },
+    "perturbation_type": { "type": "string", "enum": ["knockdown", "knockout", "activation", "overexpression", "drug", "variant"] },
+    "context": {
+      "type": "object",
+      "required": ["organism", "cell_type"],
+      "properties": {
+        "organism": { "type": "string" },
+        "tissue": { "type": ["string", "null"] },
+        "cell_type": { "type": "string" },
+        "disease_state": { "type": ["string", "null"] },
+        "assay": { "type": ["string", "null"] }
+      }
+    },
+    "status": { "type": "string", "enum": ["ok", "partial", "failed", "rejected"] },
+    "direction": { "type": "string", "enum": ["increase", "decrease", "mixed", "no_effect", "unknown"] },
+    "gene_effects": { "type": "array", "items": { "type": "object" }, "default": [] },
+    "program_effects": { "type": "array", "items": { "type": "object" }, "default": [] },
+    "context_match_score": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+    "uncertainty": { "type": ["string", "null"] },
+    "warnings": { "type": "array", "items": { "type": "string" }, "default": [] },
+    "limitations": { "type": "array", "items": { "type": "string" }, "default": [] },
+    "provenance": { "type": "object" }
+  }
+}

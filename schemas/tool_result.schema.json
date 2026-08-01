@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://target-agent.local/schemas/tool_result.schema.json",
+  "title": "ToolResult",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "tool_run_id", "tool_id", "status", "inputs", "outputs", "provenance"],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "tool_run_id": { "type": "string", "minLength": 1 },
+    "tool_id": { "type": "string", "minLength": 1 },
+    "tool_version": { "type": ["string", "null"] },
+    "status": { "type": "string", "enum": ["ok", "partial", "failed", "rejected"] },
+    "inputs": { "type": "object" },
+    "outputs": { "type": "object" },
+    "warnings": { "type": "array", "items": { "type": "string" }, "default": [] },
+    "limitations": { "type": "array", "items": { "type": "string" }, "default": [] },
+    "error": { "type": ["string", "null"] },
+    "provenance": {
+      "type": "object",
+      "required": ["run_id", "created_at"],
+      "properties": {
+        "run_id": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "artifacts": { "type": "array", "items": { "type": "string" }, "default": [] },
+        "parameters": { "type": "object", "default": {} },
+        "software": { "type": "object", "default": {} }
+      }
+    }
+  }
+}

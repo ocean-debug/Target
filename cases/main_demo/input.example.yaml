@@ -1,0 +1,23 @@
+schema_version: "1.0"
+task_id: demo-001
+task_type: disease_to_target
+question: 为指定疾病场景发现并验证候选药物靶点
+context:
+  disease: TODO
+  disease_subtype: null
+  target_tissue: TODO
+  target_cell_type: null
+  disease_stage: TODO
+  population: null
+  desired_phenotype: TODO
+  druggability_required: true
+inputs: []
+constraints:
+  - 仅使用公开数据
+  - 不开展湿实验，只输出可证伪实验方案
+requested_outputs:
+  - ranked_targets
+  - top_target_cards
+  - drug_options
+  - experiment_plan
+  - traceable_report

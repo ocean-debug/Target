@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://target-agent.local/schemas/evidence_item.schema.json",
+  "title": "EvidenceItem",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "evidence_id", "claim", "claim_class", "evidence_type", "stance", "source", "context"],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "evidence_id": { "type": "string", "minLength": 1 },
+    "claim": { "type": "string", "minLength": 1 },
+    "claim_class": { "type": "string", "enum": ["FACT", "OBSERVED", "PREDICTED", "INFERRED"] },
+    "evidence_type": {
+      "type": "string",
+      "enum": ["literature", "database", "genetics", "omics", "observed_perturbation", "predicted_perturbation", "drug", "safety", "experiment"]
+    },
+    "stance": { "type": "string", "enum": ["supports", "refutes", "mixed", "uncertain"] },
+    "source": {
+      "type": "object",
+      "required": ["title", "locator"],
+      "properties": {
+        "title": { "type": "string" },
+        "locator": { "type": "string" },
+        "database": { "type": ["string", "null"] },
+        "accessed_at": { "type": ["string", "null"], "format": "date-time" }
+      }
+    },
+    "context": {
+      "type": "object",
+      "properties": {
+        "organism": { "type": ["string", "null"] },
+        "tissue": { "type": ["string", "null"] },
+        "cell_type": { "type": ["string", "null"] },
+        "disease_stage": { "type": ["string", "null"] },
+        "assay": { "type": ["string", "null"] }
+      }
+    },
+    "effect_direction": { "type": ["string", "null"] },
+    "effect_size": { "type": ["number", "null"] },
+    "uncertainty": { "type": ["string", "null"] },
+    "limitations": { "type": "array", "items": { "type": "string" }, "default": [] },
+    "provenance_ids": { "type": "array", "items": { "type": "string" }, "default": [] }
+  }
+}

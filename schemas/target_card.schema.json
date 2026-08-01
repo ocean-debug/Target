@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://target-agent.local/schemas/target_card.schema.json",
+  "title": "TargetCard",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "target", "disease_context", "rank", "recommendation", "evidence", "evidence_gaps", "risks", "next_experiments"],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "target": { "type": "string" },
+    "target_type": { "type": ["string", "null"] },
+    "disease_context": { "type": "object" },
+    "rank": { "type": "integer", "minimum": 1 },
+    "recommendation": { "type": "string", "enum": ["GO", "CONDITIONAL_GO", "NO_GO", "INSUFFICIENT_EVIDENCE"] },
+    "recommended_direction": { "type": ["string", "null"], "enum": ["inhibit", "activate", "restore", "context_dependent", null] },
+    "score_components": { "type": "object" },
+    "evidence": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+    "drugs": { "type": "array", "items": { "type": "object" }, "default": [] },
+    "evidence_gaps": { "type": "array", "items": { "type": "string" } },
+    "risks": { "type": "array", "items": { "type": "string" } },
+    "next_experiments": { "type": "array", "items": { "type": "object" } },
+    "trace_ids": { "type": "array", "items": { "type": "string" }, "default": [] }
+  }
+}

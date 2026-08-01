@@ -1,0 +1,44 @@
+version: 1
+tools:
+  - id: literature_search
+    module: evidence
+    owner: 纪家灏
+    enabled: false
+    input_schema: schemas/task_spec.schema.json
+    output_schema: schemas/tool_result.schema.json
+
+  - id: public_omics_analysis
+    module: omics
+    owners: [王海洋, 陈锦钰]
+    enabled: false
+    output_schema: schemas/tool_result.schema.json
+
+  - id: observed_perturbation
+    module: perturbation
+    owners: [王海洋, 陈锦钰]
+    enabled: false
+    output_schema: schemas/perturbation_result.schema.json
+
+  - id: predicted_perturbation
+    module: perturbation
+    owners: [王海洋, 陈政翰]
+    enabled: false
+    output_schema: schemas/perturbation_result.schema.json
+
+  - id: variant_oracle
+    module: genetics
+    owner: 纪家灏
+    enabled: false
+    output_schema: schemas/tool_result.schema.json
+
+  - id: target_ranker
+    module: target
+    owners: [王海洋, 陈政翰]
+    enabled: false
+    output_schema: schemas/target_card.schema.json
+
+  - id: drug_matcher
+    module: drug
+    owner: 钱可
+    enabled: false
+    output_schema: schemas/tool_result.schema.json

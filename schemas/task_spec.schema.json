@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://target-agent.local/schemas/task_spec.schema.json",
+  "title": "TaskSpec",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "task_id", "task_type", "question", "context", "requested_outputs"],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "task_id": { "type": "string", "minLength": 1 },
+    "task_type": {
+      "type": "string",
+      "enum": ["disease_to_target", "variant_to_mechanism", "omics_to_target", "target_due_diligence"]
+    },
+    "question": { "type": "string", "minLength": 1 },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["disease"],
+      "properties": {
+        "disease": { "type": "string" },
+        "disease_subtype": { "type": ["string", "null"] },
+        "target_tissue": { "type": ["string", "null"] },
+        "target_cell_type": { "type": ["string", "null"] },
+        "disease_stage": { "type": ["string", "null"] },
+        "population": { "type": ["string", "null"] },
+        "desired_phenotype": { "type": ["string", "null"] },
+        "druggability_required": { "type": "boolean", "default": false }
+      }
+    },
+    "inputs": { "type": "array", "items": { "type": "string" }, "default": [] },
+    "constraints": { "type": "array", "items": { "type": "string" }, "default": [] },
+    "requested_outputs": { "type": "array", "items": { "type": "string" }, "minItems": 1 }
+  }
+}
