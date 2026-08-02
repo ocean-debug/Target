@@ -1,6 +1,6 @@
 # Agent Runtime
 
-主责：张炜民；全员参与接口设计和联调。
+主责：工作流 B；工作流 A、C、E、F 共同参与接口设计和联调。
 
 本目录实现TaskSpec接收、Planner、Router、AgentState、重试、缓存、断点恢复和停止条件。Runtime只负责编排，不应把具体组学或扰动算法复制到这里。
 

@@ -1,24 +1,24 @@
-# Ownership
+# Workstream Ownership（匿名）
 
-六位成员共同对完整 Agent 负责。下表中的“主责”表示交付接口人，不表示单独开发。
+团队共同对完整 Agent 负责。仓库只记录工作流及交付接口，不记录成员姓名或个人对应关系；“主责”表示交付边界，不表示单独开发。
 
-| 成员 | 主责目录/模块 | 最终交付 | 主要协作 |
+| 工作流 | 主责范围 | 本周交付 | 月度交付接口 |
 | --- | --- | --- | --- |
-| 王海洋 | `agents/`、`workflows/`、组学与扰动科学规则、靶点评分规范 | TargetDiscovery Agent定义、Disease→Target工作流、组学/扰动科学方案、评分规则、最终科学审核 | 张炜民、陈锦钰、陈政翰 |
-| 张炜民 | `src/target_agent/agent/`、`schemas/`、`configs/` | AgentState、Planner、Router、工具注册、重试/缓存/恢复、一键启动 | 全员 |
-| 陈锦钰 | `tools/omics/`、observed perturbation、`data/` | Dataset Card、QC、差异/通路/细胞状态、cNMF/program、Perturb-seq实测工具 | 王海洋、陈政翰 |
-| 钱可 | `tools/drug/`、TargetCard内容、实验路线、`cases/` | Disease Brief、Go/No-Go、药物证据、实验方案、Demo科学叙事 | 王海洋、纪家灏、陈政翰 |
-| 纪家灏 | `tools/evidence/`、`tools/genetics/`、`provenance/`、报告/UI | 文献数据库连接、Evidence Store、Chorus/AlphaGenome工具、回链、报告生成和展示 | 张炜民、钱可 |
-| 陈政翰 | predicted perturbation、`tools/target/`、`models/` | scGen/GEARS、OOD Gate、gene→program→trait、可解释靶点排序和模型卡 | 王海洋、陈锦钰、钱可 |
+| A｜评测协议与协调 | Evidence Schema、Rubric、指标、Judge 校准、跨工作流节奏 | 评测协议 v1、5 题端到端试跑 | 可靠性质量门、版本冻结清单、整体验收记录 |
+| B｜Agent 系统与基线 | Agent 主链、Planner/Router/State、Trace、复跑、缓存、模型路由 | 3 个 Baseline 及完整运行记录 | 可恢复的 Agent Runtime、一键运行入口、模型与工具路由 |
+| C｜Gold Set 与科学证据 | 湿实验 Gold Set、证据等级、阴性/冲突题、组学与实测扰动科学审核 | 20 题骨架、5 题 Gold | Gold Set、证据分级规范、科学证据与组学分析资产 |
+| D｜Demo 与临床产品 | Demo 叙事、药物安全、Go/No-Go、实验验证路线 | Demo Brief、代表案例复核 | 可演示疾病案例、TargetCard 内容、临床前验证建议 |
+| E｜证据存储与前端 | 数据库连接器、Evidence Store、Provenance、Evidence Card 与 Trace 回放 | 数据模型、Trace UI | 可追溯证据存储、报告生成、Demo 前端 |
+| F｜Benchmark 与消融 | Benchmark Runner、消融、错误分类、实验 Rubric、预测扰动可靠性 | 指标设计、错误标签 | 自动化 Benchmark、消融报告、错误分析与风险门控 |
 
-## 交叉责任
+## 协作接口
 
-- **组学计算**：王海洋、陈锦钰共同负责。
-- **扰动预测**：王海洋、陈政翰共同负责，陈锦钰提供实测比较。
-- **Agent联调**：全员负责，张炜民管理发布版本。
-- **Evidence与报告**：纪家灏、钱可共同负责，全员审核。
-- **最终Demo**：钱可负责叙事，纪家灏负责页面，张炜民负责运行，王海洋负责科学审核，全员参与答疑。
+- **A ↔ B/F**：A 冻结协议与 Rubric；B 提供运行 Trace；F 实现自动计算、消融和错误归因。
+- **B ↔ C/E**：B 统一工具合同与运行状态；C 提供科学证据和组学资产；E 保存 Evidence 与 Trace。
+- **C ↔ D/F**：C 复核证据等级、组学和实测扰动；D 将其转为案例叙事与实验路线；F 检查可靠性边界。
+- **D ↔ E**：D 定义 Demo 与 TargetCard 展示需求；E 提供可回放前端和可追溯报告。
+- **共同责任**：整体架构、科学正确性、接口联调、最终 Demo 与答疑由所有工作流共同承担。
 
-## GitHub账号
+## 隐私约定
 
-目前仅确认仓库管理员为 `@ocean-debug`。其他成员加入仓库后，请在这里补充GitHub账号，并更新 `.github/CODEOWNERS`；不要猜测或使用未经确认的账号。
+个人姓名、联系方式及工作流与个人的对应关系不进入仓库、Issue 或 PR。仓库权限和人员安排通过 GitHub 设置及线下协作渠道维护。

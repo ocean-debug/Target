@@ -2,10 +2,13 @@
 
 ## 第1周：边界、合同与最小骨架
 
-- 确定主Demo疾病和输入条件。
-- 冻结第一版Task、Evidence、Tool、Perturbation和TargetCard Schema。
-- 每位成员跑通一个最小真实工具。
-- Agent能够生成Plan并调用至少一个真实工具留下Trace。
+- 工作流 A：冻结评测协议 v1、Evidence Schema、Rubric 和 Judge 校准方法，完成 5 题端到端试跑。
+- 工作流 B：跑通 3 个 Baseline，保存模型、Prompt、参数、成本、Trace 和运行结果。
+- 工作流 C：建立 20 题 Gold Set 骨架，完成 5 题 Gold，并覆盖阴性或冲突证据。
+- 工作流 D：确定主 Demo 疾病与输入条件，提交 Demo Brief 并复核代表案例的药物安全和 Go/No-Go 逻辑。
+- 工作流 E：冻结 Evidence/Trace 数据模型，交付最小 Trace UI。
+- 工作流 F：冻结指标定义与错误标签，打通 Benchmark Runner 最小链路。
+- 联调验收：Agent 能生成 Plan、调用至少一个真实工具、留下可回放 Trace，并由评测协议给出结果。
 
 ## 第2周：Evidence、组学和扰动接入
 

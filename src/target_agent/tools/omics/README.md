@@ -1,6 +1,6 @@
 # Omics Tools
 
-共同主责：王海洋、陈锦钰；陈政翰协作。
+主责：工作流 C；工作流 B 负责工具接入，工作流 F 负责可靠性与错误分析。
 
 实现公开数据检索、Dataset Card、元数据标准化、QC、差异、通路、细胞状态和program分析。Notebook只能用于探索，最终能力必须封装成Agent可调用工具并返回`ToolResult`。
 

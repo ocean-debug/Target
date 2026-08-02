@@ -50,7 +50,7 @@ body:
   - type: input
     id: owner
     attributes:
-      label: 主责人与复核人
-      placeholder: "主责 @...；科学复核 @...；接口复核 @..."
+      label: 主责工作流与复核工作流
+      placeholder: "主责 B；科学复核 C；可靠性复核 A/F"
     validations:
       required: true
