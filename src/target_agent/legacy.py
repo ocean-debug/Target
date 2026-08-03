@@ -1,15 +1,31 @@
-"""Explicit one-way adapter from handover contracts to 2.0.0."""
+"""Explicit one-way adapters into the current 2.1.0 contracts."""
 from __future__ import annotations
 
 from typing import Any
 
 from .contracts import (
     ClaimClass, CoverageStatus, EvidenceContext, EvidenceItem, SourceLocator,
-    ToolCapability, ToolResult, ToolStatus,
+    TaskSpec, ToolCapability, ToolResult, ToolStatus,
 )
 
 
 LEGACY_VERSIONS = {"1.0.0", "1.1.0", "1.0", "1.1"}
+V2_CONTRACT_VERSION = "2.0.0"
+
+
+def adapt_task_spec_2_0(payload: dict[str, Any]) -> TaskSpec:
+    """Explicitly migrate one 2.0 TaskSpec before it enters a 2.1 run."""
+    if payload.get("contract_version") != V2_CONTRACT_VERSION:
+        raise ValueError("only a 2.0.0 TaskSpec can use the 2.0-to-2.1 adapter")
+
+    def migrate(value: Any) -> Any:
+        if isinstance(value, dict):
+            return {key: ("2.1.0" if key == "contract_version" and item == V2_CONTRACT_VERSION else migrate(item)) for key, item in value.items()}
+        if isinstance(value, list):
+            return [migrate(item) for item in value]
+        return value
+
+    return TaskSpec.model_validate(migrate(payload))
 
 
 def _assert_legacy(payload: dict[str, Any]) -> None:
@@ -89,4 +105,3 @@ def reject_mixed_versions(payloads: list[dict[str, Any]]) -> None:
     versions = {str(p.get("contract_version") or p.get("schema_version")) for p in payloads}
     if len(versions) > 1:
         raise ValueError(f"mixed contract versions in one run: {sorted(versions)}")
-

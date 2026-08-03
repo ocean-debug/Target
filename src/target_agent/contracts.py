@@ -9,7 +9,7 @@ from uuid import uuid4
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
-CONTRACT_VERSION = "2.0.0"
+CONTRACT_VERSION = "2.1.0"
 
 
 def utc_now() -> str:
@@ -22,7 +22,7 @@ def new_id(prefix: str) -> str:
 
 class ContractModel(BaseModel):
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
-    contract_version: Literal["2.0.0"] = CONTRACT_VERSION
+    contract_version: Literal["2.1.0"] = CONTRACT_VERSION
 
 
 class ClaimClass(str, Enum):
@@ -75,6 +75,33 @@ class TaskContext(ContractModel):
     perturbation_type: str | None = None
 
 
+class OmicsInput(ContractModel):
+    """A user-selected, local omics input. Arbitrary remote URLs are not executed."""
+
+    uri: str
+    data_kind: Literal["h5ad", "10x_mtx", "10x_h5"]
+    metadata_uri: str | None = None
+    cell_type_key: str = "cell_type"
+    donor_key: str = "donor_id"
+    condition_key: str = "condition"
+    counts_layer: str = "counts"
+
+
+class DatasetSelectionConstraint(ContractModel):
+    preferred_dataset_accessions: list[str] = Field(default_factory=list)
+    excluded_dataset_accessions: list[str] = Field(default_factory=list)
+    omics_modes: list[Literal["geo_bulk", "cellxgene", "local_single_cell"]] = Field(
+        default_factory=lambda: ["geo_bulk", "cellxgene"]
+    )
+    max_geo_candidates: int = Field(default=10, ge=1, le=20)
+    max_datasets_to_analyze: int = Field(default=2, ge=1, le=2)
+    max_download_mb: int = Field(default=2048, ge=1, le=10240)
+    max_cells: int = Field(default=100_000, ge=100, le=1_000_000)
+    min_biological_replicates_per_group: int = Field(default=3, ge=3, le=20)
+    min_metadata_confidence: float = Field(default=0.8, ge=0.0, le=1.0)
+    allow_raw_sra: bool = False
+
+
 class TaskConstraints(ContractModel):
     public_data_only: bool = True
     druggable_only: bool = False
@@ -83,6 +110,7 @@ class TaskConstraints(ContractModel):
     max_target_cards: int = Field(default=5, ge=1, le=10)
     max_review_rounds: int = Field(default=2, ge=0, le=2)
     max_tool_calls: int = Field(default=30, ge=1, le=30)
+    dataset_selection: DatasetSelectionConstraint = Field(default_factory=DatasetSelectionConstraint)
 
 
 class TaskSpec(ContractModel):
@@ -92,6 +120,7 @@ class TaskSpec(ContractModel):
     context: TaskContext
     constraints: TaskConstraints = Field(default_factory=TaskConstraints)
     candidate_genes: list[str] = Field(default_factory=list)
+    omics_inputs: list[OmicsInput] = Field(default_factory=list)
     requested_outputs: list[str] = Field(default_factory=list)
     created_at: str = Field(default_factory=utc_now)
 
@@ -171,6 +200,84 @@ class ToolCapability(ContractModel):
     validation_scope: str | None = None
 
 
+class SkillRef(ContractModel):
+    name: str
+    upstream_version: str
+    upstream_commit: str
+    source_uri: str
+    sha256: str | None = None
+    adaptation_note: str | None = None
+
+
+class ToolDescriptor(ContractModel):
+    tool_id: str
+    evidence_dimension: Literal[
+        "scope", "dataset_discovery", "omics", "genetics", "literature",
+        "perturbation", "pathway", "drug", "causal_gold",
+    ]
+    description: str
+    input_types: list[str] = Field(default_factory=list)
+    output_types: list[str] = Field(default_factory=list)
+    critical: bool = False
+    enabled: bool = True
+    execution_policy: Literal["typed_wrapper", "fixed_script", "read_only_connector"] = "typed_wrapper"
+    skills: list[SkillRef] = Field(default_factory=list)
+
+
+class DatasetCandidate(ContractModel):
+    accession: str
+    source: Literal["GEO", "CELLxGENE"]
+    title: str
+    organism: str | None = None
+    disease: str | None = None
+    tissue: str | None = None
+    cell_type: str | None = None
+    assay: str | None = None
+    sample_count: int | None = Field(default=None, ge=0)
+    case_count: int | None = Field(default=None, ge=0)
+    control_count: int | None = Field(default=None, ge=0)
+    processed_files: list[str] = Field(default_factory=list)
+    metadata_confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    context_match_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    eligibility: Literal["eligible", "ineligible", "needs_confirmation"] = "needs_confirmation"
+    exclusion_reasons: list[str] = Field(default_factory=list)
+    source_uri: str
+    source_version: str | None = None
+    retrieved_at: str = Field(default_factory=utc_now)
+
+
+class AnalysisRecipe(ContractModel):
+    recipe_id: str = Field(default_factory=lambda: new_id("recipe"))
+    accession: str
+    data_kind: Literal[
+        "bulk_counts", "bulk_continuous_expression", "single_cell_census",
+        "single_cell_h5ad", "single_cell_10x",
+    ]
+    backend: Literal["pydeseq2", "limma", "scanpy_pseudobulk"]
+    input_uri: str
+    group_mapping: dict[str, str] = Field(default_factory=dict)
+    design: str
+    contrast: list[str]
+    qc_thresholds: dict[str, Any] = Field(default_factory=dict)
+    parameters: dict[str, Any] = Field(default_factory=dict)
+    skill_refs: list[SkillRef] = Field(default_factory=list)
+    stop_conditions: list[str] = Field(default_factory=list)
+    degradation_conditions: list[str] = Field(default_factory=list)
+
+
+class OmicsResult(ContractModel):
+    accession: str
+    backend: str
+    status: ToolStatus
+    coverage_status: CoverageStatus
+    qc_summary: dict[str, Any] = Field(default_factory=dict)
+    candidate_genes: list[str] = Field(default_factory=list)
+    differential_result_artifact: ArtifactRef | None = None
+    pathway_result_artifact: ArtifactRef | None = None
+    tested_gene_background: list[str] = Field(default_factory=list)
+    limitations: list[str] = Field(default_factory=list)
+
+
 class ArtifactRef(ContractModel):
     name: str
     uri: str
@@ -187,6 +294,7 @@ class ToolResult(ContractModel):
     context_match_score: float = Field(ge=0.0, le=1.0)
     inputs: dict[str, Any] = Field(default_factory=dict)
     outputs: dict[str, Any] = Field(default_factory=dict)
+    candidate_genes: list[str] = Field(default_factory=list)
     capability: ToolCapability
     data_version: str | None = None
     code_version: str | None = None
@@ -223,6 +331,7 @@ class ReviewerFinding(ContractModel):
     category: Literal[
         "missing_provenance", "context_mismatch", "causal_overreach",
         "conflicting_evidence", "numeric_error", "coverage_gap", "tool_failure",
+        "dataset_ineligibility",
     ]
     message: str
     related_ids: list[str] = Field(default_factory=list)
@@ -337,4 +446,3 @@ class CaseRecord(ContractModel):
         if self.promotion_eligible and self.scientific_review != "approved":
             raise ValueError("only scientifically approved cases are promotion eligible")
         return self
-

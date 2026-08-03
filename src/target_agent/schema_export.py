@@ -5,8 +5,10 @@ import json
 from pathlib import Path
 
 from .contracts import (
-    CaseRecord, CausalGraph, Claim, EvidenceItem, ExecutionPlan, ExperimentPlan,
-    ReviewerFinding, TargetCard, TaskSpec, ToolResult, TraceEvent,
+    AnalysisRecipe, CaseRecord, CausalGraph, Claim, DatasetCandidate,
+    DatasetSelectionConstraint, EvidenceItem, ExecutionPlan, ExperimentPlan,
+    OmicsResult, ReviewerFinding, TargetCard, TaskSpec, ToolDescriptor, ToolResult,
+    TraceEvent,
 )
 
 
@@ -22,6 +24,11 @@ MODELS = {
     "target_card": TargetCard,
     "trace_event": TraceEvent,
     "case_record": CaseRecord,
+    "dataset_candidate": DatasetCandidate,
+    "dataset_selection_constraint": DatasetSelectionConstraint,
+    "analysis_recipe": AnalysisRecipe,
+    "omics_result": OmicsResult,
+    "tool_descriptor": ToolDescriptor,
 }
 
 

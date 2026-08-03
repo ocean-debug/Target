@@ -11,4 +11,4 @@ from .contracts import CONTRACT_VERSION, TaskSpec
 from .runtime import TargetDiscoveryRuntime
 
 __all__ = ["CONTRACT_VERSION", "TaskSpec", "TargetDiscoveryRuntime"]
-__version__ = "0.2.0"
+__version__ = "0.3.0"

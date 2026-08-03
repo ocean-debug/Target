@@ -1,0 +1,163 @@
+{
+  "$defs": {
+    "SkillRef": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_version": {
+          "const": "2.1.0",
+          "default": "2.1.0",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "upstream_version": {
+          "title": "Upstream Version",
+          "type": "string"
+        },
+        "upstream_commit": {
+          "title": "Upstream Commit",
+          "type": "string"
+        },
+        "source_uri": {
+          "title": "Source Uri",
+          "type": "string"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sha256"
+        },
+        "adaptation_note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Adaptation Note"
+        }
+      },
+      "required": [
+        "name",
+        "upstream_version",
+        "upstream_commit",
+        "source_uri"
+      ],
+      "title": "SkillRef",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "contract_version": {
+      "const": "2.1.0",
+      "default": "2.1.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "recipe_id": {
+      "title": "Recipe Id",
+      "type": "string"
+    },
+    "accession": {
+      "title": "Accession",
+      "type": "string"
+    },
+    "data_kind": {
+      "enum": [
+        "bulk_counts",
+        "bulk_continuous_expression",
+        "single_cell_census",
+        "single_cell_h5ad",
+        "single_cell_10x"
+      ],
+      "title": "Data Kind",
+      "type": "string"
+    },
+    "backend": {
+      "enum": [
+        "pydeseq2",
+        "limma",
+        "scanpy_pseudobulk"
+      ],
+      "title": "Backend",
+      "type": "string"
+    },
+    "input_uri": {
+      "title": "Input Uri",
+      "type": "string"
+    },
+    "group_mapping": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Group Mapping",
+      "type": "object"
+    },
+    "design": {
+      "title": "Design",
+      "type": "string"
+    },
+    "contrast": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Contrast",
+      "type": "array"
+    },
+    "qc_thresholds": {
+      "additionalProperties": true,
+      "title": "Qc Thresholds",
+      "type": "object"
+    },
+    "parameters": {
+      "additionalProperties": true,
+      "title": "Parameters",
+      "type": "object"
+    },
+    "skill_refs": {
+      "items": {
+        "$ref": "#/$defs/SkillRef"
+      },
+      "title": "Skill Refs",
+      "type": "array"
+    },
+    "stop_conditions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Stop Conditions",
+      "type": "array"
+    },
+    "degradation_conditions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Degradation Conditions",
+      "type": "array"
+    }
+  },
+  "required": [
+    "accession",
+    "data_kind",
+    "backend",
+    "input_uri",
+    "design",
+    "contrast"
+  ],
+  "title": "AnalysisRecipe",
+  "type": "object"
+}

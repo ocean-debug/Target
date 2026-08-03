@@ -1,0 +1,192 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "contract_version": {
+      "const": "2.1.0",
+      "default": "2.1.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "accession": {
+      "title": "Accession",
+      "type": "string"
+    },
+    "source": {
+      "enum": [
+        "GEO",
+        "CELLxGENE"
+      ],
+      "title": "Source",
+      "type": "string"
+    },
+    "title": {
+      "title": "Title",
+      "type": "string"
+    },
+    "organism": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Organism"
+    },
+    "disease": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Disease"
+    },
+    "tissue": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Tissue"
+    },
+    "cell_type": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Cell Type"
+    },
+    "assay": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Assay"
+    },
+    "sample_count": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Sample Count"
+    },
+    "case_count": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Case Count"
+    },
+    "control_count": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Control Count"
+    },
+    "processed_files": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Processed Files",
+      "type": "array"
+    },
+    "metadata_confidence": {
+      "default": 0.0,
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Metadata Confidence",
+      "type": "number"
+    },
+    "context_match_score": {
+      "default": 0.0,
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Context Match Score",
+      "type": "number"
+    },
+    "eligibility": {
+      "default": "needs_confirmation",
+      "enum": [
+        "eligible",
+        "ineligible",
+        "needs_confirmation"
+      ],
+      "title": "Eligibility",
+      "type": "string"
+    },
+    "exclusion_reasons": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Exclusion Reasons",
+      "type": "array"
+    },
+    "source_uri": {
+      "title": "Source Uri",
+      "type": "string"
+    },
+    "source_version": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Version"
+    },
+    "retrieved_at": {
+      "title": "Retrieved At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "accession",
+    "source",
+    "title",
+    "source_uri"
+  ],
+  "title": "DatasetCandidate",
+  "type": "object"
+}

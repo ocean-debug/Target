@@ -1,11 +1,160 @@
 {
   "$defs": {
+    "DatasetSelectionConstraint": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_version": {
+          "const": "2.1.0",
+          "default": "2.1.0",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "preferred_dataset_accessions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Preferred Dataset Accessions",
+          "type": "array"
+        },
+        "excluded_dataset_accessions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Excluded Dataset Accessions",
+          "type": "array"
+        },
+        "omics_modes": {
+          "items": {
+            "enum": [
+              "geo_bulk",
+              "cellxgene",
+              "local_single_cell"
+            ],
+            "type": "string"
+          },
+          "title": "Omics Modes",
+          "type": "array"
+        },
+        "max_geo_candidates": {
+          "default": 10,
+          "maximum": 20,
+          "minimum": 1,
+          "title": "Max Geo Candidates",
+          "type": "integer"
+        },
+        "max_datasets_to_analyze": {
+          "default": 2,
+          "maximum": 2,
+          "minimum": 1,
+          "title": "Max Datasets To Analyze",
+          "type": "integer"
+        },
+        "max_download_mb": {
+          "default": 2048,
+          "maximum": 10240,
+          "minimum": 1,
+          "title": "Max Download Mb",
+          "type": "integer"
+        },
+        "max_cells": {
+          "default": 100000,
+          "maximum": 1000000,
+          "minimum": 100,
+          "title": "Max Cells",
+          "type": "integer"
+        },
+        "min_biological_replicates_per_group": {
+          "default": 3,
+          "maximum": 20,
+          "minimum": 3,
+          "title": "Min Biological Replicates Per Group",
+          "type": "integer"
+        },
+        "min_metadata_confidence": {
+          "default": 0.8,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Min Metadata Confidence",
+          "type": "number"
+        },
+        "allow_raw_sra": {
+          "default": false,
+          "title": "Allow Raw Sra",
+          "type": "boolean"
+        }
+      },
+      "title": "DatasetSelectionConstraint",
+      "type": "object"
+    },
+    "OmicsInput": {
+      "additionalProperties": false,
+      "description": "A user-selected, local omics input. Arbitrary remote URLs are not executed.",
+      "properties": {
+        "contract_version": {
+          "const": "2.1.0",
+          "default": "2.1.0",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "uri": {
+          "title": "Uri",
+          "type": "string"
+        },
+        "data_kind": {
+          "enum": [
+            "h5ad",
+            "10x_mtx",
+            "10x_h5"
+          ],
+          "title": "Data Kind",
+          "type": "string"
+        },
+        "metadata_uri": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Metadata Uri"
+        },
+        "cell_type_key": {
+          "default": "cell_type",
+          "title": "Cell Type Key",
+          "type": "string"
+        },
+        "donor_key": {
+          "default": "donor_id",
+          "title": "Donor Key",
+          "type": "string"
+        },
+        "condition_key": {
+          "default": "condition",
+          "title": "Condition Key",
+          "type": "string"
+        },
+        "counts_layer": {
+          "default": "counts",
+          "title": "Counts Layer",
+          "type": "string"
+        }
+      },
+      "required": [
+        "uri",
+        "data_kind"
+      ],
+      "title": "OmicsInput",
+      "type": "object"
+    },
     "TaskConstraints": {
       "additionalProperties": false,
       "properties": {
         "contract_version": {
-          "const": "2.0.0",
-          "default": "2.0.0",
+          "const": "2.1.0",
+          "default": "2.1.0",
           "title": "Contract Version",
           "type": "string"
         },
@@ -53,6 +202,9 @@
           "minimum": 1,
           "title": "Max Tool Calls",
           "type": "integer"
+        },
+        "dataset_selection": {
+          "$ref": "#/$defs/DatasetSelectionConstraint"
         }
       },
       "title": "TaskConstraints",
@@ -62,8 +214,8 @@
       "additionalProperties": false,
       "properties": {
         "contract_version": {
-          "const": "2.0.0",
-          "default": "2.0.0",
+          "const": "2.1.0",
+          "default": "2.1.0",
           "title": "Contract Version",
           "type": "string"
         },
@@ -200,8 +352,8 @@
   "additionalProperties": false,
   "properties": {
     "contract_version": {
-      "const": "2.0.0",
-      "default": "2.0.0",
+      "const": "2.1.0",
+      "default": "2.1.0",
       "title": "Contract Version",
       "type": "string"
     },
@@ -233,6 +385,13 @@
         "type": "string"
       },
       "title": "Candidate Genes",
+      "type": "array"
+    },
+    "omics_inputs": {
+      "items": {
+        "$ref": "#/$defs/OmicsInput"
+      },
+      "title": "Omics Inputs",
       "type": "array"
     },
     "requested_outputs": {

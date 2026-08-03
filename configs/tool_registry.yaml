@@ -1,0 +1,38 @@
+contract_version: "2.1.0"
+tools:
+  - id: disease_resolver
+    enabled: true
+  - id: geo_search
+    enabled: true
+  - id: geo_metadata_audit
+    enabled: true
+  - id: omics_recipe_builder
+    enabled: true
+  - id: bulk_expression_analysis
+    enabled: true
+  - id: cellxgene_discovery
+    enabled: true
+  - id: single_cell_analysis
+    enabled: true
+  - id: pathway_enrichment
+    enabled: true
+  - id: omics_candidate_extraction
+    enabled: true
+  - id: open_targets
+    enabled: true
+  - id: europe_pmc_rag
+    enabled: true
+  - id: mch_causal_gold
+    enabled: true
+    evidence_dimension: causal_gold
+
+  # Scoped compatibility plugins. They are available only when explicitly enabled.
+  - id: uc_omics_snapshot
+    enabled: false
+    evidence_dimension: omics
+  - id: observed_tcell_perturbation
+    enabled: false
+    evidence_dimension: perturbation
+  - id: deltafactor
+    enabled: false
+    evidence_dimension: perturbation

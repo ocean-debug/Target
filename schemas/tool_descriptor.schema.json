@@ -1,0 +1,143 @@
+{
+  "$defs": {
+    "SkillRef": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_version": {
+          "const": "2.1.0",
+          "default": "2.1.0",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "upstream_version": {
+          "title": "Upstream Version",
+          "type": "string"
+        },
+        "upstream_commit": {
+          "title": "Upstream Commit",
+          "type": "string"
+        },
+        "source_uri": {
+          "title": "Source Uri",
+          "type": "string"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sha256"
+        },
+        "adaptation_note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Adaptation Note"
+        }
+      },
+      "required": [
+        "name",
+        "upstream_version",
+        "upstream_commit",
+        "source_uri"
+      ],
+      "title": "SkillRef",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "contract_version": {
+      "const": "2.1.0",
+      "default": "2.1.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "tool_id": {
+      "title": "Tool Id",
+      "type": "string"
+    },
+    "evidence_dimension": {
+      "enum": [
+        "scope",
+        "dataset_discovery",
+        "omics",
+        "genetics",
+        "literature",
+        "perturbation",
+        "pathway",
+        "drug",
+        "causal_gold"
+      ],
+      "title": "Evidence Dimension",
+      "type": "string"
+    },
+    "description": {
+      "title": "Description",
+      "type": "string"
+    },
+    "input_types": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Input Types",
+      "type": "array"
+    },
+    "output_types": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Output Types",
+      "type": "array"
+    },
+    "critical": {
+      "default": false,
+      "title": "Critical",
+      "type": "boolean"
+    },
+    "enabled": {
+      "default": true,
+      "title": "Enabled",
+      "type": "boolean"
+    },
+    "execution_policy": {
+      "default": "typed_wrapper",
+      "enum": [
+        "typed_wrapper",
+        "fixed_script",
+        "read_only_connector"
+      ],
+      "title": "Execution Policy",
+      "type": "string"
+    },
+    "skills": {
+      "items": {
+        "$ref": "#/$defs/SkillRef"
+      },
+      "title": "Skills",
+      "type": "array"
+    }
+  },
+  "required": [
+    "tool_id",
+    "evidence_dimension",
+    "description"
+  ],
+  "title": "ToolDescriptor",
+  "type": "object"
+}

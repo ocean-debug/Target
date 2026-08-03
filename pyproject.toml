@@ -4,19 +4,35 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "target-discovery-agent"
-version = "0.2.0"
+version = "0.3.0"
 description = "Traceable best-practice Agent for disease target discovery"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
   "flask>=3.0,<4",
   "pydantic>=2.7,<3",
+  "pydantic-settings>=2.10,<3",
   "pyyaml>=6.0,<7",
   "requests>=2.31,<3",
+  "waitress>=3.0,<4",
 ]
 
 [project.optional-dependencies]
 test = ["jsonschema>=4.22,<5", "pytest>=8.2,<9"]
+omics-bulk = [
+  "gseapy==1.1.9",
+  "matplotlib==3.11.1",
+  "numpy==2.2.6",
+  "pandas==2.2.3",
+  "pydeseq2==0.5.4",
+  "scikit-learn==1.6.1",
+  "scipy==1.15.3",
+]
+omics-single-cell = [
+  "anndata==0.12.16",
+  "scanpy[leiden]==1.11.5",
+]
+omics-census = ["cellxgene-census==1.17.*"]
 train = [
   "accelerate>=0.33",
   "datasets>=2.20",
@@ -40,4 +56,3 @@ target_agent = ["web/static/*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
-
