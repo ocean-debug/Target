@@ -30,3 +30,11 @@
 - **影响模块**：全部模块。
 - **迁移或回滚方法**：破坏性变更创建新版本并保留旧字段的迁移说明。
 - **相关 Issue/PR**：项目初始化 PR。
+# V2 decisions — 2026-08-03
+
+- This Target repository is the only maintained repository; handover assets are read-only inputs.
+- Public contracts move to 2.0.0 and are generated from Pydantic; legacy data is accepted only through an explicit one-way adapter.
+- UC is the primary target-discovery demo; MCH/K562 is an isolated causal-modelling gold sample.
+- Low-context DeltaFactor predictions are exploratory and excluded from UC formal ranking.
+- Reports and the UI may only render structured Evidence Store values.
+- Experience promotion and LoRA training are offline, auditable and human-approved; no automatic code, training or publishing mutation is allowed.
