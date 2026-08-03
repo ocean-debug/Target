@@ -1,0 +1,61 @@
+{
+  "$defs": {
+    "ClaimClass": {
+      "enum": [
+        "FACT",
+        "OBSERVED",
+        "PREDICTED",
+        "INFERRED"
+      ],
+      "title": "ClaimClass",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "contract_version": {
+      "const": "2.0.0",
+      "default": "2.0.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "claim_id": {
+      "title": "Claim Id",
+      "type": "string"
+    },
+    "claim_class": {
+      "$ref": "#/$defs/ClaimClass"
+    },
+    "statement": {
+      "title": "Statement",
+      "type": "string"
+    },
+    "evidence_ids": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Evidence Ids",
+      "type": "array"
+    },
+    "synthesis_rationale": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Synthesis Rationale"
+    }
+  },
+  "required": [
+    "claim_class",
+    "statement",
+    "evidence_ids"
+  ],
+  "title": "Claim",
+  "type": "object"
+}

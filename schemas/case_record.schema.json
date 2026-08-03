@@ -1,0 +1,474 @@
+{
+  "$defs": {
+    "ExecutionPlan": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_version": {
+          "const": "2.0.0",
+          "default": "2.0.0",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "plan_id": {
+          "title": "Plan Id",
+          "type": "string"
+        },
+        "task_id": {
+          "title": "Task Id",
+          "type": "string"
+        },
+        "planner_backend": {
+          "title": "Planner Backend",
+          "type": "string"
+        },
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/PlanStep"
+          },
+          "title": "Steps",
+          "type": "array"
+        },
+        "fallback_used": {
+          "default": false,
+          "title": "Fallback Used",
+          "type": "boolean"
+        },
+        "created_at": {
+          "title": "Created At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "task_id",
+        "planner_backend",
+        "steps"
+      ],
+      "title": "ExecutionPlan",
+      "type": "object"
+    },
+    "PlanStep": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_version": {
+          "const": "2.0.0",
+          "default": "2.0.0",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "step_id": {
+          "title": "Step Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "tool": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tool"
+        },
+        "dependencies": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Dependencies",
+          "type": "array"
+        },
+        "input_refs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Input Refs",
+          "type": "array"
+        },
+        "success_criteria": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Success Criteria",
+          "type": "array"
+        },
+        "stop_conditions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Stop Conditions",
+          "type": "array"
+        },
+        "degradation_conditions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Degradation Conditions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "step_id",
+        "name"
+      ],
+      "title": "PlanStep",
+      "type": "object"
+    },
+    "TaskConstraints": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_version": {
+          "const": "2.0.0",
+          "default": "2.0.0",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "public_data_only": {
+          "default": true,
+          "title": "Public Data Only",
+          "type": "boolean"
+        },
+        "druggable_only": {
+          "default": false,
+          "title": "Druggable Only",
+          "type": "boolean"
+        },
+        "max_initial_candidates": {
+          "default": 20,
+          "maximum": 20,
+          "minimum": 1,
+          "title": "Max Initial Candidates",
+          "type": "integer"
+        },
+        "max_ranked_targets": {
+          "default": 10,
+          "maximum": 50,
+          "minimum": 1,
+          "title": "Max Ranked Targets",
+          "type": "integer"
+        },
+        "max_target_cards": {
+          "default": 5,
+          "maximum": 10,
+          "minimum": 1,
+          "title": "Max Target Cards",
+          "type": "integer"
+        },
+        "max_review_rounds": {
+          "default": 2,
+          "maximum": 2,
+          "minimum": 0,
+          "title": "Max Review Rounds",
+          "type": "integer"
+        },
+        "max_tool_calls": {
+          "default": 30,
+          "maximum": 30,
+          "minimum": 1,
+          "title": "Max Tool Calls",
+          "type": "integer"
+        }
+      },
+      "title": "TaskConstraints",
+      "type": "object"
+    },
+    "TaskContext": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_version": {
+          "const": "2.0.0",
+          "default": "2.0.0",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "disease": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Disease"
+        },
+        "disease_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Disease Id"
+        },
+        "disease_subtype": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Disease Subtype"
+        },
+        "organism": {
+          "default": "Homo sapiens",
+          "title": "Organism",
+          "type": "string"
+        },
+        "population": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Population"
+        },
+        "tissue": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tissue"
+        },
+        "cell_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cell Type"
+        },
+        "disease_stage": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Disease Stage"
+        },
+        "desired_phenotype": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Desired Phenotype"
+        },
+        "assay": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Assay"
+        },
+        "perturbation_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Perturbation Type"
+        }
+      },
+      "title": "TaskContext",
+      "type": "object"
+    },
+    "TaskSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_version": {
+          "const": "2.0.0",
+          "default": "2.0.0",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "task_id": {
+          "title": "Task Id",
+          "type": "string"
+        },
+        "task_type": {
+          "enum": [
+            "disease_to_target",
+            "trait_mechanism"
+          ],
+          "title": "Task Type",
+          "type": "string"
+        },
+        "question": {
+          "minLength": 3,
+          "title": "Question",
+          "type": "string"
+        },
+        "context": {
+          "$ref": "#/$defs/TaskContext"
+        },
+        "constraints": {
+          "$ref": "#/$defs/TaskConstraints"
+        },
+        "candidate_genes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Candidate Genes",
+          "type": "array"
+        },
+        "requested_outputs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Requested Outputs",
+          "type": "array"
+        },
+        "created_at": {
+          "title": "Created At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "task_type",
+        "question",
+        "context"
+      ],
+      "title": "TaskSpec",
+      "type": "object"
+    },
+    "TerminalStatus": {
+      "enum": [
+        "completed",
+        "completed_with_gaps",
+        "needs_input",
+        "refused",
+        "failed"
+      ],
+      "title": "TerminalStatus",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "contract_version": {
+      "const": "2.0.0",
+      "default": "2.0.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "case_id": {
+      "title": "Case Id",
+      "type": "string"
+    },
+    "run_id": {
+      "title": "Run Id",
+      "type": "string"
+    },
+    "task_spec": {
+      "$ref": "#/$defs/TaskSpec"
+    },
+    "plan": {
+      "$ref": "#/$defs/ExecutionPlan"
+    },
+    "tool_run_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Tool Run Ids",
+      "type": "array"
+    },
+    "finding_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Finding Ids",
+      "type": "array"
+    },
+    "revision_history": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Revision History",
+      "type": "array"
+    },
+    "final_status": {
+      "$ref": "#/$defs/TerminalStatus"
+    },
+    "final_claim_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Final Claim Ids",
+      "type": "array"
+    },
+    "scientific_review": {
+      "default": "pending",
+      "enum": [
+        "pending",
+        "approved",
+        "rejected"
+      ],
+      "title": "Scientific Review",
+      "type": "string"
+    },
+    "promotion_eligible": {
+      "default": false,
+      "title": "Promotion Eligible",
+      "type": "boolean"
+    },
+    "created_at": {
+      "title": "Created At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "task_spec",
+    "plan",
+    "tool_run_ids",
+    "finding_ids",
+    "revision_history",
+    "final_status",
+    "final_claim_ids"
+  ],
+  "title": "CaseRecord",
+  "type": "object"
+}

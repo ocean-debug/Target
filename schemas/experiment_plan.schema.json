@@ -1,0 +1,134 @@
+{
+  "$defs": {
+    "ExperimentOutcome": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_version": {
+          "const": "2.0.0",
+          "default": "2.0.0",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "outcome": {
+          "enum": [
+            "positive",
+            "negative",
+            "contradictory"
+          ],
+          "title": "Outcome",
+          "type": "string"
+        },
+        "observation": {
+          "title": "Observation",
+          "type": "string"
+        },
+        "conclusion": {
+          "title": "Conclusion",
+          "type": "string"
+        },
+        "next_action": {
+          "title": "Next Action",
+          "type": "string"
+        }
+      },
+      "required": [
+        "outcome",
+        "observation",
+        "conclusion",
+        "next_action"
+      ],
+      "title": "ExperimentOutcome",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "contract_version": {
+      "const": "2.0.0",
+      "default": "2.0.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "hypothesis": {
+      "title": "Hypothesis",
+      "type": "string"
+    },
+    "model_system": {
+      "title": "Model System",
+      "type": "string"
+    },
+    "intervention": {
+      "title": "Intervention",
+      "type": "string"
+    },
+    "direction": {
+      "enum": [
+        "activate",
+        "inhibit",
+        "knockout",
+        "overexpress",
+        "compare"
+      ],
+      "title": "Direction",
+      "type": "string"
+    },
+    "controls": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Controls",
+      "type": "array"
+    },
+    "primary_endpoints": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Primary Endpoints",
+      "type": "array"
+    },
+    "secondary_endpoints": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Secondary Endpoints",
+      "type": "array"
+    },
+    "replication_and_power": {
+      "title": "Replication And Power",
+      "type": "string"
+    },
+    "outcomes": {
+      "items": {
+        "$ref": "#/$defs/ExperimentOutcome"
+      },
+      "title": "Outcomes",
+      "type": "array"
+    },
+    "highest_information_next_experiment": {
+      "title": "Highest Information Next Experiment",
+      "type": "string"
+    },
+    "stop_conditions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Stop Conditions",
+      "type": "array"
+    }
+  },
+  "required": [
+    "hypothesis",
+    "model_system",
+    "intervention",
+    "direction",
+    "controls",
+    "primary_endpoints",
+    "secondary_endpoints",
+    "replication_and_power",
+    "outcomes",
+    "highest_information_next_experiment",
+    "stop_conditions"
+  ],
+  "title": "ExperimentPlan",
+  "type": "object"
+}

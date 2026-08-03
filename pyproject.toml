@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "target-discovery-agent"
+version = "0.2.0"
+description = "Traceable best-practice Agent for disease target discovery"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "flask>=3.0,<4",
+  "pydantic>=2.7,<3",
+  "pyyaml>=6.0,<7",
+  "requests>=2.31,<3",
+]
+
+[project.optional-dependencies]
+test = ["jsonschema>=4.22,<5", "pytest>=8.2,<9"]
+train = [
+  "accelerate>=0.33",
+  "datasets>=2.20",
+  "peft>=0.12",
+  "torch>=2.2",
+  "transformers>=4.44",
+]
+
+[project.scripts]
+target-agent = "target_agent.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+target_agent = ["web/static/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+

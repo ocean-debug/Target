@@ -1,5 +1,54 @@
 {
   "$defs": {
+    "ArtifactRef": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_version": {
+          "const": "2.0.0",
+          "default": "2.0.0",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "uri": {
+          "title": "Uri",
+          "type": "string"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sha256"
+        },
+        "media_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Media Type"
+        }
+      },
+      "required": [
+        "name",
+        "uri"
+      ],
+      "title": "ArtifactRef",
+      "type": "object"
+    },
     "ClaimClass": {
       "enum": [
         "FACT",
@@ -119,7 +168,7 @@
       "title": "EvidenceContext",
       "type": "object"
     },
-    "SourceLocator": {
+    "GraphEdge": {
       "additionalProperties": false,
       "properties": {
         "contract_version": {
@@ -128,95 +177,92 @@
           "title": "Contract Version",
           "type": "string"
         },
-        "uri": {
-          "minLength": 1,
-          "title": "Uri",
+        "source": {
+          "title": "Source",
           "type": "string"
         },
-        "source_id": {
-          "minLength": 1,
-          "title": "Source Id",
+        "target": {
+          "title": "Target",
           "type": "string"
         },
-        "version": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Version"
+        "relation": {
+          "title": "Relation",
+          "type": "string"
         },
-        "section": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Section"
+        "evidence_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Ids",
+          "type": "array"
         },
-        "chunk_id": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Chunk Id"
+        "claim_class": {
+          "$ref": "#/$defs/ClaimClass"
         },
-        "start_char": {
+        "weight": {
           "anyOf": [
             {
-              "minimum": 0,
-              "type": "integer"
+              "type": "number"
             },
             {
               "type": "null"
             }
           ],
           "default": null,
-          "title": "Start Char"
-        },
-        "end_char": {
-          "anyOf": [
-            {
-              "minimum": 0,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "End Char"
+          "title": "Weight"
         }
       },
       "required": [
-        "uri",
-        "source_id"
+        "source",
+        "target",
+        "relation",
+        "claim_class"
       ],
-      "title": "SourceLocator",
+      "title": "GraphEdge",
       "type": "object"
     },
-    "Stance": {
-      "enum": [
-        "supports",
-        "refutes",
-        "mixed",
-        "uncertain"
+    "GraphNode": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_version": {
+          "const": "2.0.0",
+          "default": "2.0.0",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "node_id": {
+          "title": "Node Id",
+          "type": "string"
+        },
+        "node_type": {
+          "enum": [
+            "gene",
+            "program",
+            "trait",
+            "disease",
+            "cell_state",
+            "drug"
+          ],
+          "title": "Node Type",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "attributes": {
+          "additionalProperties": true,
+          "title": "Attributes",
+          "type": "object"
+        }
+      },
+      "required": [
+        "node_id",
+        "node_type",
+        "label"
       ],
-      "title": "Stance",
-      "type": "string"
+      "title": "GraphNode",
+      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -227,95 +273,61 @@
       "title": "Contract Version",
       "type": "string"
     },
-    "evidence_id": {
-      "title": "Evidence Id",
+    "graph_id": {
+      "title": "Graph Id",
       "type": "string"
     },
-    "tool_run_id": {
-      "minLength": 1,
-      "title": "Tool Run Id",
-      "type": "string"
-    },
-    "gene_symbol": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
+    "graph_kind": {
+      "enum": [
+        "causal_model",
+        "mechanistic_evidence"
       ],
-      "default": null,
-      "title": "Gene Symbol"
-    },
-    "claim_class": {
-      "$ref": "#/$defs/ClaimClass"
-    },
-    "statement": {
-      "minLength": 1,
-      "title": "Statement",
-      "type": "string"
-    },
-    "source": {
-      "$ref": "#/$defs/SourceLocator"
-    },
-    "source_span": {
-      "minLength": 1,
-      "title": "Source Span",
+      "title": "Graph Kind",
       "type": "string"
     },
     "context": {
       "$ref": "#/$defs/EvidenceContext"
     },
-    "stance": {
-      "$ref": "#/$defs/Stance",
-      "default": "uncertain"
+    "nodes": {
+      "items": {
+        "$ref": "#/$defs/GraphNode"
+      },
+      "title": "Nodes",
+      "type": "array"
     },
-    "effect_direction": {
-      "default": "unclear",
-      "enum": [
-        "increase",
-        "decrease",
-        "mixed",
-        "unclear"
-      ],
-      "title": "Effect Direction",
-      "type": "string"
+    "edges": {
+      "items": {
+        "$ref": "#/$defs/GraphEdge"
+      },
+      "title": "Edges",
+      "type": "array"
     },
-    "effect": {
+    "model_statistics": {
       "additionalProperties": true,
-      "title": "Effect",
+      "title": "Model Statistics",
       "type": "object"
     },
-    "uncertainty": {
-      "minLength": 1,
-      "title": "Uncertainty",
-      "type": "string"
+    "source_artifacts": {
+      "items": {
+        "$ref": "#/$defs/ArtifactRef"
+      },
+      "title": "Source Artifacts",
+      "type": "array"
     },
-    "quality_flags": {
+    "limitations": {
       "items": {
         "type": "string"
       },
-      "title": "Quality Flags",
+      "title": "Limitations",
       "type": "array"
-    },
-    "context_match_score": {
-      "maximum": 1.0,
-      "minimum": 0.0,
-      "title": "Context Match Score",
-      "type": "number"
     }
   },
   "required": [
-    "tool_run_id",
-    "claim_class",
-    "statement",
-    "source",
-    "source_span",
+    "graph_kind",
     "context",
-    "uncertainty",
-    "context_match_score"
+    "nodes",
+    "edges"
   ],
-  "title": "EvidenceItem",
+  "title": "CausalGraph",
   "type": "object"
 }

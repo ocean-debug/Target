@@ -1,44 +1,20 @@
-version: 1
+contract_version: "2.0.0"
 tools:
-  - id: literature_search
-    module: evidence
-    owner_workstream: E
-    enabled: false
-    input_schema: schemas/task_spec.schema.json
-    output_schema: schemas/tool_result.schema.json
-
-  - id: public_omics_analysis
-    module: omics
-    owner_workstreams: [B, C]
-    enabled: false
-    output_schema: schemas/tool_result.schema.json
-
-  - id: observed_perturbation
-    module: perturbation
-    owner_workstreams: [C, F]
-    enabled: false
-    output_schema: schemas/perturbation_result.schema.json
-
-  - id: predicted_perturbation
-    module: perturbation
-    owner_workstreams: [B, F]
-    enabled: false
-    output_schema: schemas/perturbation_result.schema.json
-
-  - id: variant_oracle
-    module: genetics
-    owner_workstream: C
-    enabled: false
-    output_schema: schemas/tool_result.schema.json
-
-  - id: target_ranker
-    module: target
-    owner_workstreams: [C, F]
-    enabled: false
-    output_schema: schemas/target_card.schema.json
-
-  - id: drug_matcher
-    module: drug
-    owner_workstream: D
-    enabled: false
-    output_schema: schemas/tool_result.schema.json
+  - id: uc_omics_snapshot
+    enabled: true
+    validation_scope: GSE125527 ulcerative-colitis donor-pseudobulk snapshot
+  - id: open_targets
+    enabled: true
+    validation_scope: Open Targets human disease-target associations and known drugs
+  - id: europe_pmc_rag
+    enabled: true
+    validation_scope: Europe PMC source text with exact-span extraction
+  - id: observed_tcell_perturbation
+    enabled: true
+    validation_scope: GSE190604 primary human T-cell CRISPRa, 71 targets
+  - id: deltafactor
+    enabled: true
+    validation_scope: Norman K562 benchmark; UC context is exploratory and excluded from formal score
+  - id: mch_causal_gold
+    enabled: true
+    validation_scope: exact MCH gold-sample configuration only

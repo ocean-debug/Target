@@ -1,85 +1,23 @@
-workflow_id: disease_to_target_v1
-name: Disease to Target Discovery
-version: 1
-description: 从疾病问题、公开证据和组学/扰动数据生成可追溯候选靶点。
-
-required_context:
-  - disease
-  - target_tissue
-  - disease_stage
-  - desired_phenotype
-
-optional_context:
-  - disease_subtype
-  - target_cell_type
-  - population
-  - druggability_required
-  - excluded_target_classes
-
-steps:
-  - id: intake
-    owner_module: agent
-    action: validate_task_spec
-    output: task_spec
-    stop_if:
-      - missing_required_context
-
-  - id: disease_model
-    owner_module: workflow
-    action: decompose_disease_process
-    output: disease_mechanism_map
-
-  - id: evidence
-    owner_module: evidence
-    action: retrieve_and_normalize_evidence
-    output: evidence_items
-    stop_if:
-      - no_traceable_sources
-
-  - id: omics
-    owner_module: omics
-    action: analyze_public_omics
-    output: tool_result
-    degrade_if:
-      - dataset_quality_insufficient
-      - target_context_not_covered
-
-  - id: observed_perturbation
-    owner_module: perturbation
-    action: analyze_observed_perturbation
-    output: perturbation_results
-    optional: true
-
-  - id: predicted_perturbation
-    owner_module: perturbation
-    action: predict_perturbation
-    output: perturbation_results
-    stop_if:
-      - model_out_of_domain
-
-  - id: causal_integration
-    owner_module: target
-    action: build_gene_program_trait_graph
-    output: causal_graph
-
-  - id: target_ranking
-    owner_module: target
-    action: rank_targets
-    output: ranked_targets
-
-  - id: drug_and_experiment
-    owner_module: drug
-    action: match_drugs_and_design_validation
-    output: target_cards
-
-  - id: review
-    owner_module: reviewer
-    action: audit_claims_context_and_trace
-    output: reviewer_findings
-    stop_if:
-      - blocking_finding
-
-  - id: report
-    owner_module: reports
-    action: render_traceable_report
-    output: research_report
+contract_version: "2.0.0"
+workflow: disease_to_target
+limits:
+  review_rounds: 2
+  tool_calls: 30
+  initial_candidates: 20
+states:
+  - Intake
+  - Planner
+  - Router
+  - ToolExecution
+  - EvidenceStore
+  - Reviewer
+  - Ranking
+  - TargetCard
+  - Report
+terminal_states: [completed, completed_with_gaps, needs_input, refused, failed]
+required_tools: [uc_omics_snapshot, open_targets, europe_pmc_rag, observed_tcell_perturbation, deltafactor]
+rules:
+  - coverage_status=not_covered must not become completed
+  - context_match_score below 0.5 is excluded from formal ranking
+  - every material claim references EvidenceItem and ToolResult
+  - report reads structured Evidence Store only

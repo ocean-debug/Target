@@ -1,0 +1,65 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "contract_version": {
+      "const": "2.0.0",
+      "default": "2.0.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "finding_id": {
+      "title": "Finding Id",
+      "type": "string"
+    },
+    "severity": {
+      "enum": [
+        "blocking",
+        "major",
+        "minor"
+      ],
+      "title": "Severity",
+      "type": "string"
+    },
+    "category": {
+      "enum": [
+        "missing_provenance",
+        "context_mismatch",
+        "causal_overreach",
+        "conflicting_evidence",
+        "numeric_error",
+        "coverage_gap",
+        "tool_failure"
+      ],
+      "title": "Category",
+      "type": "string"
+    },
+    "message": {
+      "title": "Message",
+      "type": "string"
+    },
+    "related_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Related Ids",
+      "type": "array"
+    },
+    "required_action": {
+      "title": "Required Action",
+      "type": "string"
+    },
+    "resolved": {
+      "default": false,
+      "title": "Resolved",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "severity",
+    "category",
+    "message",
+    "required_action"
+  ],
+  "title": "ReviewerFinding",
+  "type": "object"
+}

@@ -1,35 +1,257 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://target-agent.local/schemas/task_spec.schema.json",
-  "title": "TaskSpec",
-  "type": "object",
-  "additionalProperties": false,
-  "required": ["schema_version", "task_id", "task_type", "question", "context", "requested_outputs"],
-  "properties": {
-    "schema_version": { "const": "1.0" },
-    "task_id": { "type": "string", "minLength": 1 },
-    "task_type": {
-      "type": "string",
-      "enum": ["disease_to_target", "variant_to_mechanism", "omics_to_target", "target_due_diligence"]
-    },
-    "question": { "type": "string", "minLength": 1 },
-    "context": {
-      "type": "object",
+  "$defs": {
+    "TaskConstraints": {
       "additionalProperties": false,
-      "required": ["disease"],
       "properties": {
-        "disease": { "type": "string" },
-        "disease_subtype": { "type": ["string", "null"] },
-        "target_tissue": { "type": ["string", "null"] },
-        "target_cell_type": { "type": ["string", "null"] },
-        "disease_stage": { "type": ["string", "null"] },
-        "population": { "type": ["string", "null"] },
-        "desired_phenotype": { "type": ["string", "null"] },
-        "druggability_required": { "type": "boolean", "default": false }
-      }
+        "contract_version": {
+          "const": "2.0.0",
+          "default": "2.0.0",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "public_data_only": {
+          "default": true,
+          "title": "Public Data Only",
+          "type": "boolean"
+        },
+        "druggable_only": {
+          "default": false,
+          "title": "Druggable Only",
+          "type": "boolean"
+        },
+        "max_initial_candidates": {
+          "default": 20,
+          "maximum": 20,
+          "minimum": 1,
+          "title": "Max Initial Candidates",
+          "type": "integer"
+        },
+        "max_ranked_targets": {
+          "default": 10,
+          "maximum": 50,
+          "minimum": 1,
+          "title": "Max Ranked Targets",
+          "type": "integer"
+        },
+        "max_target_cards": {
+          "default": 5,
+          "maximum": 10,
+          "minimum": 1,
+          "title": "Max Target Cards",
+          "type": "integer"
+        },
+        "max_review_rounds": {
+          "default": 2,
+          "maximum": 2,
+          "minimum": 0,
+          "title": "Max Review Rounds",
+          "type": "integer"
+        },
+        "max_tool_calls": {
+          "default": 30,
+          "maximum": 30,
+          "minimum": 1,
+          "title": "Max Tool Calls",
+          "type": "integer"
+        }
+      },
+      "title": "TaskConstraints",
+      "type": "object"
     },
-    "inputs": { "type": "array", "items": { "type": "string" }, "default": [] },
-    "constraints": { "type": "array", "items": { "type": "string" }, "default": [] },
-    "requested_outputs": { "type": "array", "items": { "type": "string" }, "minItems": 1 }
-  }
+    "TaskContext": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_version": {
+          "const": "2.0.0",
+          "default": "2.0.0",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "disease": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Disease"
+        },
+        "disease_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Disease Id"
+        },
+        "disease_subtype": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Disease Subtype"
+        },
+        "organism": {
+          "default": "Homo sapiens",
+          "title": "Organism",
+          "type": "string"
+        },
+        "population": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Population"
+        },
+        "tissue": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tissue"
+        },
+        "cell_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cell Type"
+        },
+        "disease_stage": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Disease Stage"
+        },
+        "desired_phenotype": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Desired Phenotype"
+        },
+        "assay": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Assay"
+        },
+        "perturbation_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Perturbation Type"
+        }
+      },
+      "title": "TaskContext",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "contract_version": {
+      "const": "2.0.0",
+      "default": "2.0.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "task_id": {
+      "title": "Task Id",
+      "type": "string"
+    },
+    "task_type": {
+      "enum": [
+        "disease_to_target",
+        "trait_mechanism"
+      ],
+      "title": "Task Type",
+      "type": "string"
+    },
+    "question": {
+      "minLength": 3,
+      "title": "Question",
+      "type": "string"
+    },
+    "context": {
+      "$ref": "#/$defs/TaskContext"
+    },
+    "constraints": {
+      "$ref": "#/$defs/TaskConstraints"
+    },
+    "candidate_genes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Candidate Genes",
+      "type": "array"
+    },
+    "requested_outputs": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Requested Outputs",
+      "type": "array"
+    },
+    "created_at": {
+      "title": "Created At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "task_type",
+    "question",
+    "context"
+  ],
+  "title": "TaskSpec",
+  "type": "object"
 }

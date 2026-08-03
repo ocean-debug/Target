@@ -1,0 +1,17 @@
+contract_version: "2.0.0"
+task_id: task-crohn-ood
+task_type: disease_to_target
+question: 使用UC缓存组学直接为Crohn病生成完整靶点报告
+context:
+  contract_version: "2.0.0"
+  disease: Crohn disease
+  disease_id: EFO_0000384
+  organism: Homo sapiens
+  tissue: ileum
+  cell_type: epithelial cell
+  desired_phenotype: restore epithelial barrier
+constraints:
+  contract_version: "2.0.0"
+candidate_genes: []
+requested_outputs: [ranked_targets, target_cards, traceable_report]
+

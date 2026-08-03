@@ -1,0 +1,68 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "contract_version": {
+      "const": "2.0.0",
+      "default": "2.0.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "event_id": {
+      "title": "Event Id",
+      "type": "string"
+    },
+    "run_id": {
+      "title": "Run Id",
+      "type": "string"
+    },
+    "task_id": {
+      "title": "Task Id",
+      "type": "string"
+    },
+    "event_type": {
+      "enum": [
+        "state_transition",
+        "plan",
+        "tool_call",
+        "tool_result",
+        "review",
+        "replan",
+        "checkpoint",
+        "ranking",
+        "report",
+        "degradation",
+        "refusal"
+      ],
+      "title": "Event Type",
+      "type": "string"
+    },
+    "state": {
+      "title": "State",
+      "type": "string"
+    },
+    "detail": {
+      "additionalProperties": true,
+      "title": "Detail",
+      "type": "object"
+    },
+    "related_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Related Ids",
+      "type": "array"
+    },
+    "created_at": {
+      "title": "Created At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "task_id",
+    "event_type",
+    "state"
+  ],
+  "title": "TraceEvent",
+  "type": "object"
+}
