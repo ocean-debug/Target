@@ -1,68 +1,32 @@
-# Architecture
-
-## 设计原则
-
-项目参考 OpenScience 的“Agent Runtime + Tool Layer + Skills + Workspace + Provenance”结构，但只实现靶点发现所需的垂直切片。
+# V2 架构与边界
 
 ```text
-User / Demo UI
-      |
-      v
-TargetDiscovery Agent
-  Intake -> Planner -> Router -> Critic -> Report
-      |         |         |
-      |         |         +-- Target / Drug tools
-      |         +------------ Evidence / Omics / Perturbation / Genetics tools
-      +---------------------- Workflow Pack + Best Practice rules
-                                |
-                                v
-                       Evidence DAG + Run Trace
+TaskSpec 2.0
+  → Planner（Step JSON / deterministic fallback）
+  → 白名单 Router
+  → Europe PMC / Open Targets / UC Omics / observed perturbation / DeltaFactor / MCH gold
+  → append-only Evidence Store + Trace + checkpoints
+  → deterministic Reviewer（最多2轮）
+  → 六维排名 + 独立阻断项
+  → mechanistic evidence graph（UC）或 causal model（MCH only）
+  → 5 TargetCards + falsifiable experiments + report
 ```
 
-## 关键对象
+## 为什么不使用复杂 Agent 框架
 
-- `TaskSpec`：用户问题、疾病上下文、约束和预期输出。
-- `EvidenceItem`：一条支持或反对某个 claim 的来源化证据。
-- `ToolResult`：任何工具的统一运行结果。
-- `PerturbationResult`：observed 或 predicted 扰动的标准结果。
-- `TargetCard`：候选靶点的完整证据包和 Go/No-Go 建议。
+三周交付的核心风险是科学边界、合同漂移和可追溯性，不是编排功能不足。当前状态机以 Pydantic 合同和落盘检查点为中心，路径可审计、可恢复，且更适合现场演示。
 
-## 模块边界
+## 证据层级
 
-### Agent Runtime
+- `FACT`：文献/数据库明确陈述，必须带逐字来源跨度。
+- `OBSERVED`：本项目从公开数据重算或迁移的实测结果。
+- `PREDICTED`：模型输出，必须带训练与验证范围。
+- `INFERRED`：Agent 综合判断，必须引用底层 EvidenceItem。
 
-维护任务状态、计划、工具路由、重试、缓存、停止条件和报告状态。它不实现具体生物学算法。
+Reviewer 无权把低上下文预测升级成实验事实。前端只渲染 `report.json`、`ranked_targets.json` 和图合同，不执行科学计算。
 
-### Evidence Layer
+## 双场景
 
-负责文献和数据库连接、EvidenceItem标准化、去重以及claim-source回链。
+UC 输出 mechanistic evidence graph：遗传、组学、实测扰动、预测扰动和 Agent 推断的边类型分别保留，不称为 UC 因果图。
 
-### Omics Layer
-
-负责数据可用性判断、QC、差异、通路、细胞状态和program分析。重计算结果必须物化为ToolResult。
-
-### Perturbation Layer
-
-负责实测Perturb-seq、scGen/GEARS等预测工具、上下文/OOD检查和observed-predicted比较。
-
-### Target Reasoning
-
-将遗传、组学、扰动、可药性和安全性整合为可拆解排序，不用单一黑箱总分隐藏冲突。
-
-### Reviewer
-
-检查引用、数字、图表、细胞上下文、疾病阶段、扰动方向、模型适用范围和因果措辞。Reviewer只给出结构化发现，不静默修改原结果。
-
-### Reports/UI
-
-展示Plan、工具调用、TargetCard、Evidence Graph和Trace。页面不得生成后端不存在的新数字。
-
-## 可靠性状态
-
-每个结论必须标记为 `FACT`、`OBSERVED`、`PREDICTED` 或 `INFERRED`。当出现以下情况时，Agent必须追问、降级或拒绝：
-
-- 组织、细胞类型或疾病阶段不匹配；
-- 模型未覆盖目标基因或扰动类型；
-- 工具失败、数据质量不足或来源不可用；
-- 多类证据方向冲突；
-- 缺少能够支持关键因果措辞的证据。
+MCH 输出 causal model：只接受 `desired_phenotype=MCH`；论文 43/59 与扩展 94/147 分开。任何其他性状返回 `out_of_scope`。

@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>TargetDiscovery Agent</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header><span class="eyebrow">BEST-PRACTICE RESEARCH AGENT</span><h1>TargetDiscovery 工作台</h1><p>实时规划与审查，复用可追溯的组学与扰动计算结果。</p></header>
+  <main>
+    <section class="panel input-panel">
+      <h2>研究问题</h2>
+      <label>疾病<input id="disease" value="ulcerative colitis"></label>
+      <div class="grid"><label>组织<input id="tissue" value="rectum"></label><label>细胞<input id="cell" value="T cell"></label></div>
+      <label>目标表型<textarea id="phenotype">restore a non-inflammatory T-cell state</textarea></label>
+      <button id="run">启动 Agent</button><span id="run-id"></span>
+    </section>
+    <section class="panel"><h2>Plan / Tool Trace</h2><div id="events" class="events empty">等待运行</div></section>
+    <section class="panel wide"><h2>排名与 TargetCard</h2><div id="ranking" class="empty">结果仅从后端 report.json 渲染</div></section>
+    <section class="panel"><h2>Reviewer</h2><div id="review" class="empty">等待审查</div></section>
+    <section class="panel"><h2>证据与机制图</h2><div id="evidence" class="empty">等待结构化证据</div></section>
+  </main>
+  <script src="/static/app.js"></script>
+</body>
+</html>
+
