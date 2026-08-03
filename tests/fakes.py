@@ -5,6 +5,20 @@ from target_agent.contracts import (
     Stance, ToolCapability, ToolResult, ToolStatus, new_id,
 )
 from target_agent.tools.base import ScientificTool, ToolContext, ToolExecution
+from target_agent.tools.uc import UCOmicsSnapshotTool
+
+
+class FakeGenericOmics(ScientificTool):
+    name = "bulk_expression_analysis"
+    version = "test"
+
+    def run(self, context: ToolContext) -> ToolExecution:
+        execution = UCOmicsSnapshotTool().run(context)
+        execution.result.tool_name = self.name
+        execution.result.tool_version = self.version
+        execution.result.candidate_genes = [row["gene"] for row in execution.result.outputs["candidates"]]
+        execution.result.outputs = {"omics_results": [{"accession": "GSE125527", "fixture": True}]}
+        return execution
 
 
 class FakeOpenTargets(ScientificTool):
@@ -35,6 +49,7 @@ class FakeOpenTargets(ScientificTool):
             inputs={}, outputs={"covered": True, "associations": rows,
                                 "top_genetic_candidates": [{"gene": "IL12B", "target_id": "ENSG-IL12B", "genetic_score": 0.9}]},
             capability=ToolCapability(validation_scope="test fixture"), evidence_ids=[item.evidence_id for item in evidence],
+            candidate_genes=[row["gene"] for row in rows],
         )
         return ToolExecution(result=result, evidence=evidence)
 

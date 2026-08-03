@@ -1,40 +1,29 @@
-# Decision Log
+# Decision log
 
-跨模块接口、工作流、模型选择和科学边界的决定记录在这里。已经冻结的决定不得在个人分支中静默修改。
+Cross-module contracts, workflow choices, model boundaries and scientific-safety decisions are recorded here. Accepted decisions must not be changed silently in a feature branch.
 
-## 模板
+## 2026-08-01 - Versioned schemas are module boundaries
 
-### YYYY-MM-DD — 决策标题
+- **Status:** accepted
+- Cross-module objects use the versioned JSON Schemas generated from the canonical Pydantic models.
+- Breaking changes require a new contract version and an explicit one-way adapter.
+- The goal is to prevent omics, perturbation, evidence and reporting modules from drifting into incompatible field conventions.
 
-- **状态**：proposed / accepted / superseded
-- **提出工作流**：
-- **参与工作流**：
-- **问题**：
-- **候选方案**：
-- **最终决定**：
-- **理由**：
-- **影响模块**：
-- **迁移或回滚方法**：
-- **相关 Issue/PR**：
+## 2026-08-03 - V2 auditable Agent boundaries
 
----
+- **Status:** superseded in part by V2.1
+- This repository is the only maintained implementation; handover assets remain read-only inputs.
+- MCH/K562 is an isolated causal-modelling gold sample and must not be presented as disease-context causal evidence.
+- Low-context DeltaFactor predictions are exploratory and excluded from formal ranking.
+- Reports and the UI render structured Evidence Store values only.
+- Experience promotion and LoRA training are offline, auditable and human-approved; automatic code, training or publishing mutation is prohibited.
 
-## 2026-08-01 — 采用共享 Schema 作为模块边界
+## 2026-08-03 - V2.1 generic public-omics workflow
 
-- **状态**：accepted
-- **提出工作流**：A（评测协议与协调）
-- **参与工作流**：A–F
-- **问题**：多个工作流并行开发时，组学、扰动、证据和报告模块容易产生不兼容字段。
-- **最终决定**：跨模块对象必须以 `schemas/` 中的版本化 JSON Schema 为准；工作流通过这些对象交接。
-- **理由**：减少口头约定和后期集中联调成本。
-- **影响模块**：全部模块。
-- **迁移或回滚方法**：破坏性变更创建新版本并保留旧字段的迁移说明。
-- **相关 Issue/PR**：项目初始化 PR。
-# V2 decisions — 2026-08-03
-
-- This Target repository is the only maintained repository; handover assets are read-only inputs.
-- Public contracts move to 2.0.0 and are generated from Pydantic; legacy data is accepted only through an explicit one-way adapter.
-- UC is the primary target-discovery demo; MCH/K562 is an isolated causal-modelling gold sample.
-- Low-context DeltaFactor predictions are exploratory and excluded from UC formal ranking.
-- Reports and the UI may only render structured Evidence Store values.
-- Experience promotion and LoRA training are offline, auditable and human-approved; no automatic code, training or publishing mutation is allowed.
+- **Status:** accepted
+- The public contract is `2.1.0`, with an explicit one-way adapter from TaskSpec `2.0.0`.
+- The default disease workflow discovers GEO and CELLxGENE data dynamically; UC snapshots and fixed perturbation tools are disabled compatibility plugins.
+- LLMs select only tools exposed by the live typed registry. Matrix type, biological replication, metadata confidence and context remain deterministic gates.
+- Cache identity binds source checksums, scientific recipe content, tool and contract versions, and biological context; per-run trace IDs are excluded.
+- Infrastructure configuration and secrets are external to Git. The production web command uses Waitress; Flask development mode is explicit.
+- Scientific workflow references are pinned to `scientific-agent-skills` v2.62.0 at commit `ad21a3868923628330734375dddbf7b86ea84222`.

@@ -47,7 +47,7 @@ def _sft(category: str, index: int) -> dict[str, Any]:
     return {
         "id": f"sft-{category}-{index:03d}", "split": "train", "task": "reviewer",
         "category": category, "instruction": prompt,
-        "input": {"case_variant": index, "contract_version": "2.0.0"},
+        "input": {"case_variant": index, "contract_version": "2.1.0"},
         "response": response, "risk": "high", "review": _review_gate(),
     }
 
@@ -101,7 +101,7 @@ def generate(output_dir: Path) -> dict[str, int]:
     _write_jsonl(output_dir / "reviewer_preferences.jsonl", preference)
     _write_jsonl(output_dir / "acceptance_heldout.jsonl", heldout)
     manifest = {
-        "contract_version": "2.0.0", "counts": {"sft": len(sft), "preferences": len(preference), "heldout": len(heldout)},
+        "contract_version": "2.1.0", "counts": {"sft": len(sft), "preferences": len(preference), "heldout": len(heldout)},
         "categories": CATEGORIES,
         "review_policy": "Every high-risk item requires life-science and engineering approval before training or promotion.",
         "automated_training_allowed": False,

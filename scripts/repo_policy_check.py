@@ -9,9 +9,11 @@ SKIP = {".git", ".pytest_cache", "__pycache__", "runs", "cache", "artifacts", "m
 TEXT_SUFFIXES = {".py", ".md", ".toml", ".yaml", ".yml", ".json", ".js", ".css", ".html", ".example", ".sh"}
 SECRET_PATTERNS = [
     re.compile(r"sk-[A-Za-z0-9]{20,}"),
+    re.compile(r"(?i)(?:api[_-]?key|token|secret)\s*[:=]\s*[\"'][A-Za-z0-9_./+-]{24,}[\"']"),
+    re.compile(r"(?im)^(?:STEP_API_KEY|NCBI_API_KEY)\s*=\s*[A-Za-z0-9_./+-]{24,}\s*$"),
     re.compile(r"-----BEGIN (?:OPENSSH|RSA|EC) PRIVATE KEY-----"),
 ]
-LOCAL_ABSOLUTE = re.compile(r"(?:[A-Za-z]:\\Users\\|/Users/|/home/[^/]+/Downloads/)")
+LOCAL_ABSOLUTE = re.compile(r"(?:[A-Za-z]:\\Users\\|/Users/|/home/[^/\s]+/)")
 
 
 def main() -> None:

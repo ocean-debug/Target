@@ -7,7 +7,7 @@ from target_agent.contracts import (
     CaseRecord, CoverageStatus, ExecutionPlan, PlanStep, TaskContext, TaskSpec,
     TerminalStatus, ToolCapability, ToolResult, ToolStatus,
 )
-from target_agent.legacy import adapt_evidence, reject_mixed_versions
+from target_agent.legacy import adapt_evidence, adapt_task_spec_2_0, reject_mixed_versions
 from target_agent.schema_export import MODELS, export_schemas
 
 
@@ -43,7 +43,17 @@ def test_schema_export_is_pydantic_canonical(tmp_path):
     assert len(paths) == len(MODELS)
     assert not (tmp_path / "stale.schema.json").exists()
     task_schema = json.loads((tmp_path / "task_spec.schema.json").read_text())
-    assert task_schema["properties"]["contract_version"]["const"] == "2.0.0"
+    assert task_schema["properties"]["contract_version"]["const"] == "2.1.0"
+
+
+def test_2_0_task_has_explicit_one_way_adapter():
+    migrated = adapt_task_spec_2_0({
+        "contract_version": "2.0.0", "task_type": "disease_to_target", "question": "Find targets",
+        "context": {"contract_version": "2.0.0", "disease": "Alzheimer disease"},
+        "constraints": {"contract_version": "2.0.0"},
+    })
+    assert migrated.contract_version == "2.1.0"
+    assert migrated.constraints.dataset_selection.max_geo_candidates == 10
 
 
 def test_case_cannot_promote_without_scientific_approval():

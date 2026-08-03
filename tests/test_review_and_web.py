@@ -9,7 +9,7 @@ from target_agent.webapp import create_app
 from .test_runtime import fake_runtime, uc_task
 
 
-def test_covered_false_is_blocking():
+def test_missing_generic_omics_is_a_gap_not_a_refusal():
     task = TaskSpec(task_type="disease_to_target", question="Find targets", context=TaskContext(disease="Crohn disease"))
     result = ToolResult(
         tool_name="uc_omics_snapshot", tool_version="2", status=ToolStatus.OUT_OF_SCOPE,
@@ -17,7 +17,7 @@ def test_covered_false_is_blocking():
         outputs={"covered": False}, capability=ToolCapability(),
     )
     findings = Reviewer().review(task, [result], [])
-    assert any(f.severity == "blocking" and f.category == "coverage_gap" for f in findings)
+    assert any(f.severity == "major" and f.category == "coverage_gap" for f in findings)
 
 
 def test_api_artifact_matches_backend_without_new_numbers(tmp_path):
@@ -30,3 +30,13 @@ def test_api_artifact_matches_backend_without_new_numbers(tmp_path):
     ranking = json.loads((tmp_path / "runs" / "run-web" / "ranked_targets.json").read_text())
     assert report["ranked_targets"] == ranking
 
+
+def test_health_and_capabilities_never_expose_secret(tmp_path):
+    client = create_app(fake_runtime(tmp_path)).test_client()
+    health = client.get("/healthz")
+    assert health.status_code == 200
+    capabilities = client.get("/api/capabilities")
+    assert capabilities.status_code == 200
+    text = capabilities.get_data(as_text=True)
+    assert "step_api_key" not in text.lower()
+    assert capabilities.get_json()["contract_version"] == "2.1.0"
