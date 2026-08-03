@@ -2,14 +2,23 @@
 from __future__ import annotations
 
 from collections import defaultdict
+import json
+from typing import Any
+
+from pydantic import ValidationError
 
 from .contracts import (
     ClaimClass, CoverageStatus, EvidenceItem, ReviewerFinding, TaskSpec,
     ToolResult, ToolStatus,
 )
+from .llm import LLMUnavailable, StepClient
 
 
 class Reviewer:
+    def __init__(self, client: StepClient | None = None):
+        self.client = client
+        self.last_backend = "deterministic"
+
     def review(self, task: TaskSpec, results: list[ToolResult], evidence: list[EvidenceItem]) -> list[ReviewerFinding]:
         findings: list[ReviewerFinding] = []
         tool_ids = {result.tool_run_id for result in results}
@@ -49,14 +58,14 @@ class Reviewer:
                     required_action="Retry within budget or mark the corresponding evidence dimension as missing.",
                 ))
             if result.coverage_status == CoverageStatus.NOT_COVERED:
-                severity = "blocking" if result.tool_name in {"uc_omics_snapshot", "mch_causal_gold"} else "major"
+                severity = "blocking" if task.task_type == "trait_mechanism" and result.tool_name == "mch_causal_gold" else "major"
                 findings.append(ReviewerFinding(
                     severity=severity, category="coverage_gap",
                     message=f"Tool {result.tool_name} does not cover the requested context.", related_ids=[result.tool_run_id],
                     required_action="Request matching input/data; do not describe this step as complete.",
                 ))
             elif result.coverage_status == CoverageStatus.PARTIAL:
-                severity = "minor" if result.tool_name == "deltafactor" else "major"
+                severity = "minor" if result.outputs.get("formal_score_eligible") is False else "major"
                 findings.append(ReviewerFinding(
                     severity=severity, category="coverage_gap",
                     message=f"Tool {result.tool_name} has partial coverage.", related_ids=[result.tool_run_id],
@@ -69,6 +78,28 @@ class Reviewer:
                     message=f"Tool {result.tool_name} context match is {result.context_match_score:.2f}.",
                     related_ids=[result.tool_run_id], required_action="Exclude low-match outputs from formal ranking.",
                 ))
+            for numeric_error in result.outputs.get("numeric_validation_errors", []):
+                findings.append(ReviewerFinding(
+                    severity="blocking", category="numeric_error",
+                    message=f"Tool {result.tool_name} emitted an invalid numeric value: {numeric_error}",
+                    related_ids=[result.tool_run_id],
+                    required_action="Remove or recompute the invalid numeric output before reporting.",
+                ))
+            if result.tool_name == "geo_metadata_audit":
+                selected = result.outputs.get("selected_datasets", [])
+                for rejected in result.outputs.get("rejected_datasets", []):
+                    candidate = rejected.get("candidate", {})
+                    reasons = candidate.get("exclusion_reasons", [])
+                    findings.append(ReviewerFinding(
+                        severity="minor" if selected else "major",
+                        category="dataset_ineligibility",
+                        message=(
+                            f"GEO dataset {candidate.get('accession', 'unknown')} was rejected: "
+                            + ", ".join(reasons or ["unspecified eligibility failure"])
+                        ),
+                        related_ids=[result.tool_run_id],
+                        required_action="Select the next eligible dataset or retain the omics dimension as a documented gap.",
+                    ))
 
         directions: dict[str, set[str]] = defaultdict(set)
         ids_by_gene: dict[str, list[str]] = defaultdict(list)
@@ -83,7 +114,59 @@ class Reviewer:
                     message=f"{gene} has opposing effect directions across contexts.",
                     related_ids=ids_by_gene[gene], required_action="Keep both directions and resolve by tissue, cell, assay and perturbation context.",
                 ))
+        findings.extend(self._llm_findings(task, results, evidence))
         return self._deduplicate(findings)
+
+    def _llm_findings(
+        self, task: TaskSpec, results: list[ToolResult], evidence: list[EvidenceItem]
+    ) -> list[ReviewerFinding]:
+        if not self.client:
+            self.last_backend = "deterministic"
+            return []
+        allowed_ids = {result.tool_run_id for result in results} | {item.evidence_id for item in evidence}
+        payload: dict[str, Any] = {
+            "task": task.model_dump(mode="json"),
+            "tool_results": [
+                {
+                    "tool_run_id": result.tool_run_id, "tool_name": result.tool_name,
+                    "status": result.status.value, "coverage_status": result.coverage_status.value,
+                    "context_match_score": result.context_match_score,
+                    "warnings": result.warnings, "limitations": result.limitations,
+                    "outputs": {
+                        key: value for key, value in result.outputs.items()
+                        if key in {"selection_trace", "formal_score_eligible", "analysis_stage", "numeric_validation_errors"}
+                    },
+                }
+                for result in results
+            ],
+            "evidence": [
+                {
+                    "evidence_id": item.evidence_id, "gene": item.gene_symbol,
+                    "claim_class": item.claim_class.value, "statement": item.statement,
+                    "context": item.context.model_dump(mode="json"),
+                    "context_match_score": item.context_match_score,
+                }
+                for item in evidence[:100]
+            ],
+        }
+        system = (
+            "You are a life-science best-practice reviewer. Add findings only; never waive deterministic gates. "
+            "Return JSON with a findings array. Each item must contain severity (blocking, major, or minor), "
+            "category, message, related_ids, and required_action. Flag metadata ambiguity, causal overreach, "
+            "context mismatch, conflicting evidence, and missing validation. Use only supplied IDs."
+        )
+        try:
+            raw = self.client.json_completion(system, json.dumps(payload, ensure_ascii=False))
+            reviewed: list[ReviewerFinding] = []
+            for item in list(raw.get("findings") or [])[:10]:
+                finding = ReviewerFinding.model_validate(item)
+                if set(finding.related_ids).issubset(allowed_ids):
+                    reviewed.append(finding)
+            self.last_backend = f"step:{self.client.model}"
+            return reviewed
+        except (LLMUnavailable, ValidationError, ValueError, TypeError, json.JSONDecodeError):
+            self.last_backend = "deterministic:step_unavailable_or_invalid"
+            return []
 
     @staticmethod
     def _deduplicate(findings: list[ReviewerFinding]) -> list[ReviewerFinding]:
@@ -92,4 +175,3 @@ class Reviewer:
             key = (finding.severity, finding.category, finding.message, tuple(finding.related_ids))
             unique[key] = finding
         return list(unique.values())
-

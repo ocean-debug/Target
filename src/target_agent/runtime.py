@@ -1,15 +1,14 @@
-"""Lightweight, typed and resumable Agent state machine."""
+"""Lightweight, typed, dependency-aware and resumable Agent state machine."""
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 from typing import Any
 
 from .cards import build_cards
 from .contracts import (
-    CaseRecord, Claim, ClaimClass, ExecutionPlan, ReviewerFinding, TaskSpec,
-    TerminalStatus, ToolResult, TraceEvent, new_id,
+    CONTRACT_VERSION, CaseRecord, Claim, ClaimClass, ExecutionPlan, PlanStep,
+    ReviewerFinding, TaskSpec, TerminalStatus, ToolResult, TraceEvent, new_id,
 )
 from .graphs import build_mechanistic_graph
 from .llm import StepClient
@@ -17,6 +16,7 @@ from .planner import Planner
 from .ranking import RankedTarget, rank_targets
 from .reporting import build_disease_report, build_mch_report, write_report
 from .reviewer import Reviewer
+from .settings import Settings, load_settings
 from .store import EvidenceStore
 from .tools import ToolRegistry, default_registry
 from .tools.base import ToolContext
@@ -29,13 +29,16 @@ class TargetDiscoveryRuntime:
         cache_dir: Path | None = None,
         registry: ToolRegistry | None = None,
         planner: Planner | None = None,
+        settings: Settings | None = None,
     ):
-        root = Path(__file__).resolve().parents[2]
-        self.runs_dir = runs_dir or Path(os.getenv("TARGET_AGENT_RUN_DIR", root / "runs"))
-        self.cache_dir = cache_dir or Path(os.getenv("TARGET_AGENT_CACHE_DIR", root / "cache"))
-        self.registry = registry or default_registry()
-        self.planner = planner or Planner(StepClient.from_env())
-        self.reviewer = Reviewer()
+        self.settings = settings or load_settings()
+        self.runs_dir = runs_dir or self.settings.runs_dir
+        self.cache_dir = cache_dir or self.settings.cache_dir
+        self.registry = registry or default_registry(self.settings)
+        self.planner = planner or Planner(StepClient.from_settings(self.settings), self.registry)
+        if self.planner.registry is None:
+            self.planner.registry = self.registry
+        self.reviewer = Reviewer(getattr(self.planner, "client", None))
 
     def _trace(self, store: EvidenceStore, run_id: str, task: TaskSpec, event_type: str, state: str,
                detail: dict[str, Any] | None = None, related_ids: list[str] | None = None) -> None:
@@ -48,7 +51,7 @@ class TargetDiscoveryRuntime:
     def _status(store: EvidenceStore, run_id: str, task: TaskSpec, state: str,
                 terminal: TerminalStatus | None = None, detail: dict[str, Any] | None = None) -> None:
         store.save_json("status.json", {
-            "contract_version": "2.0.0", "run_id": run_id, "task_id": task.task_id,
+            "contract_version": CONTRACT_VERSION, "run_id": run_id, "task_id": task.task_id,
             "state": state, "terminal_status": terminal.value if terminal else None, "detail": detail or {},
         })
 
@@ -65,12 +68,59 @@ class TargetDiscoveryRuntime:
             for rank, item in enumerate(ranked[:limit], start=1)
         ]
 
+    @staticmethod
+    def _ordered_steps(plan: ExecutionPlan) -> list[PlanStep]:
+        by_id = {step.step_id: step for step in plan.steps}
+        if len(by_id) != len(plan.steps):
+            raise ValueError("execution plan contains duplicate step IDs")
+        ordered: list[PlanStep] = []
+        visiting: set[str] = set()
+        visited: set[str] = set()
+
+        def visit(step: PlanStep) -> None:
+            if step.step_id in visiting:
+                raise ValueError("execution plan contains a dependency cycle")
+            if step.step_id in visited:
+                return
+            visiting.add(step.step_id)
+            for dependency in step.dependencies:
+                if dependency not in by_id:
+                    raise ValueError(f"execution plan dependency does not exist: {dependency}")
+                visit(by_id[dependency])
+            visiting.remove(step.step_id)
+            visited.add(step.step_id)
+            ordered.append(step)
+
+        for item in plan.steps:
+            visit(item)
+        return ordered
+
+    @staticmethod
+    def _merge_candidates(current: list[str], result: ToolResult, limit: int) -> list[str]:
+        emitted = [str(gene).upper() for gene in result.candidate_genes if gene]
+        if result.tool_name == "omics_candidate_extraction" and emitted:
+            base = emitted
+        else:
+            # A later evidence source must be able to contribute candidates even
+            # when an earlier source has already filled the initial-candidate budget.
+            base = [*emitted, *current]
+        return list(dict.fromkeys(base))[:limit]
+
     def run(self, task: TaskSpec, run_id: str | None = None, resume: bool = False) -> dict[str, Any]:
         run_id = run_id or new_id("run")
         run_dir = self.runs_dir / run_id
         if run_dir.exists() and not resume:
             raise FileExistsError(f"run already exists: {run_id}; use resume=True")
         store = EvidenceStore(run_dir)
+        if resume:
+            stored_task = store.load_task()
+            if stored_task is not None:
+                identity_fields = {"task_id", "created_at"}
+                incoming_payload = task.model_dump(mode="json", exclude=identity_fields)
+                stored_payload = stored_task.model_dump(mode="json", exclude=identity_fields)
+                if incoming_payload != stored_payload:
+                    raise ValueError("resume input does not match the stored task specification")
+                task = stored_task
         checkpoint = store.load_checkpoint() if resume else None
         if checkpoint and checkpoint.get("terminal_status"):
             return json.loads((run_dir / "status.json").read_text(encoding="utf-8"))
@@ -79,17 +129,27 @@ class TargetDiscoveryRuntime:
         self._trace(store, run_id, task, "state_transition", "intake", {"resume": resume})
 
         plan = self._load_or_plan(store, task, checkpoint)
+        planner_meta = getattr(self.planner.client, "last_request_meta", None) if self.planner.client else None
         self._trace(store, run_id, task, "plan", "planner", {
             "planner_backend": plan.planner_backend, "fallback_used": plan.fallback_used,
-            "steps": [step.step_id for step in plan.steps],
+            "steps": [step.step_id for step in plan.steps], "provider_request": planner_meta,
         }, [plan.plan_id])
-        completed_tools = set((checkpoint or {}).get("completed_tools", []))
+        ordered_steps = self._ordered_steps(plan)
+        completed_steps = set((checkpoint or {}).get("completed_steps", []))
         candidate_genes = list((checkpoint or {}).get("candidate_genes", task.candidate_genes))
         tool_calls = int((checkpoint or {}).get("tool_calls", 0))
+        prior_results = store.tool_results() if checkpoint else []
+        revision_history: list[dict[str, Any]] = list((checkpoint or {}).get("revision_history", []))
 
         self._status(store, run_id, task, "tool_execution")
-        for step in plan.steps:
-            if not step.tool or step.tool in completed_tools:
+        for step in ordered_steps:
+            if step.step_id in completed_steps:
+                continue
+            unmet = [dependency for dependency in step.dependencies if dependency not in completed_steps]
+            if unmet:
+                raise ValueError(f"step {step.step_id} has unmet dependencies: {unmet}")
+            if not step.tool:
+                completed_steps.add(step.step_id)
                 continue
             if tool_calls >= task.constraints.max_tool_calls:
                 self._trace(store, run_id, task, "degradation", "tool_execution", {"reason": "tool_call_budget_exhausted"})
@@ -98,32 +158,37 @@ class TargetDiscoveryRuntime:
             self._trace(store, run_id, task, "tool_call", "tool_execution", {"tool": step.tool, "step_id": step.step_id})
             execution = tool.run(ToolContext(
                 task=task, run_dir=run_dir, cache_dir=self.cache_dir, candidate_genes=candidate_genes,
+                prior_results=prior_results, settings=self.settings,
             ))
             tool_calls += 1
             for item in execution.evidence:
                 store.add_evidence(item)
             store.add_tool_result(execution.result)
-            completed_tools.add(step.tool)
+            prior_results.append(execution.result)
+            candidate_genes = self._merge_candidates(candidate_genes, execution.result, task.constraints.max_initial_candidates)
+            completed_steps.add(step.step_id)
             self._trace(store, run_id, task, "tool_result", "tool_execution", {
                 "tool": step.tool, "status": execution.result.status.value,
                 "coverage_status": execution.result.coverage_status.value,
                 "context_match_score": execution.result.context_match_score,
+                "candidate_genes_emitted": len(execution.result.candidate_genes),
             }, [execution.result.tool_run_id, *execution.result.evidence_ids])
-            if step.tool == "uc_omics_snapshot" and execution.result.outputs.get("candidates"):
-                candidate_genes = [row["gene"] for row in execution.result.outputs["candidates"]]
-            elif step.tool == "open_targets" and execution.result.outputs.get("top_genetic_candidates"):
-                genetic_genes = [row["gene"] for row in execution.result.outputs["top_genetic_candidates"]]
-                fused = candidate_genes[:12]
-                fused.extend(gene for gene in genetic_genes if gene not in fused)
-                candidate_genes = fused[: task.constraints.max_initial_candidates]
+            if execution.result.outputs.get("retry_performed"):
+                action = {
+                    "round": min(task.constraints.max_review_rounds, 1),
+                    "action": "rejected ineligible GEO candidates and selected the next eligible dataset",
+                    "selection_trace": execution.result.outputs.get("selection_trace", []),
+                }
+                revision_history.append(action)
+                self._trace(store, run_id, task, "replan", "tool_execution", action, [execution.result.tool_run_id])
             checkpoint = {
-                "stage": "tool_execution", "completed_tools": sorted(completed_tools),
+                "stage": "tool_execution", "completed_steps": sorted(completed_steps),
                 "candidate_genes": candidate_genes, "tool_calls": tool_calls,
+                "revision_history": revision_history,
             }
             store.checkpoint(checkpoint)
             self._trace(store, run_id, task, "checkpoint", "tool_execution", checkpoint)
-
-            if execution.result.status.value == "out_of_scope" and step.tool in {"uc_omics_snapshot", "mch_causal_gold"}:
+            if execution.result.status.value == "out_of_scope" and step.tool == "mch_causal_gold":
                 break
 
         results = store.tool_results()
@@ -138,16 +203,14 @@ class TargetDiscoveryRuntime:
             "round": 1, "blocking": sum(f.severity == "blocking" for f in findings),
             "major": sum(f.severity == "major" for f in findings),
             "minor": sum(f.severity == "minor" for f in findings),
+            "reviewer_backend": self.reviewer.last_backend,
         }, [f.finding_id for f in findings])
-
-        # A second audited reviewer round records that no safe automatic repair exists.
-        # External evidence gaps are never patched by fabricated evidence or code mutation.
         if any(f.severity in {"blocking", "major"} for f in findings):
-            self._trace(store, run_id, task, "replan", "reviewer", {
-                "round": 2, "action": "retain gaps; no automatic code/training/publication mutation",
-            })
+            action = {"round": 2, "action": "retain unresolved external evidence gaps; no fabricated repair"}
+            revision_history.append(action)
+            self._trace(store, run_id, task, "replan", "reviewer", action)
 
-        status = self._terminal_status(findings, results)
+        status = self._terminal_status(task, findings, results)
         ranked_payload: list[dict[str, Any]] = []
         cards = []
         final_claims: list[Claim] = []
@@ -188,14 +251,14 @@ class TargetDiscoveryRuntime:
             run_id=run_id, task_spec=task, plan=plan,
             tool_run_ids=[result.tool_run_id for result in results],
             finding_ids=[finding.finding_id for finding in findings],
-            revision_history=[{"round": 1, "findings": len(findings)}, {"round": 2, "action": "gaps retained"}] if findings else [],
+            revision_history=revision_history,
             final_status=status, final_claim_ids=[claim.claim_id for claim in final_claims],
             scientific_review="pending", promotion_eligible=False,
         )
         store.save_case(case)
         final_checkpoint = {
-            "stage": "terminal", "completed_tools": sorted(completed_tools), "candidate_genes": candidate_genes,
-            "tool_calls": tool_calls, "terminal_status": status.value,
+            "stage": "terminal", "completed_steps": sorted(completed_steps), "candidate_genes": candidate_genes,
+            "tool_calls": tool_calls, "terminal_status": status.value, "revision_history": revision_history,
         }
         store.checkpoint(final_checkpoint)
         self._status(store, run_id, task, "terminal", status, {
@@ -213,12 +276,12 @@ class TargetDiscoveryRuntime:
         return plan
 
     @staticmethod
-    def _terminal_status(findings: list[ReviewerFinding], results: list[ToolResult]) -> TerminalStatus:
-        blocking = [f for f in findings if f.severity == "blocking"]
-        if any(f.category == "missing_provenance" for f in blocking):
+    def _terminal_status(task: TaskSpec, findings: list[ReviewerFinding], results: list[ToolResult]) -> TerminalStatus:
+        blocking = [finding for finding in findings if finding.severity == "blocking"]
+        if any(finding.category == "missing_provenance" for finding in blocking):
             return TerminalStatus.FAILED
-        if any(f.category == "coverage_gap" for f in blocking):
+        if task.task_type == "trait_mechanism" and any(finding.category == "coverage_gap" for finding in blocking):
             return TerminalStatus.NEEDS_INPUT
-        if any(result.status.value == "failed" for result in results) or any(f.severity == "major" for f in findings):
+        if any(result.status.value == "failed" for result in results) or any(finding.severity in {"blocking", "major"} for finding in findings):
             return TerminalStatus.COMPLETED_WITH_GAPS
         return TerminalStatus.COMPLETED

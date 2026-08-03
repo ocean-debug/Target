@@ -1,0 +1,20 @@
+contract_version: "2.1.0"
+task_id: task-demo-ad
+task_type: disease_to_target
+question: Discover traceable drug targets for Alzheimer disease from public evidence
+context:
+  contract_version: "2.1.0"
+  disease: Alzheimer disease
+  organism: Homo sapiens
+  tissue: brain
+  disease_stage: established disease
+  assay: expression profiling
+  desired_phenotype: restore disease-relevant neural and glial states
+constraints:
+  contract_version: "2.1.0"
+  dataset_selection:
+    contract_version: "2.1.0"
+    omics_modes: [geo_bulk]
+candidate_genes: []
+omics_inputs: []
+requested_outputs: [ranked_targets, target_cards, report]

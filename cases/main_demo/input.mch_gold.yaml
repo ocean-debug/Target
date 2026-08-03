@@ -1,16 +1,16 @@
-contract_version: "2.0.0"
+contract_version: "2.1.0"
 task_id: task-mch-gold
 task_type: trait_mechanism
-question: 复核MCH基因到程序到性状的因果建模金样板
+question: Review the MCH gene-to-program-to-trait causal-modelling gold sample
 context:
-  contract_version: "2.0.0"
+  contract_version: "2.1.0"
   organism: Homo sapiens
   tissue: K562 and blood-trait genetics
   cell_type: K562
   desired_phenotype: MCH
   assay: Perturb-seq integrated with rare-variant trait effects
 constraints:
-  contract_version: "2.0.0"
+  contract_version: "2.1.0"
 candidate_genes: []
+omics_inputs: []
 requested_outputs: [causal_graph, paper_metric, extended_replication, traceable_report]
-

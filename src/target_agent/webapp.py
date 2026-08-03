@@ -4,23 +4,80 @@ from __future__ import annotations
 import json
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from flask import Flask, Response, jsonify, request, send_file, send_from_directory
 from pydantic import ValidationError
 
-from .contracts import TaskSpec
+from .contracts import CONTRACT_VERSION, TaskSpec, new_id
 from .runtime import TargetDiscoveryRuntime
+
+
+class BoundedExecutor:
+    def __init__(self, workers: int, queue_size: int):
+        self.executor = ThreadPoolExecutor(max_workers=workers, thread_name_prefix="target-agent")
+        self.capacity = threading.BoundedSemaphore(workers + queue_size)
+        self.workers = workers
+        self.queue_size = queue_size
+
+    def submit(self, function, *args) -> bool:
+        if not self.capacity.acquire(blocking=False):
+            return False
+        future = self.executor.submit(function, *args)
+        future.add_done_callback(lambda _: self.capacity.release())
+        return True
 
 
 def create_app(runtime: TargetDiscoveryRuntime | None = None) -> Flask:
     runtime = runtime or TargetDiscoveryRuntime()
     static_dir = Path(__file__).with_name("web") / "static"
     app = Flask(__name__, static_folder=str(static_dir), static_url_path="/static")
+    pool = BoundedExecutor(runtime.settings.web_workers, runtime.settings.web_queue_size)
+
+    @app.errorhandler(ValueError)
+    def invalid_path(exc):
+        return jsonify({"error": "invalid request path", "detail": str(exc)}), 400
 
     @app.get("/")
     def index():
         return send_from_directory(static_dir, "index.html")
+
+    @app.get("/healthz")
+    def health():
+        public = runtime.settings.public_summary()
+        return jsonify({
+            "status": "ok", "contract_version": CONTRACT_VERSION,
+            "service": {"status": "ok"},
+            "database": {
+                "kind": "filesystem_evidence_store",
+                "status": "ok" if public["runs_dir_writable"] else "unavailable",
+            },
+            "cache": {"status": "ok" if public["cache_dir_writable"] else "unavailable"},
+            "executor": {"status": "ok", "workers": pool.workers, "queue_size": pool.queue_size},
+        })
+
+    @app.get("/api/capabilities")
+    def capabilities():
+        import importlib.util
+
+        return jsonify({
+            "contract_version": CONTRACT_VERSION,
+            "settings": runtime.settings.public_summary(),
+            "tools": runtime.registry.public_capabilities(),
+            "analysis_backends": {
+                "pydeseq2": bool(importlib.util.find_spec("pydeseq2")),
+                "gseapy": bool(importlib.util.find_spec("gseapy")),
+                "scanpy_pseudobulk": bool(importlib.util.find_spec("scanpy")),
+                "cellxgene_census": bool(importlib.util.find_spec("cellxgene_census")),
+                "limma_declared": runtime.settings.enable_limma,
+            },
+            "limits": {
+                "max_tool_calls": 30, "max_review_rounds": 2,
+                "max_geo_candidates": 10, "max_datasets_to_analyze": 2,
+                "max_cells": 100_000, "max_download_mb": 2048,
+            },
+        })
 
     @app.post("/api/runs")
     def create_run():
@@ -28,20 +85,21 @@ def create_app(runtime: TargetDiscoveryRuntime | None = None) -> Flask:
             task = TaskSpec.model_validate(request.get_json(force=True))
         except ValidationError as exc:
             return jsonify({"error": "invalid TaskSpec", "detail": exc.errors(include_url=False)}), 400
-        run_id = f"run-{task.task_id.replace('task-', '')}"
+        run_id = new_id("run")
 
         def worker() -> None:
             try:
                 runtime.run(task, run_id=run_id)
-            except Exception as exc:  # status file is the user-visible failure boundary
+            except Exception as exc:
                 run_dir = runtime.runs_dir / run_id
                 run_dir.mkdir(parents=True, exist_ok=True)
                 (run_dir / "status.json").write_text(json.dumps({
-                    "contract_version": "2.0.0", "run_id": run_id, "task_id": task.task_id,
+                    "contract_version": CONTRACT_VERSION, "run_id": run_id, "task_id": task.task_id,
                     "state": "terminal", "terminal_status": "failed", "detail": {"error": exc.__class__.__name__},
                 }), encoding="utf-8")
 
-        threading.Thread(target=worker, name=run_id, daemon=True).start()
+        if not pool.submit(worker):
+            return jsonify({"error": "run queue is full", "retryable": True}), 429
         return jsonify({"run_id": run_id, "status_url": f"/api/runs/{run_id}"}), 202
 
     @app.get("/api/runs/<run_id>")
@@ -93,7 +151,7 @@ def create_app(runtime: TargetDiscoveryRuntime | None = None) -> Flask:
         path = _safe_run_dir(runtime.runs_dir, run_id) / name
         if not path.is_file():
             return jsonify({"error": "artifact not found"}), 404
-        return send_file(path, as_attachment=name.endswith((".md", ".json", ".jsonl")))
+        return send_file(path, as_attachment=name.endswith((".md", ".json", ".jsonl", ".csv")))
 
     return app
 
@@ -106,4 +164,3 @@ def _safe_run_dir(root: Path, run_id: str) -> Path:
     if root not in candidate.parents:
         raise ValueError("run path escaped root")
     return candidate
-

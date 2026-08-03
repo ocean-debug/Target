@@ -7,21 +7,42 @@
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-  <header><span class="eyebrow">BEST-PRACTICE RESEARCH AGENT</span><h1>TargetDiscovery 工作台</h1><p>实时规划与审查，复用可追溯的组学与扰动计算结果。</p></header>
+  <header>
+    <span class="eyebrow">BEST-PRACTICE RESEARCH AGENT</span>
+    <h1>TargetDiscovery 工作台</h1>
+    <p>动态检索公开数据，实时展示规划、工具、证据、审查与证据缺口。</p>
+    <span id="capability">正在读取系统能力……</span>
+  </header>
   <main>
     <section class="panel input-panel">
       <h2>研究问题</h2>
-      <label>疾病<input id="disease" value="ulcerative colitis"></label>
-      <div class="grid"><label>组织<input id="tissue" value="rectum"></label><label>细胞<input id="cell" value="T cell"></label></div>
-      <label>目标表型<textarea id="phenotype">restore a non-inflammatory T-cell state</textarea></label>
+      <label>疾病<input id="disease" value="Alzheimer disease"></label>
+      <div class="grid">
+        <label>疾病亚型<input id="subtype" placeholder="可选"></label>
+        <label>疾病阶段<input id="stage" placeholder="可选"></label>
+      </div>
+      <div class="grid">
+        <label>组织<input id="tissue" value="brain"></label>
+        <label>细胞类型<input id="cell" placeholder="可选"></label>
+      </div>
+      <div class="grid">
+        <label>物种<input id="organism" value="Homo sapiens"></label>
+        <label>实验类型<input id="assay" value="RNA-seq"></label>
+      </div>
+      <label>优先GEO编号<input id="accessions" placeholder="可选，多个编号用逗号分隔"></label>
+      <label>排除GEO编号<input id="excluded-accessions" placeholder="可选，多个编号用逗号分隔"></label>
+      <div class="grid">
+        <label><input id="mode-geo" type="checkbox" checked> GEO bulk</label>
+        <label><input id="mode-census" type="checkbox" checked> CELLxGENE</label>
+      </div>
+      <label>目标表型<textarea id="phenotype">restore a disease-relevant cellular state</textarea></label>
       <button id="run">启动 Agent</button><span id="run-id"></span>
     </section>
     <section class="panel"><h2>Plan / Tool Trace</h2><div id="events" class="events empty">等待运行</div></section>
-    <section class="panel wide"><h2>排名与 TargetCard</h2><div id="ranking" class="empty">结果仅从后端 report.json 渲染</div></section>
+    <section class="panel wide"><h2>排名与 TargetCard</h2><div id="ranking" class="empty">结果只从后端 report.json 渲染</div></section>
     <section class="panel"><h2>Reviewer</h2><div id="review" class="empty">等待审查</div></section>
     <section class="panel"><h2>证据与机制图</h2><div id="evidence" class="empty">等待结构化证据</div></section>
   </main>
   <script src="/static/app.js"></script>
 </body>
 </html>
-

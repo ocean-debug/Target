@@ -1,24 +1,27 @@
-contract_version: "2.0.0"
+contract_version: "2.1.0"
 task_id: task-uc-demo
 task_type: disease_to_target
-question: 为溃疡性结肠炎直肠T细胞场景发现可追溯的候选药物靶点
+question: Discover traceable targets for active ulcerative colitis in rectal T cells
 context:
-  contract_version: "2.0.0"
+  contract_version: "2.1.0"
   disease: ulcerative colitis
-  disease_id: MONDO_0005101
   organism: Homo sapiens
   tissue: rectum
   cell_type: T cell
   disease_stage: active disease
   desired_phenotype: restore a non-inflammatory T-cell state
+  assay: RNA-seq
 constraints:
-  contract_version: "2.0.0"
+  contract_version: "2.1.0"
   public_data_only: true
-  druggable_only: false
   max_initial_candidates: 20
   max_ranked_targets: 10
   max_target_cards: 5
   max_review_rounds: 2
   max_tool_calls: 30
+  dataset_selection:
+    contract_version: "2.1.0"
+    omics_modes: [geo_bulk, cellxgene]
 candidate_genes: []
+omics_inputs: []
 requested_outputs: [ranked_targets, highlighted_targets, target_cards, experiment_plans, traceable_report]

@@ -1,0 +1,20 @@
+contract_version: "2.1.0"
+task_id: task-demo-luad
+task_type: disease_to_target
+question: Discover traceable drug targets for lung adenocarcinoma from public evidence
+context:
+  contract_version: "2.1.0"
+  disease: lung adenocarcinoma
+  organism: Homo sapiens
+  tissue: lung
+  disease_stage: primary tumor
+  assay: expression profiling
+  desired_phenotype: suppress malignant growth and restore tissue homeostasis
+constraints:
+  contract_version: "2.1.0"
+  dataset_selection:
+    contract_version: "2.1.0"
+    omics_modes: [geo_bulk]
+candidate_genes: []
+omics_inputs: []
+requested_outputs: [ranked_targets, target_cards, report]

@@ -79,13 +79,15 @@ def rank_targets(candidates: list[str], evidence: list[EvidenceItem], results: l
             if "legacy_disease_strength_0_60" in item.effect:
                 normalized = float(item.effect["legacy_disease_strength_0_60"]) / 60.0
                 omics = max(omics, WEIGHTS["disease_omics"] * normalized * context)
+            if "omics_strength" in item.effect:
+                omics = max(omics, WEIGHTS["disease_omics"] * float(item.effect["omics_strength"]) * context)
             if item.claim_class == ClaimClass.OBSERVED and "disease_alignment" in item.effect:
                 alignment = abs(float(item.effect["disease_alignment"]))
                 perturb = max(perturb, (8.0 + min(12.0, alignment / 0.1 * 12.0)) * context)
             if item.claim_class == ClaimClass.PREDICTED:
                 perturb = max(perturb, min(WEIGHTS["perturbation"] / 2.0, 10.0 * context))
 
-        has_omics = any("legacy_disease_strength_0_60" in item.effect for item in formal)
+        has_omics = any("legacy_disease_strength_0_60" in item.effect or "omics_strength" in item.effect for item in formal)
         has_observed_perturb = any(item.claim_class == ClaimClass.OBSERVED and "disease_alignment" in item.effect for item in formal)
         has_literature = any(item.claim_class == ClaimClass.FACT and "europepmc" in item.source.uri.lower() for item in formal)
         if has_omics and has_observed_perturb:

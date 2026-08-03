@@ -1,12 +1,10 @@
-# Main Demo
+# Main demo cases
 
-本目录保存主Demo的小型、可审查输入和预期产物说明，不提交大型原始数据或缓存结果。
+The examples are small, reviewable TaskSpec inputs. They do not contain raw omics data or cached results.
 
-主Demo至少展示：
-
-1. Agent询问或验证疾病上下文。
-2. 生成Disease→Target计划。
-3. 调用文献/数据库、组学和扰动工具。
-4. 输出3～5张TargetCard。
-5. 从结论返回Evidence和Trace。
-6. 展示一个工具失败、证据冲突或上下文不匹配场景。
+- `input.uc_demo.yaml`: UC regression through the generic discovery chain.
+- `input.ad.yaml`: accession-free Alzheimer disease cold-start workflow.
+- `input.luad.yaml`: accession-free lung adenocarcinoma cold-start workflow.
+- `input.ood_crohn.yaml`: formerly an OOD refusal case; now verifies disease generalization.
+- `input.mch_gold.yaml`: isolated MCH/K562 causal gold sample.
+- `input.example.yaml`: portable template for a new disease.

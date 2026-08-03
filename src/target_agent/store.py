@@ -44,6 +44,12 @@ class EvidenceStore:
     def save_task(self, task: TaskSpec) -> None:
         self._json("task_spec.json", task)
 
+    def load_task(self) -> TaskSpec | None:
+        path = self.run_dir / "task_spec.json"
+        if not path.exists():
+            return None
+        return TaskSpec.model_validate_json(path.read_text(encoding="utf-8"))
+
     def save_plan(self, plan: ExecutionPlan) -> None:
         self._json("execution_plan.json", plan)
 

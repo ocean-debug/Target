@@ -1,4 +1,4 @@
-contract_version: "2.0.0"
+contract_version: "2.1.0"
 workflow: disease_to_target
 limits:
   review_rounds: 2
@@ -15,9 +15,21 @@ states:
   - TargetCard
   - Report
 terminal_states: [completed, completed_with_gaps, needs_input, refused, failed]
-required_tools: [uc_omics_snapshot, open_targets, europe_pmc_rag, observed_tcell_perturbation, deltafactor]
+required_tools:
+  - disease_resolver
+  - geo_search
+  - geo_metadata_audit
+  - omics_recipe_builder
+  - bulk_expression_analysis
+  - cellxgene_discovery
+  - single_cell_analysis
+  - pathway_enrichment
+  - omics_candidate_extraction
+  - open_targets
+  - europe_pmc_rag
 rules:
-  - coverage_status=not_covered must not become completed
+  - missing omics coverage becomes completed_with_gaps while independent evidence chains continue
   - context_match_score below 0.5 is excluded from formal ranking
   - every material claim references EvidenceItem and ToolResult
   - report reads structured Evidence Store only
+  - arbitrary generated code and shell execution are forbidden
