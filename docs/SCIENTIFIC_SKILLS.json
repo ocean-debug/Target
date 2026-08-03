@@ -1,0 +1,15 @@
+{
+  "upstream": "https://github.com/K-Dense-AI/scientific-agent-skills",
+  "version": "2.62.0",
+  "commit": "ad21a3868923628330734375dddbf7b86ea84222",
+  "license": "MIT",
+  "policy": "References inform typed first-party wrappers; no arbitrary skill script or shell execution is exposed to the LLM.",
+  "skill_md_sha256": {
+    "bulk-rnaseq": "d772d1a3bfc5592efe26bad83abee1a0fcdcac602648183fe897106334b934d6",
+    "pydeseq2": "37b4f9f73a1159af3899bb172dc935fdd6474d2bb0080471de30352ad4914a0a",
+    "pathway-enrichment": "d830887a58d4c967563f0427d16e545c327d5660bf9c4547db8722ddc173e15e",
+    "scanpy": "dd17164b3bc609c486c9bfc6a68ecb43dd9a17b73f530b41f4f110e3f0b0ee96",
+    "anndata": "ce9f6f50c5aefc4c86218ebfa361f40c219653a4a69e82273535cb91bde0875e",
+    "cellxgene-census": "54e49ca66e7b464cd46c70bb2a2c910c4af38b35eac441a19ba2cea362f2a5e9"
+  }
+}

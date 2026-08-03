@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import time
 from pathlib import Path
 from typing import Any
@@ -12,7 +11,7 @@ import requests
 
 from ..contracts import (
     ClaimClass, CoverageStatus, EvidenceContext, EvidenceItem, SourceLocator,
-    Stance, ToolCapability, ToolResult, ToolStatus, new_id,
+    Stance, ToolCapability, ToolDescriptor, ToolResult, ToolStatus, new_id,
 )
 from .base import ScientificTool, ToolContext, ToolExecution
 
@@ -45,7 +44,13 @@ query ResolveDisease($queryString: String!) {
 
 class OpenTargetsTool(ScientificTool):
     name = "open_targets"
-    version = "2.0.0"
+    version = "2.1.0"
+    descriptor = ToolDescriptor(
+        tool_id=name, evidence_dimension="genetics",
+        description="Resolve diseases and retrieve Open Targets genetics, tractability, safety and known drugs.",
+        input_types=["TaskSpec", "candidate_genes"], output_types=["EvidenceItem[]", "candidate_genes"],
+        execution_policy="read_only_connector",
+    )
 
     def __init__(self, session: requests.Session | None = None):
         self.session = session or requests.Session()
@@ -54,9 +59,8 @@ class OpenTargetsTool(ScientificTool):
     def _disease_id(context: ToolContext) -> str | None:
         if context.task.context.disease_id:
             return context.task.context.disease_id
-        if (context.task.context.disease or "").lower() in {"ulcerative colitis", "uc", "溃疡性结肠炎"}:
-            return "MONDO_0005101"
-        return None
+        resolver = next((item for item in reversed(context.prior_results) if item.tool_name == "disease_resolver"), None)
+        return resolver.outputs.get("disease_id") if resolver else None
 
     def _post(self, query: str, variables: dict[str, Any]) -> dict[str, Any]:
         response = self.session.post(ENDPOINT, json={"query": query, "variables": variables}, timeout=45)
@@ -67,23 +71,28 @@ class OpenTargetsTool(ScientificTool):
             raise ValueError(f"Open Targets GraphQL error: {json.dumps(payload['errors'])[:400]}")
         return payload
 
-    def _resolve_disease(self, requested_id: str, disease_name: str) -> tuple[str, dict[str, Any]]:
-        payload = self._post(ASSOCIATION_QUERY, {"diseaseId": requested_id})
-        if payload.get("data", {}).get("disease"):
-            return requested_id, payload
+    def _resolve_disease(self, requested_id: str | None, disease_name: str) -> tuple[str, dict[str, Any]]:
+        if requested_id:
+            payload = self._post(ASSOCIATION_QUERY, {"diseaseId": requested_id})
+            if payload.get("data", {}).get("disease"):
+                return requested_id, payload
         search = self._post(SEARCH_QUERY, {"queryString": disease_name})
         hits = search.get("data", {}).get("search", {}).get("hits", [])
         exact = next((hit for hit in hits if hit.get("name", "").casefold() == disease_name.casefold()), None)
-        if not exact:
-            raise ValueError("Open Targets disease name could not be resolved exactly")
-        resolved = str(exact["id"])
+        selected = exact or (hits[0] if hits else None)
+        if not selected:
+            raise ValueError("Open Targets disease name could not be resolved")
+        resolved = str(selected["id"])
         payload = self._post(ASSOCIATION_QUERY, {"diseaseId": resolved})
         if not payload.get("data", {}).get("disease"):
             raise ValueError("Open Targets resolved disease returned no payload")
         return resolved, payload
 
-    def _retrieve(self, disease_id: str, disease_name: str, candidate_genes: list[str], cache_path: Path) -> tuple[dict[str, Any], bool]:
-        if os.getenv("TARGET_AGENT_CACHE_ONLY") == "1":
+    def _retrieve(
+        self, disease_id: str | None, disease_name: str, candidate_genes: list[str],
+        cache_path: Path, cache_only: bool = False,
+    ) -> tuple[dict[str, Any], bool]:
+        if cache_only:
             if not cache_path.exists():
                 raise FileNotFoundError("Open Targets cache is missing in cache-only mode")
             return json.loads(cache_path.read_text(encoding="utf-8")), True
@@ -148,26 +157,24 @@ class OpenTargetsTool(ScientificTool):
             supported_cell_types=["database-wide"], training_scope="not applicable",
             validation_scope="Open Targets Platform disease-target associations and known drugs",
         )
-        if not disease_id:
-            return ToolExecution(result=ToolResult(
-                tool_run_id=run_id, tool_name=self.name, tool_version=self.version,
-                status=ToolStatus.OUT_OF_SCOPE, coverage_status=CoverageStatus.NOT_COVERED, context_match_score=0.0,
-                inputs={"disease": context.task.context.disease}, outputs={"covered": False}, capability=capability,
-                warnings=["missing_supported_disease_id"],
-                limitations=["Provide an EFO disease identifier before querying Open Targets."],
-            ), evidence=[])
-        cache_key = hashlib.sha256(disease_id.encode()).hexdigest()[:12]
+        resolver = next((item for item in reversed(context.prior_results) if item.tool_name == "disease_resolver"), None)
+        disease_name = (resolver.outputs.get("normalized_disease") if resolver else None) or context.task.context.disease or ""
+        cache_key = hashlib.sha256(json.dumps({
+            "tool_version": self.version,
+            "disease": disease_id or disease_name,
+            "candidate_genes": sorted(context.candidate_genes),
+        }, sort_keys=True).encode()).hexdigest()[:20]
         cache_path = context.cache_dir / "open_targets" / f"{cache_key}.json"
         try:
             payload, cached = self._retrieve(
-                disease_id, context.task.context.disease or disease_id,
-                context.candidate_genes, cache_path,
+                disease_id, disease_name,
+                context.candidate_genes, cache_path, context.settings.cache_only,
             )
         except (requests.RequestException, ValueError, OSError) as exc:
             return ToolExecution(result=ToolResult(
                 tool_run_id=run_id, tool_name=self.name, tool_version=self.version,
                 status=ToolStatus.FAILED, coverage_status=CoverageStatus.UNKNOWN, context_match_score=0.0,
-                inputs={"disease_id": disease_id}, outputs={}, capability=capability,
+                inputs={"disease_id": disease_id, "disease": disease_name}, outputs={}, capability=capability,
                 error=f"Open Targets retrieval failed: {str(exc)[:500]}",
                 limitations=["Genetic, druggability and known-drug dimensions remain missing until the API/cache is available."],
                 elapsed_ms=int((time.perf_counter() - started) * 1000),
@@ -274,7 +281,8 @@ class OpenTargetsTool(ScientificTool):
                          {"gene": row["gene"], "target_id": row["target_id"], "genetic_score": row["genetic_score"]}
                          for row in sorted(associations, key=lambda row: row["genetic_score"], reverse=True)[:10]
                      ]},
-            capability=capability, data_version="OpenTargets:live-or-cache", code_version="2.0.0",
+            candidate_genes=[row["gene"] for row in sorted(associations, key=lambda row: row["genetic_score"], reverse=True)[:10]],
+            capability=capability, data_version="OpenTargets:live-or-cache", code_version="2.1.0",
             parameters={"graphql_endpoint": ENDPOINT}, evidence_ids=[item.evidence_id for item in evidence],
             warnings=([payload["clinical_warning"]] if payload.get("clinical_warning") else [])
                      + ([] if associations else ["candidate_genes_not_in_top_100_associations"]),

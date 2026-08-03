@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import re
 import sqlite3
 import time
@@ -14,7 +13,7 @@ import requests
 
 from ..contracts import (
     ClaimClass, CoverageStatus, EvidenceContext, EvidenceItem, SourceLocator,
-    Stance, ToolCapability, ToolResult, ToolStatus, new_id,
+    Stance, ToolCapability, ToolDescriptor, ToolResult, ToolStatus, new_id,
 )
 from ..llm import LLMUnavailable, StepClient
 from .base import ScientificTool, ToolContext, ToolExecution
@@ -40,14 +39,20 @@ def stable_chunks(source_id: str, text: str, size: int = 1200, overlap: int = 15
 
 class EuropePMCRAGTool(ScientificTool):
     name = "europe_pmc_rag"
-    version = "2.0.0"
+    version = "2.1.0"
+    descriptor = ToolDescriptor(
+        tool_id=name, evidence_dimension="literature",
+        description="Retrieve Europe PMC text and emit claims only when exact source spans validate.",
+        input_types=["TaskSpec", "candidate_genes"], output_types=["EvidenceItem[]"],
+        execution_policy="read_only_connector",
+    )
 
     def __init__(self, session: requests.Session | None = None, llm: StepClient | None = None):
         self.session = session or requests.Session()
         self.llm = llm if llm is not None else StepClient.from_env()
 
-    def _fetch(self, query: str, cache_path: Path) -> tuple[dict[str, Any], bool]:
-        if os.getenv("TARGET_AGENT_CACHE_ONLY") == "1":
+    def _fetch(self, query: str, cache_path: Path, cache_only: bool = False) -> tuple[dict[str, Any], bool]:
+        if cache_only:
             if not cache_path.exists():
                 raise FileNotFoundError("Europe PMC cache is missing in cache-only mode")
             return json.loads(cache_path.read_text(encoding="utf-8")), True
@@ -111,14 +116,16 @@ class EuropePMCRAGTool(ScientificTool):
         return valid
 
     @staticmethod
-    def _deterministic_extract(disease: str, genes: list[str], chunks: list[dict[str, str]]) -> list[dict[str, str]]:
-        disease_terms = [term.lower() for term in {disease, "ulcerative colitis", "colitis", "inflammatory bowel"} if term]
+    def _deterministic_extract(
+        disease: str, disease_terms: list[str], genes: list[str], chunks: list[dict[str, str]]
+    ) -> list[dict[str, str]]:
+        normalized_terms = [term.casefold() for term in {disease, *disease_terms} if term]
         claims = []
         for chunk in chunks:
             for sentence in re.split(r"(?<=[.!?])\s+", chunk["text"]):
                 lower = sentence.lower()
                 gene = next((g for g in genes if re.search(rf"\b{re.escape(g)}\b", sentence, re.I)), None)
-                if gene and any(term in lower for term in disease_terms) and len(sentence) >= 35:
+                if gene and any(term in lower for term in normalized_terms) and len(sentence) >= 35:
                     claims.append({
                         "gene": gene, "chunk_id": chunk["chunk_id"], "exact_quote": sentence,
                         "stance": "uncertain", "statement": f"The source explicitly co-mentions {gene} and {disease}; direction requires scientific review.",
@@ -131,9 +138,12 @@ class EuropePMCRAGTool(ScientificTool):
     def run(self, context: ToolContext) -> ToolExecution:
         started = time.perf_counter()
         run_id = new_id("tool")
-        disease = context.task.context.disease or ""
+        resolver = next((item for item in reversed(context.prior_results) if item.tool_name == "disease_resolver"), None)
+        disease = (resolver.outputs.get("normalized_disease") if resolver else None) or context.task.context.disease or ""
+        disease_terms = (resolver.outputs.get("search_synonyms") if resolver else None) or [disease]
         genes = context.candidate_genes[:20]
-        query = f'"{disease}" AND ({" OR ".join(genes)})' if genes else f'"{disease}"'
+        disease_query = " OR ".join(f'"{term}"' for term in disease_terms[:4])
+        query = f'({disease_query}) AND ({" OR ".join(genes)})' if genes else f'({disease_query})'
         cache_key = hashlib.sha256(query.encode()).hexdigest()[:16]
         cache_path = context.cache_dir / "europe_pmc" / f"{cache_key}.json"
         capability = ToolCapability(
@@ -142,12 +152,12 @@ class EuropePMCRAGTool(ScientificTool):
             validation_scope="Europe PMC metadata, abstracts and open-access text returned by the API",
         )
         try:
-            payload, cached = self._fetch(query, cache_path)
+            payload, cached = self._fetch(query, cache_path, context.settings.cache_only)
         except (requests.RequestException, ValueError, OSError) as exc:
             return ToolExecution(result=ToolResult(
                 tool_run_id=run_id, tool_name=self.name, tool_version=self.version,
                 status=ToolStatus.FAILED, coverage_status=CoverageStatus.UNKNOWN, context_match_score=0.0,
-                inputs={"query": query}, outputs={}, capability=capability, code_version="2.0.0",
+                inputs={"query": query}, outputs={}, capability=capability, code_version="2.1.0",
                 error=f"Europe PMC retrieval failed: {exc.__class__.__name__}",
                 limitations=["No literature claim was emitted because no cached or live source text was available."],
                 elapsed_ms=int((time.perf_counter() - started) * 1000),
@@ -169,7 +179,7 @@ class EuropePMCRAGTool(ScientificTool):
         extracted = self._llm_extract(disease, genes, recalled)
         backend = "step_span_checked" if extracted else "deterministic_span_checked"
         if not extracted:
-            extracted = self._deterministic_extract(disease, genes, recalled)
+            extracted = self._deterministic_extract(disease, disease_terms, genes, recalled)
         by_chunk = {c["chunk_id"]: c for c in recalled}
         evidence = []
         for claim in extracted:
@@ -199,7 +209,7 @@ class EuropePMCRAGTool(ScientificTool):
             outputs={"search_hits": len(results), "indexed_chunks": len(chunks), "recalled_chunks": len(recalled),
                      "extracted_claims": len(evidence), "extraction_backend": backend,
                      "search_hits_are_evidence": False},
-            capability=capability, data_version="EuropePMC:live-or-cache", code_version="2.0.0",
+            capability=capability, data_version="EuropePMC:live-or-cache", code_version="2.1.0",
             parameters={"chunk_size": 1200, "chunk_overlap": 150, "recall": "SQLite FTS5 BM25"},
             artifacts=[], evidence_ids=[item.evidence_id for item in evidence],
             warnings=[] if evidence else ["no_span_validated_claims"],
