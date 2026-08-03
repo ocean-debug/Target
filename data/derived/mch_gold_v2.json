@@ -1,0 +1,39 @@
+{
+  "schema_version": "2.0.0",
+  "trait": "MCH",
+  "paper": {
+    "title": "Causal modelling of gene effects from regulators to programs to traits",
+    "uri": "https://www.nature.com/articles/s41586-025-09866-3",
+    "direction_prediction": {"correct": 43, "total": 59, "accuracy": 0.7288135593},
+    "fig3a": {"target": "HBA1", "beta": 0.052, "p_value": 3e-7},
+    "method": "K562 Perturb-seq regulator-to-program effects integrated with rare-variant trait effects"
+  },
+  "project_replication": {
+    "direction_prediction": {"correct": 94, "total": 147, "accuracy": 0.6394557823, "permutation_p": 0.0001999800},
+    "fig3a": {"n_perturbed_genes": 9398, "beta": 0.0523924754, "p_value": 3.3519566e-7, "pearson_r": 0.0514371939},
+    "robustness": {
+      "program_selection": "top programs retained from the migrated paper workflow",
+      "leave_one_out": "recorded in the reproduction workflow; must be recomputed for any changed input",
+      "permutation": {"iterations": 10000, "p_value": 0.0001999800}
+    },
+    "source_artifacts": [
+      "nature_framework/results/fig3a_summary.json",
+      "nature_framework/results/mch_sign_prediction.csv",
+      "nature_framework/results/mch_graph.json"
+    ]
+  },
+  "graph": {
+    "programs": [
+      {"id": "P1", "label": "Mitochondrial translation"},
+      {"id": "P16", "label": "p53 / cell-cycle arrest"},
+      {"id": "P9", "label": "erythroid/haemoglobin program"}
+    ],
+    "regulators": ["HBA1", "ABCB10", "HSPA9", "PIK3CD", "CAD"]
+  },
+  "limitations": [
+    "K562 is a haematopoietic cancer cell line and is not a UC tissue model.",
+    "The 94/147 extension uses a different hit set from the paper's 43/59 result and is not a paper accuracy replication.",
+    "Results are valid only for the cached MCH configuration; other traits require complete re-analysis."
+  ]
+}
+

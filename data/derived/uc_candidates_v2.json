@@ -1,0 +1,35 @@
+{
+  "schema_version": "2.0.0",
+  "dataset": "GSE125527",
+  "analysis": "edgeR TMM QLF donor pseudobulk",
+  "snapshot_date": "2026-08-03",
+  "source_uri": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE125527",
+  "limitations": [
+    "Public UC cohort only; not a prospective validation cohort.",
+    "Differential expression is observational and is not causal evidence.",
+    "Models were not adjusted for additional donor covariates in the migrated analysis."
+  ],
+  "candidates": [
+    {"gene": "IL2", "legacy_rank": 1, "disease_strength_0_60": 37.294, "fdr": 0.0037052595, "log2fc": -2.7608418, "tissue": "rectum", "cell_type": "T cell"},
+    {"gene": "TAGAP", "legacy_rank": 2, "disease_strength_0_60": 20.125, "fdr": 0.0468507583, "log2fc": 1.07580497, "tissue": "rectum", "cell_type": "B cell"},
+    {"gene": "CD27", "legacy_rank": 3, "disease_strength_0_60": 17.926, "fdr": 0.0040598912, "log2fc": 0.71674109, "tissue": "rectum", "cell_type": "T cell"},
+    {"gene": "FOSB", "legacy_rank": 4, "disease_strength_0_60": 16.241, "fdr": 0.0349849466, "log2fc": -0.791528, "tissue": "rectum", "cell_type": "T cell"},
+    {"gene": "GATA3", "legacy_rank": 5, "disease_strength_0_60": 12.89, "fdr": 0.0447528188, "log2fc": -0.5894664, "tissue": "rectum", "cell_type": "T cell"},
+    {"gene": "PABPC4", "legacy_rank": 6, "disease_strength_0_60": 38.837, "fdr": 0.0009704641, "log2fc": -1.9865173, "tissue": "rectum", "cell_type": "B cell"},
+    {"gene": "MTRNR2L12", "legacy_rank": 7, "disease_strength_0_60": 37.288, "fdr": 0.0037196775, "log2fc": -1.945941, "tissue": "PBMC", "cell_type": "B cell"},
+    {"gene": "GPR15", "legacy_rank": 8, "disease_strength_0_60": 43.172, "fdr": 0.0000406709, "log2fc": -2.4749855, "tissue": "rectum", "cell_type": "T cell"},
+    {"gene": "SPINK2", "legacy_rank": 9, "disease_strength_0_60": 41.067, "fdr": 0.0002047042, "log2fc": -3.138055, "tissue": "rectum", "cell_type": "T cell"},
+    {"gene": "TXNIP", "legacy_rank": 10, "disease_strength_0_60": 39.964, "fdr": 0.0004771931, "log2fc": -2.1506638, "tissue": "rectum", "cell_type": "unknown"},
+    {"gene": "NPDC1", "legacy_rank": 11, "disease_strength_0_60": 46.588, "fdr": 0.000002956, "log2fc": 3.0370651, "tissue": "rectum", "cell_type": "T cell"},
+    {"gene": "IGHG1", "legacy_rank": 12, "disease_strength_0_60": 38.412, "fdr": 0.0015699676, "log2fc": 3.6156307, "tissue": "rectum", "cell_type": "B cell"},
+    {"gene": "PERP", "legacy_rank": 13, "disease_strength_0_60": 37.943, "fdr": 0.0015918297, "log2fc": -1.2890029, "tissue": "rectum", "cell_type": "T cell"},
+    {"gene": "ERN1", "legacy_rank": 14, "disease_strength_0_60": 37.83, "fdr": 0.0004862649, "log2fc": -1.3335948, "tissue": "rectum", "cell_type": "T cell"},
+    {"gene": "CD79B", "legacy_rank": 15, "disease_strength_0_60": 37.537, "fdr": 0.0030734248, "log2fc": 0.9876635, "tissue": "rectum", "cell_type": "T cell"},
+    {"gene": "CHI3L2", "legacy_rank": 16, "disease_strength_0_60": 37.537, "fdr": 0.0030734248, "log2fc": 1.785335, "tissue": "rectum", "cell_type": "T cell"},
+    {"gene": "IL7R", "legacy_rank": 17, "disease_strength_0_60": 36.368, "fdr": 0.0075377678, "log2fc": -0.9301708, "tissue": "rectum", "cell_type": "T cell"},
+    {"gene": "HOPX", "legacy_rank": 18, "disease_strength_0_60": 35.443, "fdr": 0.0037196775, "log2fc": 1.8769827, "tissue": "PBMC", "cell_type": "B cell"},
+    {"gene": "JCHAIN", "legacy_rank": 19, "disease_strength_0_60": 35.323, "fdr": 0.0168131377, "log2fc": -2.9076606, "tissue": "rectum", "cell_type": "B cell"},
+    {"gene": "F2R", "legacy_rank": 20, "disease_strength_0_60": 34.957, "fdr": 0.0157067282, "log2fc": -0.8115422, "tissue": "rectum", "cell_type": "T cell"}
+  ]
+}
+

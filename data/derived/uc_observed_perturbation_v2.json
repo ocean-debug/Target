@@ -1,0 +1,24 @@
+{
+  "schema_version": "2.0.0",
+  "datasets": ["GSE190604", "GSE125527"],
+  "assay": "primary human T-cell CRISPRa Perturb-seq",
+  "analysis": "target expression effect plus perturbation-footprint/disease-signature correlation",
+  "source_uris": [
+    "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE190604",
+    "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE125527"
+  ],
+  "n_screen_targets": 71,
+  "limitations": [
+    "CRISPRa measures activation, not inhibition.",
+    "The disease-alignment statistic is an observational correlation across 71 measured targets.",
+    "Donors were pooled in the migrated perturbation summary."
+  ],
+  "targets": [
+    {"gene": "IL2", "activation_log2fc": 2.7517071, "fdr": 1.1532512e-35, "n_cells": 1156, "disease_alignment": 0.010637794},
+    {"gene": "TAGAP", "activation_log2fc": 3.0306547, "fdr": 2.4498603e-243, "n_cells": 1006, "disease_alignment": 0.046472515},
+    {"gene": "CD27", "activation_log2fc": 3.670917, "fdr": 0.0, "n_cells": 1455, "disease_alignment": 0.092388425},
+    {"gene": "FOSB", "activation_log2fc": 2.3569258, "fdr": 1.5165962e-11, "n_cells": 551, "disease_alignment": -0.071954177},
+    {"gene": "GATA3", "activation_log2fc": 3.041317, "fdr": 8.2961915e-96, "n_cells": 358, "disease_alignment": -0.075030781}
+  ]
+}
+

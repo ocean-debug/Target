@@ -1,0 +1,25 @@
+{
+  "manifest_version": "1.0",
+  "created_for_contract": "2.0.0",
+  "files": [
+    {
+      "path": "uc_candidates_v2.json",
+      "upstream": "deepcamp_handover/omics_perturbation/handoff/team_start_v1/candidate_targets_v1.csv",
+      "purpose": "20-candidate UC demo snapshot",
+      "recompute": "Use the GSE125527 edgeR donor-pseudobulk pipeline documented in data/README.md"
+    },
+    {
+      "path": "uc_observed_perturbation_v2.json",
+      "upstream": "deepcamp_handover GSE190604 observed_target_effects and UC alignment outputs",
+      "purpose": "measured perturbation coverage for the UC demo",
+      "recompute": "Use the GSE190604 CRISPRa workflow documented in data/README.md"
+    },
+    {
+      "path": "mch_gold_v2.json",
+      "upstream": "deepcamp_handover/nature_framework/results",
+      "purpose": "separated paper and extended MCH reproduction metrics",
+      "recompute": "Run scripts/validate_mch_gold.py against regenerated summary artifacts"
+    }
+  ]
+}
+

@@ -1,0 +1,284 @@
+"""Open Targets association, tractability and known-drug connector."""
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import time
+from pathlib import Path
+from typing import Any
+
+import requests
+
+from ..contracts import (
+    ClaimClass, CoverageStatus, EvidenceContext, EvidenceItem, SourceLocator,
+    Stance, ToolCapability, ToolResult, ToolStatus, new_id,
+)
+from .base import ScientificTool, ToolContext, ToolExecution
+
+
+ENDPOINT = "https://api.platform.opentargets.org/api/v4/graphql"
+ASSOCIATION_QUERY = """
+query DiseaseEvidence($diseaseId: String!) {
+  disease(efoId: $diseaseId) {
+    id
+    name
+    associatedTargets(page: {index: 0, size: 100}) {
+      rows {
+        score
+        datatypeScores { id score }
+        target { id approvedSymbol approvedName biotype }
+      }
+    }
+  }
+}
+"""
+
+SEARCH_QUERY = """
+query ResolveDisease($queryString: String!) {
+  search(queryString: $queryString, entityNames: ["disease"], page: {index: 0, size: 10}) {
+    hits { id name entity }
+  }
+}
+"""
+
+
+class OpenTargetsTool(ScientificTool):
+    name = "open_targets"
+    version = "2.0.0"
+
+    def __init__(self, session: requests.Session | None = None):
+        self.session = session or requests.Session()
+
+    @staticmethod
+    def _disease_id(context: ToolContext) -> str | None:
+        if context.task.context.disease_id:
+            return context.task.context.disease_id
+        if (context.task.context.disease or "").lower() in {"ulcerative colitis", "uc", "溃疡性结肠炎"}:
+            return "MONDO_0005101"
+        return None
+
+    def _post(self, query: str, variables: dict[str, Any]) -> dict[str, Any]:
+        response = self.session.post(ENDPOINT, json={"query": query, "variables": variables}, timeout=45)
+        if response.status_code >= 400:
+            raise ValueError(f"Open Targets HTTP {response.status_code}: {response.text[:400]}")
+        payload = response.json()
+        if payload.get("errors"):
+            raise ValueError(f"Open Targets GraphQL error: {json.dumps(payload['errors'])[:400]}")
+        return payload
+
+    def _resolve_disease(self, requested_id: str, disease_name: str) -> tuple[str, dict[str, Any]]:
+        payload = self._post(ASSOCIATION_QUERY, {"diseaseId": requested_id})
+        if payload.get("data", {}).get("disease"):
+            return requested_id, payload
+        search = self._post(SEARCH_QUERY, {"queryString": disease_name})
+        hits = search.get("data", {}).get("search", {}).get("hits", [])
+        exact = next((hit for hit in hits if hit.get("name", "").casefold() == disease_name.casefold()), None)
+        if not exact:
+            raise ValueError("Open Targets disease name could not be resolved exactly")
+        resolved = str(exact["id"])
+        payload = self._post(ASSOCIATION_QUERY, {"diseaseId": resolved})
+        if not payload.get("data", {}).get("disease"):
+            raise ValueError("Open Targets resolved disease returned no payload")
+        return resolved, payload
+
+    def _retrieve(self, disease_id: str, disease_name: str, candidate_genes: list[str], cache_path: Path) -> tuple[dict[str, Any], bool]:
+        if os.getenv("TARGET_AGENT_CACHE_ONLY") == "1":
+            if not cache_path.exists():
+                raise FileNotFoundError("Open Targets cache is missing in cache-only mode")
+            return json.loads(cache_path.read_text(encoding="utf-8")), True
+        try:
+            resolved_id, payload = self._resolve_disease(disease_id, disease_name)
+            disease = payload["data"]["disease"]
+            association_rows = (disease.get("associatedTargets") or {}).get("rows", [])
+            top_genetic = sorted(
+                association_rows,
+                key=lambda row: max(
+                    (float(entry.get("score") or 0) for entry in row.get("datatypeScores") or [] if entry.get("id") == "genetic_association"),
+                    default=0.0,
+                ),
+                reverse=True,
+            )[:10]
+            selected_symbols = set(candidate_genes) | {
+                row.get("target", {}).get("approvedSymbol") for row in top_genetic
+            }
+            target_ids = [
+                row["target"]["id"]
+                for row in association_rows
+                if row.get("target", {}).get("approvedSymbol") in selected_symbols
+            ]
+            clinical_warning = None
+            try:
+                clinical = self._retrieve_clinical_candidates(target_ids) if target_ids else {}
+            except (requests.RequestException, ValueError) as exc:
+                clinical = {}
+                clinical_warning = f"clinical candidate subquery unavailable: {str(exc)[:300]}"
+            payload["resolved_disease_id"] = resolved_id
+            payload["target_clinical_candidates"] = clinical
+            payload["selected_genetic_symbols"] = sorted(symbol for symbol in selected_symbols if symbol)
+            payload["clinical_warning"] = clinical_warning
+            cache_path.parent.mkdir(parents=True, exist_ok=True)
+            cache_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+            return payload, False
+        except (requests.RequestException, ValueError):
+            if cache_path.exists():
+                return json.loads(cache_path.read_text(encoding="utf-8")), True
+            raise
+
+    def _retrieve_clinical_candidates(self, target_ids: list[str]) -> dict[str, Any]:
+        aliases = []
+        for index, target_id in enumerate(target_ids):
+            aliases.append(
+                f't{index}: target(ensemblId: "{target_id}") {{ id approvedSymbol '
+                "tractability { label modality value } "
+                "safetyLiabilities { event eventId datasource url literature } "
+                "drugAndClinicalCandidates { rows { id maxClinicalStage drug { id name } "
+                "diseases { diseaseFromSource disease { id name } } } } }"
+            )
+        query = "query CandidateClinicalEvidence { " + " ".join(aliases) + " }"
+        payload = self._post(query, {})
+        return payload.get("data", {})
+
+    def run(self, context: ToolContext) -> ToolExecution:
+        started = time.perf_counter()
+        run_id = new_id("tool")
+        disease_id = self._disease_id(context)
+        capability = ToolCapability(
+            supported_organisms=["Homo sapiens"], supported_tissues=["database-wide"],
+            supported_cell_types=["database-wide"], training_scope="not applicable",
+            validation_scope="Open Targets Platform disease-target associations and known drugs",
+        )
+        if not disease_id:
+            return ToolExecution(result=ToolResult(
+                tool_run_id=run_id, tool_name=self.name, tool_version=self.version,
+                status=ToolStatus.OUT_OF_SCOPE, coverage_status=CoverageStatus.NOT_COVERED, context_match_score=0.0,
+                inputs={"disease": context.task.context.disease}, outputs={"covered": False}, capability=capability,
+                warnings=["missing_supported_disease_id"],
+                limitations=["Provide an EFO disease identifier before querying Open Targets."],
+            ), evidence=[])
+        cache_key = hashlib.sha256(disease_id.encode()).hexdigest()[:12]
+        cache_path = context.cache_dir / "open_targets" / f"{cache_key}.json"
+        try:
+            payload, cached = self._retrieve(
+                disease_id, context.task.context.disease or disease_id,
+                context.candidate_genes, cache_path,
+            )
+        except (requests.RequestException, ValueError, OSError) as exc:
+            return ToolExecution(result=ToolResult(
+                tool_run_id=run_id, tool_name=self.name, tool_version=self.version,
+                status=ToolStatus.FAILED, coverage_status=CoverageStatus.UNKNOWN, context_match_score=0.0,
+                inputs={"disease_id": disease_id}, outputs={}, capability=capability,
+                error=f"Open Targets retrieval failed: {str(exc)[:500]}",
+                limitations=["Genetic, druggability and known-drug dimensions remain missing until the API/cache is available."],
+                elapsed_ms=int((time.perf_counter() - started) * 1000),
+            ), evidence=[])
+        disease = payload["data"]["disease"]
+        resolved_disease_id = payload.get("resolved_disease_id", disease["id"])
+        candidate_set = set(context.candidate_genes) | set(payload.get("selected_genetic_symbols", []))
+        associations = []
+        drugs_by_target: dict[str, list[dict[str, Any]]] = {}
+        profiles_by_target: dict[str, dict[str, Any]] = {}
+        for target_payload in payload.get("target_clinical_candidates", {}).values():
+            if not target_payload:
+                continue
+            target_id = target_payload.get("id")
+            profiles_by_target[target_id] = {
+                "tractability": target_payload.get("tractability") or [],
+                "safety_liabilities": target_payload.get("safetyLiabilities") or [],
+            }
+            for row in (target_payload.get("drugAndClinicalCandidates") or {}).get("rows", []):
+                disease_items = row.get("diseases") or []
+                disease_ids = [
+                    (item.get("disease") or {}).get("id")
+                    for item in disease_items
+                    if (item.get("disease") or {}).get("id")
+                ]
+                if resolved_disease_id not in disease_ids:
+                    continue
+                drug = row.get("drug") or {}
+                drugs_by_target.setdefault(target_id, []).append({
+                    "targetId": target_id, "drugId": drug.get("id"), "prefName": drug.get("name"),
+                    "phase": row.get("maxClinicalStage"), "status": "Open Targets clinical candidate",
+                    "disease_ids": disease_ids,
+                    "chembl_url": f"https://www.ebi.ac.uk/chembl/explore/compound/{drug.get('id')}" if drug.get("id") else None,
+                })
+        evidence = []
+        for row in (disease.get("associatedTargets") or {}).get("rows", []):
+            target = row.get("target") or {}
+            gene = target.get("approvedSymbol")
+            if gene not in candidate_set:
+                continue
+            datatype = {entry.get("id"): float(entry.get("score") or 0) for entry in row.get("datatypeScores") or []}
+            genetics = max(datatype.get("genetic_association", 0), datatype.get("somatic_mutation", 0))
+            known_drugs = drugs_by_target.get(target.get("id"), [])
+            profile = profiles_by_target.get(target.get("id"), {})
+            normalized = {
+                "gene": gene, "target_id": target.get("id"), "association_score": float(row.get("score") or 0),
+                "genetic_score": genetics, "datatype_scores": datatype, "known_drugs": known_drugs,
+                "tractability": profile.get("tractability", []),
+                "safety_liabilities": profile.get("safety_liabilities", []),
+            }
+            associations.append(normalized)
+            if genetics > 0:
+                span = f"disease={resolved_disease_id}|target={target.get('id')}|genetic_association_score={genetics}"
+                evidence.append(EvidenceItem(
+                    tool_run_id=run_id, gene_symbol=gene, claim_class=ClaimClass.FACT,
+                    statement=f"Open Targets reports a human-genetic association score of {genetics:.3g} for {gene} and {disease['name']}.",
+                    source=SourceLocator(uri=f"https://platform.opentargets.org/disease/{resolved_disease_id}/associations", source_id=resolved_disease_id, version="live-or-cache", section="associatedTargets", chunk_id=f"ot-genetics-{gene}"),
+                    source_span=span,
+                    context=EvidenceContext(organism="Homo sapiens", disease=disease["name"], assay="Open Targets evidence aggregation"),
+                    stance=Stance.SUPPORTS, effect={"genetic_score": genetics},
+                    uncertainty="This is a database evidence score, not a treatment success probability.",
+                    quality_flags=["database_aggregate_score"], context_match_score=0.9,
+                ))
+            for drug in known_drugs[:5]:
+                span = f"target={target.get('id')}|drug={drug.get('drugId')}|clinical_stage={drug.get('phase')}|status={drug.get('status')}"
+                evidence.append(EvidenceItem(
+                    tool_run_id=run_id, gene_symbol=gene, claim_class=ClaimClass.FACT,
+                    statement=f"Open Targets links {drug.get('prefName')} ({drug.get('drugId')}) to {gene}; reported clinical stage {drug.get('phase')}.",
+                    source=SourceLocator(uri=f"https://platform.opentargets.org/target/{target.get('id')}", source_id=str(drug.get("drugId")), version="live-or-cache", section="knownDrugs", chunk_id=f"ot-drug-{gene}-{drug.get('drugId')}"),
+                    source_span=span,
+                    context=EvidenceContext(organism="Homo sapiens", disease=disease["name"], assay="Open Targets known drugs"),
+                    stance=Stance.SUPPORTS, effect={"drug": drug},
+                    uncertainty="Drug-target linkage does not establish efficacy in the requested disease context.",
+                    quality_flags=["drug_link_not_disease_efficacy"], context_match_score=0.8,
+                ))
+            for liability in profile.get("safety_liabilities", [])[:3]:
+                event = liability.get("event") or liability.get("eventId") or "unspecified safety liability"
+                span = (
+                    f"target={target.get('id')}|event={event}|datasource={liability.get('datasource')}|"
+                    f"literature={liability.get('literature')}"
+                )
+                evidence.append(EvidenceItem(
+                    tool_run_id=run_id, gene_symbol=gene, claim_class=ClaimClass.FACT,
+                    statement=f"Open Targets records a safety liability for {gene}: {event}.",
+                    source=SourceLocator(
+                        uri=liability.get("url") or f"https://platform.opentargets.org/target/{target.get('id')}",
+                        source_id=str(liability.get("eventId") or target.get("id")), version="live-or-cache",
+                        section="safetyLiabilities", chunk_id=f"ot-safety-{gene}-{liability.get('eventId') or 'event'}",
+                    ),
+                    source_span=span,
+                    context=EvidenceContext(organism="Homo sapiens", disease=disease["name"], assay="Open Targets safety liability"),
+                    stance=Stance.REFUTES, effect={"safety": liability},
+                    uncertainty="A recorded liability is a risk signal; relevance depends on modality, exposure and tissue.",
+                    quality_flags=["safety_blocker_retained"], context_match_score=0.8,
+                ))
+        result = ToolResult(
+            tool_run_id=run_id, tool_name=self.name, tool_version=self.version,
+            status=ToolStatus.SUCCESS, coverage_status=CoverageStatus.COVERED, context_match_score=0.9,
+            inputs={"disease_id": disease_id, "genes": context.candidate_genes},
+            outputs={"covered": True, "disease": {"id": disease["id"], "name": disease["name"]},
+                     "requested_disease_id": disease_id, "resolved_disease_id": resolved_disease_id,
+                     "associations": associations,
+                     "top_genetic_candidates": [
+                         {"gene": row["gene"], "target_id": row["target_id"], "genetic_score": row["genetic_score"]}
+                         for row in sorted(associations, key=lambda row: row["genetic_score"], reverse=True)[:10]
+                     ]},
+            capability=capability, data_version="OpenTargets:live-or-cache", code_version="2.0.0",
+            parameters={"graphql_endpoint": ENDPOINT}, evidence_ids=[item.evidence_id for item in evidence],
+            warnings=([payload["clinical_warning"]] if payload.get("clinical_warning") else [])
+                     + ([] if associations else ["candidate_genes_not_in_top_100_associations"]),
+            limitations=["Only the first 100 disease associations and selected candidate target profiles are retrieved for the MVP."],
+            cached=cached, elapsed_ms=int((time.perf_counter() - started) * 1000),
+        )
+        return ToolExecution(result=result, evidence=evidence)
