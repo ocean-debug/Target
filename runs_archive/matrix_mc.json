@@ -1,0 +1,19 @@
+{
+  "library_version": "1.0.0",
+  "kind": "missing_context",
+  "runs": [
+    {
+      "disease_id": "uc",
+      "disease": "ulcerative colitis",
+      "kind": "missing_context",
+      "run_id": "run-matrix-mc-uc",
+      "terminal_status": "completed_with_gaps",
+      "highlighted_targets": [
+        "IL12B",
+        "IL23R",
+        "IL10"
+      ],
+      "tool_calls": 12
+    }
+  ]
+}
