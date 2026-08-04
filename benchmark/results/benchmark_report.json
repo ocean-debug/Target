@@ -135,7 +135,7 @@
         }
       ],
       "passed": true,
-      "elapsed_s": 1.45
+      "elapsed_s": 1.04
     },
     {
       "id": "BM-02",
@@ -168,7 +168,7 @@
         }
       ],
       "passed": true,
-      "elapsed_s": 2.85
+      "elapsed_s": 2.29
     },
     {
       "id": "BM-03",
@@ -186,7 +186,7 @@
         }
       ],
       "passed": true,
-      "elapsed_s": 3.54
+      "elapsed_s": 3.36
     },
     {
       "id": "BM-04",
@@ -203,7 +203,7 @@
         }
       ],
       "passed": true,
-      "elapsed_s": 1.38
+      "elapsed_s": 1.15
     },
     {
       "id": "BM-05",
@@ -221,7 +221,7 @@
         }
       ],
       "passed": true,
-      "elapsed_s": 2.39
+      "elapsed_s": 2.21
     },
     {
       "id": "BM-06",
@@ -251,7 +251,7 @@
         }
       ],
       "passed": true,
-      "elapsed_s": 1.16
+      "elapsed_s": 0.94
     },
     {
       "id": "BM-07",
@@ -285,7 +285,7 @@
         }
       ],
       "passed": true,
-      "elapsed_s": 0.74
+      "elapsed_s": 0.55
     },
     {
       "id": "BM-08",
@@ -312,7 +312,7 @@
         }
       ],
       "passed": true,
-      "elapsed_s": 0.75
+      "elapsed_s": 0.5
     },
     {
       "id": "BM-09",
@@ -366,7 +366,7 @@
         }
       ],
       "passed": true,
-      "elapsed_s": 0.47
+      "elapsed_s": 0.36
     },
     {
       "id": "BM-L1",

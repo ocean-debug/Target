@@ -1,0 +1,104 @@
+{
+  "tasks": 72,
+  "tasks_passed": 72,
+  "assertions": 270,
+  "assertions_passed": 270,
+  "score": 1.0,
+  "per_bucket": {
+    "disease_library_normal": {
+      "passed": 72,
+      "total": 72,
+      "score": 1.0
+    },
+    "disease_library_missing_context": {
+      "passed": 72,
+      "total": 72,
+      "score": 1.0
+    },
+    "disease_library_conflicting_evidence": {
+      "passed": 54,
+      "total": 54,
+      "score": 1.0
+    },
+    "disease_library_trap": {
+      "passed": 72,
+      "total": 72,
+      "score": 1.0
+    }
+  },
+  "per_disease": {
+    "ad": {
+      "tasks_passed": 4,
+      "tasks_total": 4
+    },
+    "als": {
+      "tasks_passed": 4,
+      "tasks_total": 4
+    },
+    "asthma": {
+      "tasks_passed": 4,
+      "tasks_total": 4
+    },
+    "brca": {
+      "tasks_passed": 4,
+      "tasks_total": 4
+    },
+    "copd": {
+      "tasks_passed": 4,
+      "tasks_total": 4
+    },
+    "crc": {
+      "tasks_passed": 4,
+      "tasks_total": 4
+    },
+    "crohn": {
+      "tasks_passed": 4,
+      "tasks_total": 4
+    },
+    "luad": {
+      "tasks_passed": 4,
+      "tasks_total": 4
+    },
+    "melanoma": {
+      "tasks_passed": 4,
+      "tasks_total": 4
+    },
+    "ms": {
+      "tasks_passed": 4,
+      "tasks_total": 4
+    },
+    "nash": {
+      "tasks_passed": 4,
+      "tasks_total": 4
+    },
+    "pd": {
+      "tasks_passed": 4,
+      "tasks_total": 4
+    },
+    "psoriasis": {
+      "tasks_passed": 4,
+      "tasks_total": 4
+    },
+    "ra": {
+      "tasks_passed": 4,
+      "tasks_total": 4
+    },
+    "sle": {
+      "tasks_passed": 4,
+      "tasks_total": 4
+    },
+    "t1d": {
+      "tasks_passed": 4,
+      "tasks_total": 4
+    },
+    "t2d": {
+      "tasks_passed": 4,
+      "tasks_total": 4
+    },
+    "uc": {
+      "tasks_passed": 4,
+      "tasks_total": 4
+    }
+  },
+  "failed_tasks": []
+}

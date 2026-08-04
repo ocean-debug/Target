@@ -1,0 +1,338 @@
+[
+  {
+    "rank": 1,
+    "gene": "BRIP1",
+    "scores": {
+      "contract_version": "2.1.0",
+      "human_genetics": 21.3689,
+      "disease_omics": 0.0,
+      "perturbation": 0.0,
+      "mechanism": 4.0,
+      "druggability": 4.0,
+      "safety_translation": 0.0,
+      "total": 29.3689
+    },
+    "decision": "GO",
+    "evidence_ids": [
+      "ev-c78048ec5eb5",
+      "ev-0f6a25e9dc59",
+      "ev-d45a102bb4aa",
+      "ev-c91938103923",
+      "ev-52720989a7a8",
+      "ev-b34069a5582b",
+      "ev-ec09b17eeee2",
+      "ev-3794967bd068",
+      "ev-eaebc2e0eef4",
+      "ev-55395cb5b6ee"
+    ],
+    "supporting_ids": [
+      "ev-c78048ec5eb5",
+      "ev-0f6a25e9dc59"
+    ],
+    "opposing_ids": [],
+    "safety_blockers": [],
+    "evidence_gaps": [
+      "No matched, source-grounded safety evidence was retrieved.",
+      "No matched-context measured perturbation evidence for this target.",
+      "No known drug was returned in the current Open Targets result."
+    ],
+    "matched_drugs": []
+  },
+  {
+    "rank": 2,
+    "gene": "CDH1",
+    "scores": {
+      "contract_version": "2.1.0",
+      "human_genetics": 21.1425,
+      "disease_omics": 0.0,
+      "perturbation": 0.0,
+      "mechanism": 4.0,
+      "druggability": 4.0,
+      "safety_translation": 0.0,
+      "total": 29.1425
+    },
+    "decision": "GO",
+    "evidence_ids": [
+      "ev-51f52238cc93",
+      "ev-2913b84add55",
+      "ev-0f71292779ca",
+      "ev-0a38a5a2d5e2",
+      "ev-d35ff9a3a458",
+      "ev-6344dcd6ab9a"
+    ],
+    "supporting_ids": [
+      "ev-51f52238cc93",
+      "ev-2913b84add55",
+      "ev-0f71292779ca"
+    ],
+    "opposing_ids": [],
+    "safety_blockers": [],
+    "evidence_gaps": [
+      "No matched, source-grounded safety evidence was retrieved.",
+      "No matched-context measured perturbation evidence for this target.",
+      "No known drug was returned in the current Open Targets result."
+    ],
+    "matched_drugs": []
+  },
+  {
+    "rank": 3,
+    "gene": "BRCA1",
+    "scores": {
+      "contract_version": "2.1.0",
+      "human_genetics": 20.9107,
+      "disease_omics": 0.0,
+      "perturbation": 0.0,
+      "mechanism": 4.0,
+      "druggability": 4.0,
+      "safety_translation": 0.0,
+      "total": 28.9107
+    },
+    "decision": "GO",
+    "evidence_ids": [
+      "ev-c419b36d141b",
+      "ev-4e8e02615420",
+      "ev-25ec41392136",
+      "ev-0a57e8086b59",
+      "ev-d782a4cc8598",
+      "ev-d301d58e20ce",
+      "ev-53c3c9555936",
+      "ev-6f846d15d4f5"
+    ],
+    "supporting_ids": [
+      "ev-c419b36d141b",
+      "ev-25ec41392136"
+    ],
+    "opposing_ids": [],
+    "safety_blockers": [],
+    "evidence_gaps": [
+      "No matched, source-grounded safety evidence was retrieved.",
+      "No matched-context measured perturbation evidence for this target.",
+      "No known drug was returned in the current Open Targets result."
+    ],
+    "matched_drugs": []
+  },
+  {
+    "rank": 4,
+    "gene": "PALB2",
+    "scores": {
+      "contract_version": "2.1.0",
+      "human_genetics": 20.8762,
+      "disease_omics": 0.0,
+      "perturbation": 0.0,
+      "mechanism": 4.0,
+      "druggability": 4.0,
+      "safety_translation": 0.0,
+      "total": 28.8762
+    },
+    "decision": "GO",
+    "evidence_ids": [
+      "ev-fb3e0b6a0253",
+      "ev-e3d4e7347b47",
+      "ev-0f626413d44e",
+      "ev-1d1ac7e83fc7",
+      "ev-15d0d83a57e7",
+      "ev-d5cad31f2c52"
+    ],
+    "supporting_ids": [
+      "ev-fb3e0b6a0253",
+      "ev-0f626413d44e"
+    ],
+    "opposing_ids": [],
+    "safety_blockers": [],
+    "evidence_gaps": [
+      "No matched, source-grounded safety evidence was retrieved.",
+      "No matched-context measured perturbation evidence for this target.",
+      "No known drug was returned in the current Open Targets result."
+    ],
+    "matched_drugs": []
+  },
+  {
+    "rank": 5,
+    "gene": "CHEK2",
+    "scores": {
+      "contract_version": "2.1.0",
+      "human_genetics": 20.6886,
+      "disease_omics": 0.0,
+      "perturbation": 0.0,
+      "mechanism": 4.0,
+      "druggability": 4.0,
+      "safety_translation": 0.0,
+      "total": 28.6886
+    },
+    "decision": "GO",
+    "evidence_ids": [
+      "ev-8ad9b9c855b1",
+      "ev-96708dcf052d",
+      "ev-1b3837d967bb"
+    ],
+    "supporting_ids": [
+      "ev-8ad9b9c855b1"
+    ],
+    "opposing_ids": [],
+    "safety_blockers": [],
+    "evidence_gaps": [
+      "No matched, source-grounded safety evidence was retrieved.",
+      "No matched-context measured perturbation evidence for this target.",
+      "No known drug was returned in the current Open Targets result."
+    ],
+    "matched_drugs": []
+  },
+  {
+    "rank": 6,
+    "gene": "BRCA2",
+    "scores": {
+      "contract_version": "2.1.0",
+      "human_genetics": 20.9018,
+      "disease_omics": 0.0,
+      "perturbation": 0.0,
+      "mechanism": 0.0,
+      "druggability": 4.0,
+      "safety_translation": 0.0,
+      "total": 24.9018
+    },
+    "decision": "INSUFFICIENT_EVIDENCE",
+    "evidence_ids": [
+      "ev-305c656399c0"
+    ],
+    "supporting_ids": [
+      "ev-305c656399c0"
+    ],
+    "opposing_ids": [],
+    "safety_blockers": [],
+    "evidence_gaps": [
+      "No matched, source-grounded safety evidence was retrieved.",
+      "No matched-context measured perturbation evidence for this target.",
+      "No span-validated literature claim for this target.",
+      "No known drug was returned in the current Open Targets result."
+    ],
+    "matched_drugs": []
+  },
+  {
+    "rank": 7,
+    "gene": "MSH6",
+    "scores": {
+      "contract_version": "2.1.0",
+      "human_genetics": 20.397,
+      "disease_omics": 0.0,
+      "perturbation": 0.0,
+      "mechanism": 0.0,
+      "druggability": 4.0,
+      "safety_translation": 0.0,
+      "total": 24.397
+    },
+    "decision": "INSUFFICIENT_EVIDENCE",
+    "evidence_ids": [
+      "ev-39c0e124b88f",
+      "ev-75ac9c4d771c"
+    ],
+    "supporting_ids": [
+      "ev-39c0e124b88f",
+      "ev-75ac9c4d771c"
+    ],
+    "opposing_ids": [],
+    "safety_blockers": [],
+    "evidence_gaps": [
+      "No matched, source-grounded safety evidence was retrieved.",
+      "No matched-context measured perturbation evidence for this target.",
+      "No span-validated literature claim for this target.",
+      "No known drug was returned in the current Open Targets result."
+    ],
+    "matched_drugs": []
+  },
+  {
+    "rank": 8,
+    "gene": "MSH2",
+    "scores": {
+      "contract_version": "2.1.0",
+      "human_genetics": 20.3845,
+      "disease_omics": 0.0,
+      "perturbation": 0.0,
+      "mechanism": 0.0,
+      "druggability": 4.0,
+      "safety_translation": 0.0,
+      "total": 24.3845
+    },
+    "decision": "INSUFFICIENT_EVIDENCE",
+    "evidence_ids": [
+      "ev-7d3dfd5417df",
+      "ev-b39a19af763c"
+    ],
+    "supporting_ids": [
+      "ev-7d3dfd5417df",
+      "ev-b39a19af763c"
+    ],
+    "opposing_ids": [],
+    "safety_blockers": [],
+    "evidence_gaps": [
+      "No matched, source-grounded safety evidence was retrieved.",
+      "No matched-context measured perturbation evidence for this target.",
+      "No span-validated literature claim for this target.",
+      "No known drug was returned in the current Open Targets result."
+    ],
+    "matched_drugs": []
+  },
+  {
+    "rank": 9,
+    "gene": "FBXO11",
+    "scores": {
+      "contract_version": "2.1.0",
+      "human_genetics": 20.3831,
+      "disease_omics": 0.0,
+      "perturbation": 0.0,
+      "mechanism": 0.0,
+      "druggability": 4.0,
+      "safety_translation": 0.0,
+      "total": 24.3831
+    },
+    "decision": "INSUFFICIENT_EVIDENCE",
+    "evidence_ids": [
+      "ev-726ebe201ba0"
+    ],
+    "supporting_ids": [
+      "ev-726ebe201ba0"
+    ],
+    "opposing_ids": [],
+    "safety_blockers": [],
+    "evidence_gaps": [
+      "No matched, source-grounded safety evidence was retrieved.",
+      "No matched-context measured perturbation evidence for this target.",
+      "No span-validated literature claim for this target.",
+      "No known drug was returned in the current Open Targets result."
+    ],
+    "matched_drugs": []
+  },
+  {
+    "rank": 10,
+    "gene": "MLH1",
+    "scores": {
+      "contract_version": "2.1.0",
+      "human_genetics": 20.3469,
+      "disease_omics": 0.0,
+      "perturbation": 0.0,
+      "mechanism": 0.0,
+      "druggability": 4.0,
+      "safety_translation": 0.0,
+      "total": 24.3469
+    },
+    "decision": "INSUFFICIENT_EVIDENCE",
+    "evidence_ids": [
+      "ev-facbf64f1d9d",
+      "ev-4976e1e15f9d",
+      "ev-0bcf342443e6"
+    ],
+    "supporting_ids": [
+      "ev-facbf64f1d9d",
+      "ev-4976e1e15f9d",
+      "ev-0bcf342443e6"
+    ],
+    "opposing_ids": [],
+    "safety_blockers": [],
+    "evidence_gaps": [
+      "No matched, source-grounded safety evidence was retrieved.",
+      "No matched-context measured perturbation evidence for this target.",
+      "No span-validated literature claim for this target.",
+      "No known drug was returned in the current Open Targets result."
+    ],
+    "matched_drugs": []
+  }
+]
