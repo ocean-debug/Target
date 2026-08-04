@@ -31,6 +31,14 @@ runs/
 artifacts/
 cache/
 models/
+*.log
+*.out
+*.err
+*.trace
+*.pid
+remote-profile*.json
+deployment-profile*.json
+.cluster/
 data/raw/
 data/processed/
 *.h5ad

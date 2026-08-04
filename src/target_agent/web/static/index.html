@@ -3,46 +3,58 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>TargetDiscovery Agent</title>
+  <meta name="color-scheme" content="dark">
+  <title>TargetDiscovery Agent · 科研工作台</title>
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-  <header>
-    <span class="eyebrow">BEST-PRACTICE RESEARCH AGENT</span>
-    <h1>TargetDiscovery 工作台</h1>
-    <p>动态检索公开数据，实时展示规划、工具、证据、审查与证据缺口。</p>
-    <span id="capability">正在读取系统能力……</span>
+  <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
+  <header class="hero">
+    <nav><span class="brand"><i>TD</i> TargetDiscovery Agent</span><span id="capability" class="system-pill">正在检查系统能力…</span></nav>
+    <div class="hero-copy">
+      <div><span class="eyebrow">BEST-PRACTICE ALIGNED · TRACEABLE · RELIABLE</span><h1>从疾病问题，到<br><em>可验证的药物靶点</em></h1></div>
+      <p>动态发现公开数据、调用受控分析工具、融合多源证据，并在证据不足时主动降级。页面只呈现后端Evidence Store中存在的结论。</p>
+    </div>
+    <div class="pipeline" aria-label="Agent工作流"><span>问题定义</span><b>→</b><span>数据发现</span><b>→</b><span>组学分析</span><b>→</b><span>证据融合</span><b>→</b><span>可靠审查</span><b>→</b><span>实验设计</span></div>
   </header>
+
   <main>
-    <section class="panel input-panel">
-      <h2>研究问题</h2>
-      <label>疾病<input id="disease" value="Alzheimer disease"></label>
-      <div class="grid">
-        <label>疾病亚型<input id="subtype" placeholder="可选"></label>
-        <label>疾病阶段<input id="stage" placeholder="可选"></label>
-      </div>
-      <div class="grid">
-        <label>组织<input id="tissue" value="brain"></label>
-        <label>细胞类型<input id="cell" placeholder="可选"></label>
-      </div>
-      <div class="grid">
-        <label>物种<input id="organism" value="Homo sapiens"></label>
-        <label>实验类型<input id="assay" value="RNA-seq"></label>
-      </div>
-      <label>优先GEO编号<input id="accessions" placeholder="可选，多个编号用逗号分隔"></label>
-      <label>排除GEO编号<input id="excluded-accessions" placeholder="可选，多个编号用逗号分隔"></label>
-      <div class="grid">
-        <label><input id="mode-geo" type="checkbox" checked> GEO bulk</label>
-        <label><input id="mode-census" type="checkbox" checked> CELLxGENE</label>
-      </div>
-      <label>目标表型<textarea id="phenotype">restore a disease-relevant cellular state</textarea></label>
-      <button id="run">启动 Agent</button><span id="run-id"></span>
+    <section class="section case-section">
+      <div class="section-head"><div><span class="section-no">01</span><h2>选择演示方式</h2></div><p>推荐先回放已验证案例，现场稳定展示完整科学链路；也可启动一次新的真实Agent运行。</p></div>
+      <div id="demo-cases" class="case-grid"><article class="case-card skeleton">正在读取已验证案例…</article></div>
+      <details class="live-panel">
+        <summary><span>启动新的真实运行</span><small>需要公共数据库网络；结果可能耗时</small></summary>
+        <div class="form-grid">
+          <label>疾病名称<input id="disease" value="lung adenocarcinoma"></label>
+          <label>疾病亚型<input id="subtype" placeholder="可选"></label>
+          <label>目标组织<input id="tissue" value="lung"></label>
+          <label>目标细胞类型<input id="cell" placeholder="可选"></label>
+          <label>疾病阶段<input id="stage" value="primary tumor"></label>
+          <label>物种<input id="organism" value="Homo sapiens"></label>
+          <label>实验类型<input id="assay" value="RNA-seq"></label>
+          <label>优先GEO编号<input id="accessions" placeholder="可选，多个编号用逗号分隔"></label>
+          <label class="span-2">希望抑制或恢复的表型<textarea id="phenotype">suppress malignant growth and restore tissue homeostasis</textarea></label>
+        </div>
+        <div class="mode-row"><label><input id="mode-geo" type="checkbox" checked> GEO bulk</label><label><input id="mode-census" type="checkbox" checked> CELLxGENE</label><button id="run" class="primary">启动Agent</button></div>
+      </details>
     </section>
-    <section class="panel"><h2>Plan / Tool Trace</h2><div id="events" class="events empty">等待运行</div></section>
-    <section class="panel wide"><h2>排名与 TargetCard</h2><div id="ranking" class="empty">结果只从后端 report.json 渲染</div></section>
-    <section class="panel"><h2>Reviewer</h2><div id="review" class="empty">等待审查</div></section>
-    <section class="panel"><h2>证据与机制图</h2><div id="evidence" class="empty">等待结构化证据</div></section>
+
+    <section id="workspace" class="workspace hidden" aria-live="polite">
+      <div class="run-bar"><div><span id="run-status" class="status-badge">READY</span><b id="run-title">等待案例</b><small id="run-meta"></small></div><div class="run-actions"><button id="replay" class="ghost">▶ 回放Trace</button><a id="report-link" class="ghost link-button" href="#">下载研究报告</a></div></div>
+
+      <section class="section"><div class="section-head compact"><div><span class="section-no">02</span><h2>研究问题与Agent计划</h2></div><p id="research-question"></p></div><div class="two-col"><div id="context" class="context-grid"></div><div><div class="subhead"><h3>类型化执行计划</h3><span id="planner-backend"></span></div><div id="plan" class="plan-list"></div></div></div></section>
+
+      <section class="section"><div class="section-head compact"><div><span class="section-no">03</span><h2>工具执行与数据集审查</h2></div><p>检索命中不是证据；只有通过确定性资格门的数据才进入正式分析。</p></div><div class="two-col trace-layout"><div><div class="subhead"><h3>实时 / 回放Trace</h3><span id="trace-progress">0 / 0</span></div><div id="events" class="events"></div></div><div><div class="subhead"><h3>工具覆盖</h3><span id="tool-summary"></span></div><div id="tools" class="tool-list"></div><div class="subhead dataset-head"><h3>GEO筛选</h3></div><div id="datasets" class="dataset-list"></div></div></div></section>
+
+      <section class="section"><div class="section-head compact"><div><span class="section-no">04</span><h2>证据融合与候选排序</h2></div><p>总分表示研究优先级，不是临床成功概率。</p></div><div id="evidence-metrics" class="metric-row"></div><div class="ranking-wrap"><table><thead><tr><th>#</th><th>Target</th><th>Decision</th><th>Priority</th><th>Genetics</th><th>Omics</th><th>Perturb.</th><th>Mechanism</th><th>Drug</th></tr></thead><tbody id="ranking"></tbody></table></div></section>
+
+      <section class="section"><div class="section-head compact"><div><span class="section-no">05</span><h2>重点TargetCard</h2></div><p>支持证据、反方证据、安全风险、药物、证据缺口和实验方案同时呈现。</p></div><div id="target-cards" class="target-grid"></div></section>
+
+      <section class="section"><div class="section-head compact"><div><span class="section-no">06</span><h2>Reviewer与科学边界</h2></div><p>Agent的可靠性不仅体现在给出答案，也体现在知道何时补证、降级或停止。</p></div><div class="two-col"><div><div class="subhead"><h3>Reviewer Findings</h3><span id="finding-summary"></span></div><div id="review" class="finding-list"></div></div><div><div class="subhead"><h3>可核对证据</h3><span id="evidence-count"></span></div><div id="evidence" class="evidence-list"></div></div></div></section>
+    </section>
   </main>
+
+  <div id="toast" class="toast" role="status"></div>
   <script src="/static/app.js"></script>
 </body>
 </html>

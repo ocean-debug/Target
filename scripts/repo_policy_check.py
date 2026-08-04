@@ -14,6 +14,27 @@ SECRET_PATTERNS = [
     re.compile(r"-----BEGIN (?:OPENSSH|RSA|EC) PRIVATE KEY-----"),
 ]
 LOCAL_ABSOLUTE = re.compile(r"(?:[A-Za-z]:\\Users\\|/Users/|/home/[^/\s]+/)")
+PRIVATE_IPV4 = re.compile(
+    r"(?<!\d)(?:10(?:\.\d{1,3}){3}|192\.168(?:\.\d{1,3}){2}|"
+    r"172\.(?:1[6-9]|2\d|3[01])(?:\.\d{1,3}){2})(?!\d)"
+)
+INFRASTRUCTURE_ID = re.compile(r"(?i)\b(?:gpu|cpu|node|login|compute)[-_]?\d{2,4}\b")
+PERSONAL_EMAIL = re.compile(r"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b")
+SAFE_EMAIL_DOMAINS = {"example.com", "example.org", "users.noreply.github.com"}
+SSH_IDENTITY = re.compile(
+    r"(?im)\b(?:ssh|scp|rsync)\b[^\r\n]{0,120}\b[A-Z0-9._-]+@[A-Z0-9.-]+\b"
+)
+KNOWN_PRIVATE_IDENTIFIERS = (
+    "".join(("hy", "wang")),
+    "".join(("agent", "test")),
+    "".join(("2211", "1520044")),
+    "\u738b\u6d77\u6d0b",
+    "\u5f20\u709c\u6c11",
+    "\u9648\u9526\u94b0",
+    "\u94b1\u53ef",
+    "\u7eaa\u5bb6\u704f",
+    "\u9648\u653f\u7ff0",
+)
 
 
 def main() -> None:
@@ -34,6 +55,19 @@ def main() -> None:
             violations.append(f"possible secret: {relative}")
         if LOCAL_ABSOLUTE.search(text):
             violations.append(f"local absolute path: {relative}")
+        if PRIVATE_IPV4.search(text):
+            violations.append(f"private network address: {relative}")
+        if INFRASTRUCTURE_ID.search(text):
+            violations.append(f"infrastructure identifier: {relative}")
+        if SSH_IDENTITY.search(text):
+            violations.append(f"SSH identity or host: {relative}")
+        for email in PERSONAL_EMAIL.findall(text):
+            if email.rsplit("@", 1)[1].lower() not in SAFE_EMAIL_DOMAINS:
+                violations.append(f"personal email: {relative}")
+                break
+        folded = text.casefold()
+        if any(identifier.casefold() in folded for identifier in KNOWN_PRIVATE_IDENTIFIERS):
+            violations.append(f"known private identifier: {relative}")
     if violations:
         raise SystemExit("\n".join(violations))
     print("REPO_POLICY=OK")

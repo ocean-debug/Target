@@ -14,6 +14,25 @@ from .contracts import CONTRACT_VERSION, TaskSpec, new_id
 from .runtime import TargetDiscoveryRuntime
 
 
+DEMO_CASES = (
+    {
+        "id": "luad", "run_id": "run-luad-v21-cached-3", "kind": "main",
+        "title": "肺腺癌靶点发现", "subtitle": "完整证据链与TargetCard",
+        "description": "动态GEO筛选、组学分析、遗传学/文献/药物融合与实验设计。",
+    },
+    {
+        "id": "uc", "run_id": "run-uc-v21-cached-3", "kind": "boundary",
+        "title": "UC可靠降级", "subtitle": "证据不足时不伪造结论",
+        "description": "展示not_covered、context_mismatch和completed_with_gaps。",
+    },
+    {
+        "id": "ad", "run_id": "run-ad-v21-cached-3", "kind": "generalization",
+        "title": "阿尔茨海默病", "subtitle": "跨疾病冷启动案例",
+        "description": "展示通用疾病标准化与公开数据发现能力。",
+    },
+)
+
+
 class BoundedExecutor:
     def __init__(self, workers: int, queue_size: int):
         self.executor = ThreadPoolExecutor(max_workers=workers, thread_name_prefix="target-agent")
@@ -103,10 +122,29 @@ def create_app(runtime: TargetDiscoveryRuntime | None = None) -> Flask:
             ],
         })
 
+    @app.get("/api/demo/cases")
+    def demo_cases():
+        cases = []
+        for configured in DEMO_CASES:
+            item = {key: value for key, value in configured.items() if key != "run_id"}
+            run_dir = _safe_run_dir(runtime.runs_dir, configured["run_id"])
+            status = _read_json(run_dir / "status.json")
+            available = bool(status and (run_dir / "report.json").is_file())
+            item["available"] = available
+            item["recommended"] = configured["id"] == "luad"
+            if available:
+                item["run_id"] = configured["run_id"]
+                item["terminal_status"] = status.get("terminal_status")
+            cases.append(item)
+        return jsonify({"contract_version": CONTRACT_VERSION, "cases": cases})
+
     @app.post("/api/runs")
     def create_run():
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            return jsonify({"error": "request body must be a JSON object"}), 400
         try:
-            task = TaskSpec.model_validate(request.get_json(force=True))
+            task = TaskSpec.model_validate(payload)
         except ValidationError as exc:
             return jsonify({"error": "invalid TaskSpec", "detail": exc.errors(include_url=False)}), 400
         run_id = new_id("run")
@@ -136,6 +174,8 @@ def create_app(runtime: TargetDiscoveryRuntime | None = None) -> Flask:
     @app.get("/api/runs/<run_id>/events")
     def events(run_id: str):
         run_dir = _safe_run_dir(runtime.runs_dir, run_id)
+        if not run_dir.is_dir():
+            return jsonify({"error": "run not found"}), 404
 
         def stream():
             delivered = 0
@@ -159,7 +199,27 @@ def create_app(runtime: TargetDiscoveryRuntime | None = None) -> Flask:
                 yield ": heartbeat\n\n"
                 time.sleep(1)
 
-        return Response(stream(), mimetype="text/event-stream", headers={"Cache-Control": "no-cache"})
+        return Response(stream(), mimetype="text/event-stream", headers={
+            "Cache-Control": "no-cache", "X-Accel-Buffering": "no",
+        })
+
+    @app.get("/api/runs/<run_id>/bundle")
+    def bundle(run_id: str):
+        run_dir = _safe_run_dir(runtime.runs_dir, run_id)
+        if not run_dir.is_dir():
+            return jsonify({"error": "run not found"}), 404
+        report_payload = _read_json(run_dir / "report.json")
+        status_payload = _read_json(run_dir / "status.json")
+        plan_payload = _read_json(run_dir / "execution_plan.json")
+        if not report_payload or not status_payload or not plan_payload:
+            return jsonify({"error": "run bundle is not ready"}), 409
+        return jsonify(_build_public_bundle(
+            run_id, status_payload, report_payload, plan_payload,
+            _read_json(run_dir / "target_cards.json") or [],
+            _read_jsonl(run_dir / "tool_results.jsonl"),
+            _read_jsonl(run_dir / "evidence_items.jsonl"),
+            _read_jsonl(run_dir / "trace.jsonl"),
+        ))
 
     @app.get("/api/runs/<run_id>/report")
     def report(run_id: str):
@@ -188,3 +248,119 @@ def _safe_run_dir(root: Path, run_id: str) -> Path:
     if root not in candidate.parents:
         raise ValueError("run path escaped root")
     return candidate
+
+
+def _read_json(path: Path):
+    if not path.is_file():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def _read_jsonl(path: Path) -> list[dict]:
+    if not path.is_file():
+        return []
+    rows = []
+    try:
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                value = json.loads(line)
+                if isinstance(value, dict):
+                    rows.append(value)
+    except (OSError, json.JSONDecodeError):
+        return []
+    return rows
+
+
+def _public_value(value):
+    blocked_keys = {"tool_run_id", "event_id", "job_id", "run_dir", "cache_dir", "absolute_path"}
+    if isinstance(value, dict):
+        return {key: _public_value(item) for key, item in value.items() if key not in blocked_keys}
+    if isinstance(value, list):
+        return [_public_value(item) for item in value]
+    if isinstance(value, str):
+        if value.startswith("/") or (len(value) > 2 and value[1] == ":" and value[2] in "\\/"):
+            return "[server artifact]"
+    return value
+
+
+def _build_public_bundle(
+    run_id: str, status: dict, report: dict, plan: dict,
+    cards: list[dict], tools: list[dict], evidence: list[dict], trace: list[dict],
+) -> dict:
+    claim_classes: dict[str, int] = {}
+    genes: dict[str, int] = {}
+    for item in evidence:
+        claim_class = item.get("claim_class", "UNKNOWN")
+        claim_classes[claim_class] = claim_classes.get(claim_class, 0) + 1
+        gene = item.get("gene_symbol")
+        if gene:
+            genes[gene] = genes.get(gene, 0) + 1
+    highlighted = set(report.get("highlighted_targets", []))
+    selected_evidence = [item for item in evidence if item.get("gene_symbol") in highlighted][:24]
+    if not selected_evidence:
+        selected_evidence = evidence[:24]
+
+    return _public_value({
+        "contract_version": CONTRACT_VERSION,
+        "run": {
+            "run_id": run_id,
+            "terminal_status": status.get("terminal_status"),
+            "state": status.get("state"),
+            "detail": status.get("detail", {}),
+        },
+        "question": report.get("question"),
+        "context": report.get("context", {}),
+        "plan": {
+            "planner_backend": plan.get("planner_backend"),
+            "fallback_used": plan.get("fallback_used", False),
+            "steps": [
+                {
+                    "step_id": step.get("step_id"), "name": step.get("name"),
+                    "tool": step.get("tool"), "dependencies": step.get("dependencies", []),
+                    "success_criteria": step.get("success_criteria", []),
+                    "degradation_conditions": step.get("degradation_conditions", []),
+                }
+                for step in plan.get("steps", [])
+            ],
+        },
+        "dataset_selection_trace": report.get("dataset_selection_trace", []),
+        "ranking": report.get("ranked_targets", []),
+        "highlighted_targets": report.get("highlighted_targets", []),
+        "target_cards": cards,
+        "reviewer_findings": report.get("reviewer_findings", []),
+        "report_policy": report.get("report_policy", {}),
+        "tools": [
+            {
+                "tool_name": item.get("tool_name"), "status": item.get("status"),
+                "coverage_status": item.get("coverage_status"),
+                "context_match_score": item.get("context_match_score"),
+                "cached": bool(item.get("cached")), "elapsed_ms": item.get("elapsed_ms"),
+                "warnings": item.get("warnings", []), "limitations": item.get("limitations", []),
+            }
+            for item in tools
+        ],
+        "evidence": {
+            "total": len(evidence), "claim_classes": claim_classes,
+            "genes": dict(sorted(genes.items(), key=lambda pair: (-pair[1], pair[0]))[:20]),
+            "items": [
+                {
+                    "gene_symbol": item.get("gene_symbol"), "claim_class": item.get("claim_class"),
+                    "statement": item.get("statement"), "source": item.get("source", {}),
+                    "source_span": item.get("source_span"), "context": item.get("context", {}),
+                    "stance": item.get("stance"), "uncertainty": item.get("uncertainty"),
+                    "context_match_score": item.get("context_match_score"),
+                }
+                for item in selected_evidence
+            ],
+        },
+        "trace": [
+            {
+                "event_type": item.get("event_type"), "state": item.get("state"),
+                "detail": item.get("detail", {}), "created_at": item.get("created_at"),
+            }
+            for item in trace
+        ],
+    })

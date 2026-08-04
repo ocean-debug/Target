@@ -35,3 +35,11 @@ Cross-module contracts, workflow choices, model boundaries and scientific-safety
 - Reference targets are evidence-graded (`approved_drug > gwas > mendelian > clinical_trial > mechanistic`) and serve as ranking sanity anchors, not as ground truth for scoring novelty.
 - Task templates encode the project 50/20/15/15 composition (normal / missing_context / conflicting_evidence / trap) with machine-checkable `expectation` blocks consumed by the benchmark layer.
 - The disease resolver merges library aliases at runtime; hard-coded legacy aliases win on conflict so existing behaviour never regresses.
+
+## 2026-08-04 - Stable demo replay and live workbench share one backend
+
+- **Status:** accepted
+- The main workbench supports both validated stored-run replay and new live Agent runs; replay is never represented as live execution.
+- The replay bundle is derived only from persisted status, Plan, Trace, ToolResult, EvidenceItem, ranking and TargetCard artifacts.
+- Internal tool/event identifiers, absolute server paths and secrets are excluded from the public bundle.
+- Frontend code performs presentation only and does not create new scientific scores, claims or database results.
