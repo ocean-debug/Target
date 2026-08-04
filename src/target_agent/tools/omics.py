@@ -507,9 +507,22 @@ class GEOMetadataAuditTool(ScientificTool):
             payload = self.llm.json_completion(system, json.dumps({"disease": disease, "samples": samples[:80]}, ensure_ascii=False))
         except LLMUnavailable:
             return None
+        if not isinstance(payload, dict):
+            return None
+        raw_groups = payload.get("groups")
+        if not isinstance(raw_groups, dict):
+            return None
         known = {sample["sample_id"] for sample in samples}
-        groups = {str(k): str(v) for k, v in (payload.get("groups") or {}).items() if k in known and v in {"case", "control", "exclude"}}
-        confidence = float(payload.get("confidence") or 0.0)
+        groups = {str(k): str(v) for k, v in raw_groups.items() if k in known and v in {"case", "control", "exclude"}}
+        confidence_raw = payload.get("confidence")
+        if isinstance(confidence_raw, dict):  # some models nest e.g. {"score": 0.9, "rationale": ...}
+            confidence_raw = next((v for v in confidence_raw.values() if isinstance(v, (int, float))), None)
+            if confidence_raw is None:
+                return None  # confidence was provided but unusable; distrust the whole payload
+        try:
+            confidence = float(confidence_raw) if confidence_raw is not None else 0.0
+        except (TypeError, ValueError):
+            return None
         if not groups or not 0 <= confidence <= 1:
             return None
         return groups, confidence

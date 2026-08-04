@@ -295,7 +295,16 @@ def main() -> int:
             continue
         print(f"[bench] {entry['id']} {entry['title']} ...", flush=True)
         shared = (args.out / "shared_cache") if args.shared_cache else None
-        reports.append(run_task(entry, work_root / entry["id"], cache_dir=shared))
+        try:
+            reports.append(run_task(entry, work_root / entry["id"], cache_dir=shared))
+        except Exception as exc:  # one crashing entry must not kill the whole matrix
+            reports.append({
+                "id": entry["id"], "title": entry["title"], "category": entry["category"],
+                "mode": entry["mode"],
+                "results": [{"assertion": {"type": "_task_execution"}, "passed": False,
+                             "failure": f"task crashed: {exc.__class__.__name__}: {exc}"}],
+                "passed": False, "elapsed_s": 0.0,
+            })
         print(f"[bench] {entry['id']} -> {'PASS' if reports[-1]['passed'] else 'FAIL'}"
               f" ({reports[-1]['elapsed_s']}s)", flush=True)
 
