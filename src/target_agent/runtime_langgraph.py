@@ -1,0 +1,413 @@
+"""LangGraph-based runtime: same pipeline semantics as runtime.py, expressed as a StateGraph.
+
+Migration notes
+---------------
+The original :class:`~target_agent.runtime.TargetDiscoveryRuntime` is a hand-rolled
+state machine. This module replicates its exact node semantics on LangGraph so that:
+
+- the graph topology (intake -> plan -> tool loop -> integrity -> reviewer -> ranking -> report)
+  is explicit, inspectable and extensible (new tools = new plan steps, no runtime edits);
+- checkpoint/resume stays file-backed through ``EvidenceStore`` (identical contract:
+  ``checkpoint.json`` keys, ``status.json`` shape, trace events);
+- both runtimes are parity-tested on the same fake registry, so the migration cannot
+  silently change scientific outputs.
+
+Artifacts written to the run directory are byte-compatible with the legacy runtime
+(status.json, checkpoint.json, evidence_items.jsonl, tool_results.jsonl, trace.jsonl,
+ranked_targets.json, target_cards.json, mechanistic_evidence_graph.json, report.*, case.json).
+"""
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Any, TypedDict
+
+from langgraph.graph import END, START, StateGraph
+
+from .cards import build_cards
+from .contracts import (
+    CONTRACT_VERSION, CaseRecord, Claim, ClaimClass, EvidenceItem, ExecutionPlan,
+    PlanStep, ReviewerFinding, TaskSpec, TerminalStatus, ToolResult, TraceEvent, new_id,
+)
+from .graphs import build_mechanistic_graph
+from .llm import StepClient
+from .planner import Planner
+from .ranking import RankedTarget, rank_targets
+from .reporting import build_disease_report, build_mch_report, write_report
+from .reviewer import Reviewer
+from .settings import Settings, load_settings
+from .store import EvidenceStore
+from .tools import ToolRegistry, default_registry
+from .tools.base import ToolContext
+
+
+class PipelineState(TypedDict, total=False):
+    """Mutable state threaded through the LangGraph nodes.
+
+    Objects are passed by reference (in-memory graph, no serializer); all durable
+    state is mirrored to disk through ``EvidenceStore`` exactly like the legacy runtime.
+    """
+
+    task: TaskSpec
+    run_id: str
+    resume: bool
+    store: EvidenceStore
+    checkpoint: dict[str, Any] | None
+    early_terminal: bool
+    plan: ExecutionPlan
+    ordered_steps: list[PlanStep]
+    completed_steps: set[str]
+    candidate_genes: list[str]
+    tool_calls: int
+    prior_results: list[ToolResult]
+    revision_history: list[dict[str, Any]]
+    tool_loop_done: bool
+    results: list[ToolResult]
+    evidence: list[EvidenceItem]
+    findings: list[ReviewerFinding]
+    status: TerminalStatus
+    ranked_payload: list[dict[str, Any]]
+    cards: list[Any]
+    final_claims: list[Claim]
+
+
+class LangGraphRuntime:
+    """Drop-in replacement for ``TargetDiscoveryRuntime`` with a LangGraph topology."""
+
+    def __init__(
+        self,
+        runs_dir: Path | None = None,
+        cache_dir: Path | None = None,
+        registry: ToolRegistry | None = None,
+        planner: Planner | None = None,
+        settings: Settings | None = None,
+    ):
+        self.settings = settings or load_settings()
+        self.runs_dir = runs_dir or self.settings.runs_dir
+        self.cache_dir = cache_dir or self.settings.cache_dir
+        self.registry = registry or default_registry(self.settings)
+        self.planner = planner or Planner(StepClient.from_settings(self.settings), self.registry)
+        if self.planner.registry is None:
+            self.planner.registry = self.registry
+        self.reviewer = Reviewer(getattr(self.planner, "client", None), settings=self.settings)
+        self._graph = self._build_graph()
+
+    # ------------------------------------------------------------------ tracing
+    def _trace(self, store: EvidenceStore, run_id: str, task: TaskSpec, event_type: str, state: str,
+               detail: dict[str, Any] | None = None, related_ids: list[str] | None = None) -> None:
+        store.add_trace(TraceEvent(
+            run_id=run_id, task_id=task.task_id, event_type=event_type, state=state,
+            detail=detail or {}, related_ids=related_ids or [],
+        ))
+
+    @staticmethod
+    def _status(store: EvidenceStore, run_id: str, task: TaskSpec, state: str,
+                terminal: TerminalStatus | None = None, detail: dict[str, Any] | None = None) -> None:
+        store.save_json("status.json", {
+            "contract_version": CONTRACT_VERSION, "run_id": run_id, "task_id": task.task_id,
+            "state": state, "terminal_status": terminal.value if terminal else None, "detail": detail or {},
+        })
+
+    # ------------------------------------------------------------------ graph
+    def _build_graph(self):
+        graph = StateGraph(PipelineState)
+        graph.add_node("intake", self._node_intake)
+        graph.add_node("plan", self._node_plan)
+        graph.add_node("tool_step", self._node_tool_step)
+        graph.add_node("integrity", self._node_integrity)
+        graph.add_node("reviewer", self._node_reviewer)
+        graph.add_node("ranking", self._node_ranking)
+        graph.add_node("report", self._node_report)
+
+        graph.add_edge(START, "intake")
+        graph.add_conditional_edges("intake", lambda s: "terminal" if s["early_terminal"] else "plan",
+                                    {"terminal": END, "plan": "plan"})
+        graph.add_edge("plan", "tool_step")
+        graph.add_conditional_edges("tool_step", lambda s: "integrity" if s["tool_loop_done"] else "tool_step",
+                                    {"integrity": "integrity", "tool_step": "tool_step"})
+        graph.add_edge("integrity", "reviewer")
+        graph.add_edge("reviewer", "ranking")
+        graph.add_edge("ranking", "report")
+        graph.add_edge("report", END)
+        return graph.compile()
+
+    # ------------------------------------------------------------------ nodes
+    def _node_intake(self, state: PipelineState) -> dict[str, Any]:
+        task, run_id, resume = state["task"], state["run_id"], state["resume"]
+        store = EvidenceStore(self.runs_dir / run_id)
+        if resume:
+            stored_task = store.load_task()
+            if stored_task is not None:
+                identity_fields = {"task_id", "created_at"}
+                incoming_payload = task.model_dump(mode="json", exclude=identity_fields)
+                stored_payload = stored_task.model_dump(mode="json", exclude=identity_fields)
+                if incoming_payload != stored_payload:
+                    raise ValueError("resume input does not match the stored task specification")
+                task = stored_task
+        checkpoint = store.load_checkpoint() if resume else None
+        if checkpoint and checkpoint.get("terminal_status"):
+            return {"task": task, "store": store, "checkpoint": checkpoint, "early_terminal": True}
+        store.save_task(task)
+        self._status(store, run_id, task, "intake")
+        self._trace(store, run_id, task, "state_transition", "intake", {"resume": resume})
+        return {
+            "task": task, "store": store, "checkpoint": checkpoint, "early_terminal": False,
+            "completed_steps": set((checkpoint or {}).get("completed_steps", [])),
+            "candidate_genes": list((checkpoint or {}).get("candidate_genes", task.candidate_genes)),
+            "tool_calls": int((checkpoint or {}).get("tool_calls", 0)),
+            "prior_results": store.tool_results() if checkpoint else [],
+            "revision_history": list((checkpoint or {}).get("revision_history", [])),
+            "tool_loop_done": False,
+        }
+
+    def _node_plan(self, state: PipelineState) -> dict[str, Any]:
+        task, store, checkpoint = state["task"], state["store"], state["checkpoint"]
+        plan_path = store.run_dir / "execution_plan.json"
+        if checkpoint and plan_path.exists():
+            plan = ExecutionPlan.model_validate_json(plan_path.read_text(encoding="utf-8"))
+        else:
+            plan = self.planner.create_plan(task)
+            store.save_plan(plan)
+        planner_meta = getattr(self.planner.client, "last_request_meta", None) if self.planner.client else None
+        self._trace(store, state["run_id"], task, "plan", "planner", {
+            "planner_backend": plan.planner_backend, "fallback_used": plan.fallback_used,
+            "steps": [step.step_id for step in plan.steps], "provider_request": planner_meta,
+        }, [plan.plan_id])
+        return {"plan": plan, "ordered_steps": self._ordered_steps(plan)}
+
+    def _node_tool_step(self, state: PipelineState) -> dict[str, Any]:
+        task, run_id, store = state["task"], state["run_id"], state["store"]
+        completed_steps = set(state["completed_steps"])
+        candidate_genes = list(state["candidate_genes"])
+        tool_calls = state["tool_calls"]
+        prior_results = list(state["prior_results"])
+        revision_history = list(state["revision_history"])
+        self._status(store, run_id, task, "tool_execution")
+
+        for step in state["ordered_steps"]:
+            if step.step_id in completed_steps:
+                continue
+            unmet = [dependency for dependency in step.dependencies if dependency not in completed_steps]
+            if unmet:
+                raise ValueError(f"step {step.step_id} has unmet dependencies: {unmet}")
+            if not step.tool:
+                completed_steps.add(step.step_id)
+                continue
+            if tool_calls >= task.constraints.max_tool_calls:
+                self._trace(store, run_id, task, "degradation", "tool_execution",
+                            {"reason": "tool_call_budget_exhausted"})
+                return {"completed_steps": completed_steps, "candidate_genes": candidate_genes,
+                        "tool_calls": tool_calls, "prior_results": prior_results,
+                        "revision_history": revision_history, "tool_loop_done": True}
+            tool = self.registry.get(step.tool)
+            self._trace(store, run_id, task, "tool_call", "tool_execution",
+                        {"tool": step.tool, "step_id": step.step_id})
+            execution = tool.run(ToolContext(
+                task=task, run_dir=store.run_dir, cache_dir=self.cache_dir, candidate_genes=candidate_genes,
+                prior_results=prior_results, settings=self.settings,
+            ))
+            tool_calls += 1
+            for item in execution.evidence:
+                store.add_evidence(item)
+            store.add_tool_result(execution.result)
+            prior_results.append(execution.result)
+            candidate_genes = self._merge_candidates(
+                candidate_genes, execution.result, task.constraints.max_initial_candidates)
+            completed_steps.add(step.step_id)
+            self._trace(store, run_id, task, "tool_result", "tool_execution", {
+                "tool": step.tool, "status": execution.result.status.value,
+                "coverage_status": execution.result.coverage_status.value,
+                "context_match_score": execution.result.context_match_score,
+                "candidate_genes_emitted": len(execution.result.candidate_genes),
+            }, [execution.result.tool_run_id, *execution.result.evidence_ids])
+            if execution.result.outputs.get("retry_performed"):
+                action = {
+                    "round": min(task.constraints.max_review_rounds, 1),
+                    "action": "rejected ineligible GEO candidates and selected the next eligible dataset",
+                    "selection_trace": execution.result.outputs.get("selection_trace", []),
+                }
+                revision_history.append(action)
+                self._trace(store, run_id, task, "replan", "tool_execution", action,
+                            [execution.result.tool_run_id])
+            checkpoint = {
+                "stage": "tool_execution", "completed_steps": sorted(completed_steps),
+                "candidate_genes": candidate_genes, "tool_calls": tool_calls,
+                "revision_history": revision_history,
+            }
+            store.checkpoint(checkpoint)
+            self._trace(store, run_id, task, "checkpoint", "tool_execution", checkpoint)
+            if execution.result.status.value == "out_of_scope" and step.tool == "mch_causal_gold":
+                return {"completed_steps": completed_steps, "candidate_genes": candidate_genes,
+                        "tool_calls": tool_calls, "prior_results": prior_results,
+                        "revision_history": revision_history, "tool_loop_done": True}
+            # one tool execution per node invocation; loop continues via conditional edge
+            return {"completed_steps": completed_steps, "candidate_genes": candidate_genes,
+                    "tool_calls": tool_calls, "prior_results": prior_results,
+                    "revision_history": revision_history, "tool_loop_done": False}
+        # no further steps to execute
+        return {"completed_steps": completed_steps, "candidate_genes": candidate_genes,
+                "tool_calls": tool_calls, "prior_results": prior_results,
+                "revision_history": revision_history, "tool_loop_done": True}
+
+    def _node_integrity(self, state: PipelineState) -> dict[str, Any]:
+        store = state["store"]
+        results = store.tool_results()
+        evidence = store.evidences()
+        store.assert_referential_integrity()
+        self._status(store, state["run_id"], state["task"], "reviewer")
+        return {"results": results, "evidence": evidence}
+
+    def _node_reviewer(self, state: PipelineState) -> dict[str, Any]:
+        task, store = state["task"], state["store"]
+        findings = self.reviewer.review(task, state["results"], state["evidence"])
+        for finding in findings:
+            store.add_finding(finding)
+        self._trace(store, state["run_id"], task, "review", "reviewer", {
+            "round": 1, "blocking": sum(f.severity == "blocking" for f in findings),
+            "major": sum(f.severity == "major" for f in findings),
+            "minor": sum(f.severity == "minor" for f in findings),
+            "reviewer_backend": self.reviewer.last_backend,
+        }, [f.finding_id for f in findings])
+        revision_history = list(state["revision_history"])
+        if any(f.severity in {"blocking", "major"} for f in findings):
+            action = {"round": 2, "action": "retain unresolved external evidence gaps; no fabricated repair"}
+            revision_history.append(action)
+            self._trace(store, state["run_id"], task, "replan", "reviewer", action)
+        return {"findings": findings, "revision_history": revision_history}
+
+    def _node_ranking(self, state: PipelineState) -> dict[str, Any]:
+        task, store = state["task"], state["store"]
+        status = self._terminal_status(task, state["findings"], state["results"])
+        ranked_payload: list[dict[str, Any]] = []
+        cards: list[Any] = []
+        final_claims: list[Claim] = []
+        candidate_genes = state["candidate_genes"]
+        if task.task_type == "disease_to_target" and candidate_genes:
+            ranked = rank_targets(candidate_genes, state["evidence"], state["results"])
+            ranked_payload = self._serialize_ranked(ranked, task.constraints.max_ranked_targets)
+            cards = build_cards(task, ranked)
+            store.save_json("ranked_targets.json", ranked_payload)
+            store.save_cards(cards)
+            graph = build_mechanistic_graph(task, state["evidence"], [row["gene"] for row in ranked_payload])
+            store.save_json("mechanistic_evidence_graph.json", graph)
+            for row in ranked_payload:
+                if row["evidence_ids"]:
+                    claim = Claim(
+                        claim_class=ClaimClass.INFERRED,
+                        statement=f"{row['gene']} is ranked {row['rank']} for prioritization; this is not a success probability.",
+                        evidence_ids=row["evidence_ids"],
+                        synthesis_rationale="Transparent six-dimensional ranking with context multipliers and independent blocker retention.",
+                    )
+                    store.add_claim(claim)
+                    final_claims.append(claim)
+            self._trace(store, state["run_id"], task, "ranking", "ranking", {
+                "ranked_targets": len(ranked_payload), "target_cards": len(cards),
+                "highlighted_targets": [row["gene"] for row in ranked_payload[:3]],
+            }, [card.target_card_id for card in cards])
+        return {"status": status, "ranked_payload": ranked_payload, "cards": cards, "final_claims": final_claims}
+
+    def _node_report(self, state: PipelineState) -> dict[str, Any]:
+        task, store, status = state["task"], state["store"], state["status"]
+        results = state["results"]
+        if task.task_type == "disease_to_target":
+            report_payload, markdown = build_disease_report(
+                task, status, state["ranked_payload"], state["cards"], state["findings"], results)
+        else:
+            mch_result = next((result for result in results if result.tool_name == "mch_causal_gold"), None)
+            report_payload, markdown = build_mch_report(task, status, mch_result, state["findings"])
+            if mch_result and mch_result.outputs.get("graph"):
+                store.save_json("causal_graph.json", mch_result.outputs["graph"])
+        write_report(store.run_dir, report_payload, markdown)
+        self._trace(store, state["run_id"], task, "report", "report",
+                    {"status": status.value}, [claim.claim_id for claim in state["final_claims"]])
+        case = CaseRecord(
+            run_id=state["run_id"], task_spec=task, plan=state["plan"],
+            tool_run_ids=[result.tool_run_id for result in results],
+            finding_ids=[finding.finding_id for finding in state["findings"]],
+            revision_history=state["revision_history"],
+            final_status=status, final_claim_ids=[claim.claim_id for claim in state["final_claims"]],
+            scientific_review="pending", promotion_eligible=False,
+        )
+        store.save_case(case)
+        final_checkpoint = {
+            "stage": "terminal", "completed_steps": sorted(state["completed_steps"]),
+            "candidate_genes": state["candidate_genes"], "tool_calls": state["tool_calls"],
+            "terminal_status": status.value, "revision_history": state["revision_history"],
+        }
+        store.checkpoint(final_checkpoint)
+        self._status(store, state["run_id"], task, "terminal", status, {
+            "report": "report.md", "ranked_targets": len(state["ranked_payload"]),
+            "target_cards": len(state["cards"]), "tool_calls": state["tool_calls"],
+        })
+        return {}
+
+    # ------------------------------------------------------------------ helpers (identical to legacy runtime)
+    @staticmethod
+    def _serialize_ranked(ranked: list[RankedTarget], limit: int) -> list[dict[str, Any]]:
+        return [
+            {
+                "rank": rank, "gene": item.gene, "scores": item.scores.model_dump(mode="json"),
+                "decision": item.decision, "evidence_ids": item.evidence_ids,
+                "supporting_ids": item.supporting_ids, "opposing_ids": item.opposing_ids,
+                "safety_blockers": item.safety_blockers, "evidence_gaps": item.evidence_gaps,
+                "matched_drugs": item.matched_drugs,
+            }
+            for rank, item in enumerate(ranked[:limit], start=1)
+        ]
+
+    @staticmethod
+    def _ordered_steps(plan: ExecutionPlan) -> list[PlanStep]:
+        by_id = {step.step_id: step for step in plan.steps}
+        if len(by_id) != len(plan.steps):
+            raise ValueError("execution plan contains duplicate step IDs")
+        ordered: list[PlanStep] = []
+        visiting: set[str] = set()
+        visited: set[str] = set()
+
+        def visit(step: PlanStep) -> None:
+            if step.step_id in visiting:
+                raise ValueError("execution plan contains a dependency cycle")
+            if step.step_id in visited:
+                return
+            visiting.add(step.step_id)
+            for dependency in step.dependencies:
+                if dependency not in by_id:
+                    raise ValueError(f"execution plan dependency does not exist: {dependency}")
+                visit(by_id[dependency])
+            visiting.remove(step.step_id)
+            visited.add(step.step_id)
+            ordered.append(step)
+
+        for item in plan.steps:
+            visit(item)
+        return ordered
+
+    @staticmethod
+    def _merge_candidates(current: list[str], result: ToolResult, limit: int) -> list[str]:
+        emitted = [str(gene).upper() for gene in result.candidate_genes if gene]
+        if result.tool_name == "omics_candidate_extraction" and emitted:
+            base = emitted
+        else:
+            base = [*emitted, *current]
+        return list(dict.fromkeys(base))[:limit]
+
+    @staticmethod
+    def _terminal_status(task: TaskSpec, findings: list[ReviewerFinding], results: list[ToolResult]) -> TerminalStatus:
+        blocking = [finding for finding in findings if finding.severity == "blocking"]
+        if any(finding.category == "missing_provenance" for finding in blocking):
+            return TerminalStatus.FAILED
+        if task.task_type == "trait_mechanism" and any(finding.category == "coverage_gap" for finding in blocking):
+            return TerminalStatus.NEEDS_INPUT
+        if any(result.status.value == "failed" for result in results) or any(
+                finding.severity in {"blocking", "major"} for finding in findings):
+            return TerminalStatus.COMPLETED_WITH_GAPS
+        return TerminalStatus.COMPLETED
+
+    # ------------------------------------------------------------------ entry point
+    def run(self, task: TaskSpec, run_id: str | None = None, resume: bool = False) -> dict[str, Any]:
+        run_id = run_id or new_id("run")
+        run_dir = self.runs_dir / run_id
+        if run_dir.exists() and not resume:
+            raise FileExistsError(f"run already exists: {run_id}; use resume=True")
+        self._graph.invoke({"task": task, "run_id": run_id, "resume": resume})
+        return json.loads((run_dir / "status.json").read_text(encoding="utf-8"))

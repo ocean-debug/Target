@@ -42,6 +42,8 @@ class Settings(BaseSettings):
     web_queue_size: int = Field(default=8, alias="TARGET_AGENT_WEB_QUEUE_SIZE", ge=1, le=100)
     gsea_permutations: int = Field(default=1000, alias="TARGET_AGENT_GSEA_PERMUTATIONS", ge=100, le=10000)
     random_seed: int = Field(default=123, alias="TARGET_AGENT_RANDOM_SEED")
+    reviewer_lora_base: Path | None = Field(default=None, alias="TARGET_AGENT_REVIEWER_LORA_BASE")
+    reviewer_lora_adapter: Path | None = Field(default=None, alias="TARGET_AGENT_REVIEWER_LORA_ADAPTER")
 
     @property
     def step_configured(self) -> bool:
@@ -55,6 +57,7 @@ class Settings(BaseSettings):
             "cache_only": self.cache_only,
             "limma_enabled": self.enable_limma,
             "census_expression_enabled": self.enable_census_expression,
+            "reviewer_lora_configured": bool(self.reviewer_lora_base and self.reviewer_lora_adapter),
             "runs_dir_writable": _writable_parent(self.runs_dir),
             "cache_dir_writable": _writable_parent(self.cache_dir),
         }

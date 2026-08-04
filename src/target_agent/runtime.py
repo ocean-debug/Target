@@ -38,7 +38,7 @@ class TargetDiscoveryRuntime:
         self.planner = planner or Planner(StepClient.from_settings(self.settings), self.registry)
         if self.planner.registry is None:
             self.planner.registry = self.registry
-        self.reviewer = Reviewer(getattr(self.planner, "client", None))
+        self.reviewer = Reviewer(getattr(self.planner, "client", None), settings=self.settings)
 
     def _trace(self, store: EvidenceStore, run_id: str, task: TaskSpec, event_type: str, state: str,
                detail: dict[str, Any] | None = None, related_ids: list[str] | None = None) -> None:
