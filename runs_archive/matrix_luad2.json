@@ -1,0 +1,19 @@
+{
+  "library_version": "1.0.0",
+  "kind": "normal",
+  "runs": [
+    {
+      "disease_id": "luad",
+      "disease": "lung adenocarcinoma",
+      "kind": "normal",
+      "run_id": "run-matrix-luad2-luad",
+      "terminal_status": "completed_with_gaps",
+      "highlighted_targets": [
+        "EGFR",
+        "TP63",
+        "NRG1"
+      ],
+      "tool_calls": 12
+    }
+  ]
+}
