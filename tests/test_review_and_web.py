@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 from target_agent.contracts import (
     CoverageStatus, TaskContext, TaskSpec, ToolCapability, ToolResult, ToolStatus,
@@ -40,3 +41,49 @@ def test_health_and_capabilities_never_expose_secret(tmp_path):
     text = capabilities.get_data(as_text=True)
     assert "step_api_key" not in text.lower()
     assert capabilities.get_json()["contract_version"] == "2.1.0"
+
+
+def test_demo_catalog_and_bundle_are_frontend_ready(tmp_path):
+    runtime = fake_runtime(tmp_path)
+    runtime.run(uc_task(), run_id="run-luad-v21-cached-3")
+    client = create_app(runtime).test_client()
+
+    catalog = client.get("/api/demo/cases")
+    assert catalog.status_code == 200
+    cases = {item["id"]: item for item in catalog.get_json()["cases"]}
+    assert cases["luad"]["available"] is True
+    assert cases["uc"]["available"] is False
+    assert "run_id" not in cases["uc"]
+
+    response = client.get("/api/runs/run-luad-v21-cached-3/bundle")
+    assert response.status_code == 200
+    bundle = response.get_json()
+    assert bundle["run"]["terminal_status"] == "completed"
+    assert len(bundle["plan"]["steps"]) >= 1
+    assert len(bundle["ranking"]) == 10
+    assert len(bundle["target_cards"]) == 5
+    assert bundle["evidence"]["total"] >= 1
+    assert bundle["tools"]
+    assert bundle["trace"]
+    assert "tool_run_id" not in json.dumps(bundle["tools"])
+
+
+def test_missing_run_event_stream_and_invalid_json_fail_fast(tmp_path):
+    client = create_app(fake_runtime(tmp_path)).test_client()
+    assert client.get("/api/runs/run-does-not-exist/events").status_code == 404
+    response = client.post("/api/runs", data="not-json", content_type="application/json")
+    assert response.status_code == 400
+    assert response.get_json()["error"] == "request body must be a JSON object"
+
+
+def test_workbench_assets_are_utf8_chinese_and_demo_oriented():
+    static = Path(__file__).resolve().parents[1] / "src" / "target_agent" / "web" / "static"
+    html = (static / "index.html").read_text(encoding="utf-8")
+    script = (static / "app.js").read_text(encoding="utf-8")
+    combined = html + script
+    assert "科研工作台" in html
+    assert "已验证案例" in html
+    assert "/api/demo/cases" in script
+    assert "/bundle" in script
+    assert "item.reasons" in script
+    assert not any(marker in combined for marker in ("锛", "鍔", "鐮", "璇诲彇"))

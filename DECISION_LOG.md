@@ -27,3 +27,11 @@ Cross-module contracts, workflow choices, model boundaries and scientific-safety
 - Cache identity binds source checksums, scientific recipe content, tool and contract versions, and biological context; per-run trace IDs are excluded.
 - Infrastructure configuration and secrets are external to Git. The production web command uses Waitress; Flask development mode is explicit.
 - Scientific workflow references are pinned to `scientific-agent-skills` v2.62.0 at commit `ad21a3868923628330734375dddbf7b86ea84222`.
+
+## 2026-08-04 - Stable demo replay and live workbench share one backend
+
+- **Status:** accepted
+- The main workbench supports both validated stored-run replay and new live Agent runs; replay is never represented as live execution.
+- The replay bundle is derived only from persisted status, Plan, Trace, ToolResult, EvidenceItem, ranking and TargetCard artifacts.
+- Internal tool/event identifiers, absolute server paths and secrets are excluded from the public bundle.
+- Frontend code performs presentation only and does not create new scientific scores, claims or database results.
