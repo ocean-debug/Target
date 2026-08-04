@@ -61,7 +61,7 @@ def observable(run_dir: Path) -> dict:
     }
 
 
-def build_runtime(engine: str, registry_kind: str, work: Path):
+def build_runtime(engine: str, registry_kind: str, work: Path, cache_dir: Path | None = None):
     if registry_kind == "fake":
         registry = ToolRegistry([FakeGenericOmics(), FakeOpenTargets(), FakeLiterature()])
     elif registry_kind == "fake_mch":
@@ -69,7 +69,7 @@ def build_runtime(engine: str, registry_kind: str, work: Path):
     else:
         registry = None  # live: default registry from settings
     return RUNTIMES[engine](
-        runs_dir=work / "runs", cache_dir=work / "cache", planner=Planner(None), registry=registry,
+        runs_dir=work / "runs", cache_dir=cache_dir or work / "cache", planner=Planner(None), registry=registry,
     )
 
 
@@ -228,7 +228,7 @@ def check_assertion(assertion: dict, ctx: dict) -> str | None:
 
 
 # --------------------------------------------------------------------------- runner
-def run_task(entry: dict, work: Path) -> dict:
+def run_task(entry: dict, work: Path, cache_dir: Path | None = None) -> dict:
     started = time.perf_counter()
     results = []
     if entry["mode"] == "unit":
@@ -243,7 +243,8 @@ def run_task(entry: dict, work: Path) -> dict:
     engine = entry.get("runtime", "langgraph")
     registry_kind = entry.get("registry", "default")
     task = TaskSpec(**entry["task"])
-    runtime = build_runtime(engine, registry_kind, work)
+    runtime = build_runtime(engine, registry_kind, work,
+                            cache_dir=cache_dir if entry["mode"] == "live" else None)
     run_id = f"bm-{entry['id'].lower()}"
     runtime.run(task, run_id=run_id)
     run_dir = work / "runs" / run_id
@@ -275,6 +276,9 @@ def main() -> int:
     parser.add_argument("--goldset", type=Path, default=ROOT / "benchmark" / "goldset_v2.jsonl")
     parser.add_argument("--out", type=Path, default=ROOT / "benchmark" / "results")
     parser.add_argument("--live", action="store_true", help="also run live external-API tasks")
+    parser.add_argument("--shared-cache", action="store_true",
+                        help="live mode only: share one cache directory across entries so repeated "
+                             "contexts (e.g. disease-library buckets) reuse downloads")
     parser.add_argument("--keep-runs", action="store_true", help="keep run directories for inspection")
     args = parser.parse_args()
 
@@ -290,7 +294,8 @@ def main() -> int:
                             "mode": "live", "skipped": True, "results": [], "passed": None})
             continue
         print(f"[bench] {entry['id']} {entry['title']} ...", flush=True)
-        reports.append(run_task(entry, work_root / entry["id"]))
+        shared = (args.out / "shared_cache") if args.shared_cache else None
+        reports.append(run_task(entry, work_root / entry["id"], cache_dir=shared))
         print(f"[bench] {entry['id']} -> {'PASS' if reports[-1]['passed'] else 'FAIL'}"
               f" ({reports[-1]['elapsed_s']}s)", flush=True)
 
