@@ -6,17 +6,41 @@ A traceable life-science research Agent for disease-driven drug-target discovery
 
 ```text
 Disease -> GEO/CELLxGENE discovery -> metadata audit -> reviewed analysis recipe
-        -> bulk/single-cell evidence -> pathways -> genetics/literature/drugs
+        -> bulk/single-cell evidence -> pathways -> genetics/literature/drugs/trials
         -> Reviewer -> ranking -> TargetCards -> traceable report
 ```
 
 - Public contract `2.1.0` is defined by [contracts.py](src/target_agent/contracts.py); JSON Schemas are generated from Pydantic.
 - GEO discovery uses NCBI E-Utils and official GEO HTTPS/FTP resources.
+- ClinicalTrials.gov API v2 adds gene-named trial-registry evidence (`clinical_trials_gov`); claims are emitted only when the intervention or title text explicitly names the gene, and stopped trials are downgraded to uncertain.
+- The literature tool upgrades to full-text-aware RAG: open-access PMC full texts are section-parsed into a persistent shared FTS5 corpus with optional LLM reranking and bm25 fallback.
+- Two execution engines ship and are parity-tested: the legacy hand-rolled state machine and the LangGraph `StateGraph` runtime (default; `--runtime legacy` opts out). Both write byte-compatible run artifacts and share the same checkpoint/resume contract.
+- A systematic benchmark lives in [benchmark/](benchmark/): 14 gold tasks (fake/unit/live modes) covering the main chain, robustness, determinism, recovery, contract gates and engine parity; `python benchmark/runner.py` must score 100% in fake+unit mode.
+- The Reviewer LoRA pipeline (data + training + heldout evaluation + remote GPU runbook) is under [training/](training/); local CPU smoke is verified, full training runs on the external GPU profile only. At runtime the trained adapter acts as an optional probe-based confirmation layer inside the Reviewer (configure `TARGET_AGENT_REVIEWER_LORA_BASE`/`TARGET_AGENT_REVIEWER_LORA_ADAPTER`): deterministic gates stay authoritative, adapter answers are category-cross-checked and silently discarded on any parse/category failure, and SFT categories are mapped onto the canonical finding taxonomy before a ReviewerFinding is emitted.
 - PyDESeq2 accepts non-negative integer counts only. Continuous expression requires the explicitly enabled fixed limma backend.
 - Standard H5AD and 10x formal DE requires donor, cell type and condition metadata and runs donor-by-cell-type-by-condition pseudobulk.
 - CELLxGENE Census is a separately diagnosed optional backend fixed to version `2025-11-08`; an unavailable platform wheel is reported as a capability gap.
 - UC snapshots, measured T-cell perturbation and DeltaFactor remain disabled compatibility plugins, not the default workflow.
 - MCH/K562 remains an isolated causal-modelling gold sample.
+
+## Disease library
+
+[configs/disease_library.yaml](configs/disease_library.yaml) is the curated disease library behind [diseases.py](src/target_agent/diseases.py):
+
+- 18 diseases across autoimmune, neurodegenerative, cancer, metabolic and respiratory categories. Every `ontology_id` (MONDO/EFO) was verified against live EBI OLS search on 2026-08-04; new identifiers must pass the same live check before being added.
+- Each entry carries evidence-graded reference targets (`approved_drug > gwas > mendelian > clinical_trial > mechanistic`) used as ranking sanity anchors, plus a default biological context (tissue / cell type / stage / desired phenotype).
+- Four benchmark task templates follow the project 50/20/15/15 composition: `normal`, `missing_context` (blanks tissue/cell type), `conflicting_evidence` and `trap` (causal-overreach provocation), each with a machine-checkable `expectation` block for the benchmark layer.
+- The disease resolver merges library aliases at runtime, so every id, English name, Chinese name and synonym resolves to the verified ontology identifier without touching the OLS network path.
+
+```bash
+target-agent diseases                                  # list the library
+target-agent run-disease --disease uc,ra,ad            # batch-run library diseases
+target-agent run-disease --disease uc --kind missing_context --summary-out batch.json
+```
+
+The same four buckets feed the benchmark: `benchmark/generate_disease_goldset.py` renders
+`goldset_diseases.jsonl` (72 fake-mode entries, CI gate at 100%) and `goldset_diseases_lora.jsonl`
+(live matrix whose expectation-derived assertions require the Reviewer LoRA backend).
 
 ## Install
 

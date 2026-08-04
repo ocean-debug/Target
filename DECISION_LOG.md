@@ -27,3 +27,11 @@ Cross-module contracts, workflow choices, model boundaries and scientific-safety
 - Cache identity binds source checksums, scientific recipe content, tool and contract versions, and biological context; per-run trace IDs are excluded.
 - Infrastructure configuration and secrets are external to Git. The production web command uses Waitress; Flask development mode is explicit.
 - Scientific workflow references are pinned to `scientific-agent-skills` v2.62.0 at commit `ad21a3868923628330734375dddbf7b86ea84222`.
+
+## 2026-08-04 - Disease library as a first-class asset
+
+- **Status:** accepted
+- `configs/disease_library.yaml` holds 18 curated diseases (autoimmune, neurodegenerative, cancer, metabolic, respiratory); every ontology identifier was verified against live EBI OLS search before entry, and new identifiers must pass the same live check.
+- Reference targets are evidence-graded (`approved_drug > gwas > mendelian > clinical_trial > mechanistic`) and serve as ranking sanity anchors, not as ground truth for scoring novelty.
+- Task templates encode the project 50/20/15/15 composition (normal / missing_context / conflicting_evidence / trap) with machine-checkable `expectation` blocks consumed by the benchmark layer.
+- The disease resolver merges library aliases at runtime; hard-coded legacy aliases win on conflict so existing behaviour never regresses.
