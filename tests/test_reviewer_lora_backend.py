@@ -75,6 +75,39 @@ def test_reviewer_without_lora_settings_keeps_deterministic_backend():
     assert reviewer.last_backend == "deterministic"
 
 
+def test_reviewer_ignores_incomplete_lora_configuration():
+    settings = Settings(TARGET_AGENT_REVIEWER_LORA_ADAPTER=str(SMOKE_ADAPTER))
+    reviewer = Reviewer(None, settings=settings)
+    assert reviewer._lora is None
+
+
+def test_failed_lora_falls_back_to_step(monkeypatch):
+    class FakeStepClient:
+        model = "fake"
+
+        def __init__(self):
+            self.called = False
+
+        def json_completion(self, system, payload):
+            self.called = True
+            return {"findings": []}
+
+    settings = Settings(
+        TARGET_AGENT_REVIEWER_LORA_BASE=str(SMOKE_BASE),
+        TARGET_AGENT_REVIEWER_LORA_ADAPTER=str(SMOKE_ADAPTER),
+    )
+    client = FakeStepClient()
+    reviewer = Reviewer(client, settings=settings)
+    monkeypatch.setattr(
+        reviewer._lora,
+        "findings",
+        lambda *args: (_ for _ in ()).throw(RuntimeError("simulated adapter failure")),
+    )
+    reviewer.review(uc_task_missing_context(), [], [])
+    assert client.called is True
+    assert reviewer.last_backend == "step:fake"
+
+
 @needs_smoke
 def test_lora_backend_generates_valid_findings_only(tmp_path):
     backend = LoRAReviewerBackend(SMOKE_BASE, SMOKE_ADAPTER, max_new_tokens=96)

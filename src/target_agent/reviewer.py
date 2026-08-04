@@ -19,7 +19,12 @@ class Reviewer:
         self.client = client
         self.last_backend = "deterministic"
         self._lora = None
-        if settings is not None and getattr(settings, "reviewer_lora_adapter", None):
+        self._lora_failed = False
+        if (
+            settings is not None
+            and getattr(settings, "reviewer_lora_base", None)
+            and getattr(settings, "reviewer_lora_adapter", None)
+        ):
             from .reviewer_lora import LoRAReviewerBackend
             self._lora = LoRAReviewerBackend(settings.reviewer_lora_base, settings.reviewer_lora_adapter)
 
@@ -133,13 +138,14 @@ class Reviewer:
             self.last_backend = self._lora.name
             return findings
         except Exception:  # adapter failure must never block deterministic review
+            self._lora_failed = True
             self.last_backend = "deterministic:lora_unavailable"
             return []
 
     def _llm_findings(
         self, task: TaskSpec, results: list[ToolResult], evidence: list[EvidenceItem]
     ) -> list[ReviewerFinding]:
-        if not self.client or self._lora is not None:
+        if not self.client or (self._lora is not None and not self._lora_failed):
             if self._lora is None:
                 self.last_backend = "deterministic"
             return []
