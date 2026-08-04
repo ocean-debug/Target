@@ -9,6 +9,7 @@ from ..contracts import CONTRACT_VERSION, ToolDescriptor
 from ..llm import StepClient
 from ..settings import Settings, load_settings
 from .base import ToolRegistry
+from .clinicaltrials import ClinicalTrialsGovTool
 from .literature import EuropePMCRAGTool
 from .mch import MCHCausalGoldTool
 from .omics import (
@@ -34,6 +35,7 @@ def _known_tools(settings: Settings) -> dict[str, object]:
         "omics_candidate_extraction": OmicsCandidateExtractionTool(),
         "open_targets": OpenTargetsTool(),
         "europe_pmc_rag": EuropePMCRAGTool(llm=llm),
+        "clinical_trials_gov": ClinicalTrialsGovTool(),
         "uc_omics_snapshot": UCOmicsSnapshotTool(),
         "observed_tcell_perturbation": ObservedTCellPerturbationTool(),
         "deltafactor": DeltaFactorTool(),

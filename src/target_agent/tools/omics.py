@@ -147,6 +147,22 @@ class DiseaseResolverTool(ScientificTool):
     def __init__(self, session: requests.Session | None = None):
         self.session = session or requests.Session()
 
+    @classmethod
+    def aliases(cls) -> dict[str, tuple[str, list[str], str]]:
+        """Curated aliases, extended with the OLS-verified disease library when present.
+
+        Hard-coded entries win on conflict so existing behaviour never regresses.
+        """
+        merged = dict(cls.ALIASES)
+        try:
+            from ..diseases import load_library
+
+            for key, value in load_library().resolver_aliases().items():
+                merged.setdefault(key, value)
+        except Exception:
+            pass
+        return merged
+
     def _ontology(self, context: ToolContext, disease: str) -> tuple[str, list[str], str | None, str, bool]:
         key = hashlib.sha256(disease.casefold().encode("utf-8")).hexdigest()[:20]
         cache_path = context.cache_dir / "disease_ontology" / f"{key}.json"
@@ -178,14 +194,15 @@ class DiseaseResolverTool(ScientificTool):
 
     def run(self, context: ToolContext) -> ToolExecution:
         disease = (context.task.context.disease or "").strip()
+        aliases = self.aliases()
         cached = False
         if context.task.context.disease_id:
-            alias = self.ALIASES.get(disease.casefold())
+            alias = aliases.get(disease.casefold())
             normalized, synonyms = (alias[0], alias[1]) if alias else (disease, [disease])
             known_id = context.task.context.disease_id
             identifier_source = "user"
-        elif disease.casefold() in self.ALIASES:
-            normalized, synonyms, known_id = self.ALIASES[disease.casefold()]
+        elif disease.casefold() in aliases:
+            normalized, synonyms, known_id = aliases[disease.casefold()]
             identifier_source = "curated_alias"
         elif disease:
             normalized, synonyms, known_id, identifier_source, cached = self._ontology(context, disease)

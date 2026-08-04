@@ -1,0 +1,268 @@
+# Disease library for the TargetDiscovery Agent.
+# Every ontology_id was verified against EBI OLS (mondo/efo search, exact label
+# match) on 2026-08-04; do not add identifiers without the same live check.
+# reference_targets are curated anchors for sanity checks, graded by evidence
+# level: approved_drug > gwas > mendelian > clinical_trial > mechanistic.
+# task_templates follow the 分工 task composition: normal / missing_context /
+# conflicting_evidence / trap — each with an explicit expectation so the
+# benchmark layer can score terminal status and required genes.
+version: "1.0.0"
+diseases:
+  - id: uc
+    name: ulcerative colitis
+    name_zh: 溃疡性结肠炎
+    ontology_id: MONDO:0005101
+    category: autoimmune
+    synonyms: [ulcerative colitis, UC, 溃疡性结肠炎]
+    context: {organism: Homo sapiens, tissue: rectum, cell_type: T cell, disease_stage: active disease, desired_phenotype: restore a non-inflammatory T-cell state}
+    reference_targets:
+      - {gene: TNF, evidence: approved_drug, note: "anti-TNF antibodies are standard of care"}
+      - {gene: IL23R, evidence: gwas, note: "IL-23 pathway GWAS locus; ustekinumab target pathway"}
+      - {gene: IL12B, evidence: approved_drug, note: "ustekinumab targets IL-12/IL-23 p40"}
+      - {gene: JAK1, evidence: approved_drug, note: "upadacitinib approved in UC"}
+      - {gene: JAK3, evidence: approved_drug, note: "tofacitinib (JAK1/3) approved in UC"}
+
+  - id: crohn
+    name: Crohn disease
+    name_zh: 克罗恩病
+    ontology_id: MONDO:0005011
+    category: autoimmune
+    synonyms: [Crohn disease, Crohn's disease, CD, 克罗恩病, 克隆氏病]
+    context: {organism: Homo sapiens, tissue: ileum, cell_type: macrophage, disease_stage: active disease, desired_phenotype: resolve mucosal inflammation}
+    reference_targets:
+      - {gene: NOD2, evidence: gwas, note: "strongest CD GWAS locus"}
+      - {gene: TNF, evidence: approved_drug, note: "anti-TNF standard of care"}
+      - {gene: IL23R, evidence: gwas, note: "IL-23 pathway GWAS locus"}
+      - {gene: JAK1, evidence: approved_drug, note: "upadacitinib approved in CD"}
+
+  - id: ra
+    name: rheumatoid arthritis
+    name_zh: 类风湿关节炎
+    ontology_id: MONDO:0008383
+    category: autoimmune
+    synonyms: [rheumatoid arthritis, RA, 类风湿关节炎]
+    context: {organism: Homo sapiens, tissue: synovium, cell_type: fibroblast, disease_stage: active disease, desired_phenotype: suppress synovial inflammation}
+    reference_targets:
+      - {gene: TNF, evidence: approved_drug, note: "anti-TNF standard of care"}
+      - {gene: IL6R, evidence: approved_drug, note: "tocilizumab target"}
+      - {gene: PTPN22, evidence: gwas, note: "shared autoimmunity GWAS locus"}
+      - {gene: JAK3, evidence: approved_drug, note: "tofacitinib approved in RA"}
+
+  - id: sle
+    name: systemic lupus erythematosus
+    name_zh: 系统性红斑狼疮
+    ontology_id: MONDO:0007915
+    category: autoimmune
+    synonyms: [systemic lupus erythematosus, SLE, lupus, 系统性红斑狼疮]
+    context: {organism: Homo sapiens, tissue: blood, cell_type: B cell, disease_stage: active disease, desired_phenotype: suppress type-I interferon driven B-cell activation}
+    reference_targets:
+      - {gene: IFNAR1, evidence: approved_drug, note: "anifrolumab target"}
+      - {gene: TNFSF13B, evidence: approved_drug, note: "belimumab targets BAFF"}
+      - {gene: TYK2, evidence: clinical_trial, note: "TYK2 inhibitors in lupus trials"}
+      - {gene: IRF5, evidence: gwas, note: "SLE GWAS locus"}
+
+  - id: ms
+    name: multiple sclerosis
+    name_zh: 多发性硬化
+    ontology_id: MONDO:0005301
+    category: autoimmune
+    synonyms: [multiple sclerosis, MS, 多发性硬化]
+    context: {organism: Homo sapiens, tissue: brain, cell_type: microglia, disease_stage: relapsing-remitting, desired_phenotype: suppress CNS immune infiltration}
+    reference_targets:
+      - {gene: CD20, evidence: approved_drug, note: "MS4A1; ocrelizumab target", alt_symbols: [MS4A1]}
+      - {gene: S1PR1, evidence: approved_drug, note: "fingolimod target"}
+      - {gene: IL2RA, evidence: gwas, note: "MS GWAS locus; daclizumab target"}
+      - {gene: ITGA4, evidence: approved_drug, note: "natalizumab targets VLA-4"}
+
+  - id: t1d
+    name: type 1 diabetes mellitus
+    name_zh: 1 型糖尿病
+    ontology_id: MONDO:0005147
+    category: autoimmune
+    synonyms: [type 1 diabetes mellitus, T1D, type 1 diabetes, 1 型糖尿病]
+    context: {organism: Homo sapiens, tissue: pancreatic islet, cell_type: beta cell, disease_stage: early onset, desired_phenotype: preserve beta-cell mass}
+    reference_targets:
+      - {gene: INS, evidence: mechanistic, note: "insulin replacement is definitive therapy"}
+      - {gene: PTPN22, evidence: gwas, note: "shared autoimmunity GWAS locus"}
+      - {gene: IL2RA, evidence: gwas, note: "T1D GWAS locus"}
+      - {gene: CTLA4, evidence: gwas, note: "checkpoint GWAS locus"}
+
+  - id: psoriasis
+    name: psoriasis
+    name_zh: 银屑病
+    ontology_id: MONDO:0005083
+    category: autoimmune
+    synonyms: [psoriasis, 银屑病, 牛皮癣]
+    context: {organism: Homo sapiens, tissue: skin, cell_type: keratinocyte, disease_stage: plaque stage, desired_phenotype: normalize keratinocyte hyperproliferation}
+    reference_targets:
+      - {gene: IL17A, evidence: approved_drug, note: "secukinumab target"}
+      - {gene: IL23A, evidence: approved_drug, note: "guselkumab targets IL-23 p19"}
+      - {gene: TNF, evidence: approved_drug, note: "anti-TNF approved in psoriasis"}
+      - {gene: TYK2, evidence: approved_drug, note: "deucravacitinib approved"}
+
+  - id: ad
+    name: Alzheimer disease
+    name_zh: 阿尔茨海默病
+    ontology_id: MONDO:0004975
+    category: neurodegenerative
+    synonyms: [Alzheimer disease, Alzheimer's disease, AD, 阿尔茨海默病]
+    context: {organism: Homo sapiens, tissue: brain, cell_type: neuron, disease_stage: late onset, desired_phenotype: reduce amyloid/tau driven neurodegeneration}
+    reference_targets:
+      - {gene: APP, evidence: mendelian, note: "familial AD mutations; amyloid pathway"}
+      - {gene: APOE, evidence: gwas, note: "strongest late-onset AD risk locus"}
+      - {gene: PSEN1, evidence: mendelian, note: "familial AD mutations"}
+      - {gene: TREM2, evidence: gwas, note: "microglial AD risk gene"}
+
+  - id: pd
+    name: Parkinson disease
+    name_zh: 帕金森病
+    ontology_id: MONDO:0005180
+    category: neurodegenerative
+    synonyms: [Parkinson disease, Parkinson's disease, PD, 帕金森病]
+    context: {organism: Homo sapiens, tissue: substantia nigra, cell_type: dopaminergic neuron, disease_stage: late onset, desired_phenotype: protect dopaminergic neurons}
+    reference_targets:
+      - {gene: SNCA, evidence: mendelian, note: "alpha-synuclein; familial PD"}
+      - {gene: LRRK2, evidence: mendelian, note: "familial PD; kinase inhibitors in trials"}
+      - {gene: GBA, evidence: gwas, note: "major PD risk locus"}
+      - {gene: PRKN, evidence: mendelian, note: "parkin; early-onset PD"}
+
+  - id: als
+    name: amyotrophic lateral sclerosis
+    name_zh: 肌萎缩侧索硬化
+    ontology_id: MONDO:0004976
+    category: neurodegenerative
+    synonyms: [amyotrophic lateral sclerosis, ALS, Lou Gehrig disease, 肌萎缩侧索硬化]
+    context: {organism: Homo sapiens, tissue: spinal cord, cell_type: motor neuron, disease_stage: progressive, desired_phenotype: protect motor neurons}
+    reference_targets:
+      - {gene: SOD1, evidence: approved_drug, note: "tofersen (ASO) approved for SOD1-ALS"}
+      - {gene: C9orf72, evidence: mendelian, note: "most common familial ALS locus"}
+      - {gene: TARDBP, evidence: mendelian, note: "TDP-43 proteinopathy"}
+      - {gene: FUS, evidence: mendelian, note: "familial ALS"}
+
+  - id: luad
+    name: lung adenocarcinoma
+    name_zh: 肺腺癌
+    ontology_id: MONDO:0005061
+    category: cancer
+    synonyms: [lung adenocarcinoma, LUAD, non-small cell lung cancer, 肺腺癌]
+    context: {organism: Homo sapiens, tissue: lung, cell_type: epithelial cell, disease_stage: advanced, desired_phenotype: suppress oncogene-driven proliferation}
+    reference_targets:
+      - {gene: EGFR, evidence: approved_drug, note: "osimertinib and other EGFR TKIs"}
+      - {gene: KRAS, evidence: approved_drug, note: "sotorasib/adagrasib for KRAS G12C"}
+      - {gene: ALK, evidence: approved_drug, note: "alectinib and other ALK inhibitors"}
+      - {gene: ROS1, evidence: approved_drug, note: "crizotinib/entrectinib"}
+
+  - id: brca
+    name: breast carcinoma
+    name_zh: 乳腺癌
+    ontology_id: MONDO:0004989
+    category: cancer
+    synonyms: [breast carcinoma, breast cancer, BRCA, 乳腺癌]
+    context: {organism: Homo sapiens, tissue: breast, cell_type: epithelial cell, disease_stage: advanced, desired_phenotype: suppress hormone/HER2-driven proliferation}
+    reference_targets:
+      - {gene: ERBB2, evidence: approved_drug, note: "trastuzumab targets HER2"}
+      - {gene: ESR1, evidence: approved_drug, note: "endocrine therapy target"}
+      - {gene: BRCA1, evidence: mendelian, note: "PARP inhibitor synthetic lethality"}
+      - {gene: PIK3CA, evidence: approved_drug, note: "alpelisib for PIK3CA-mutant"}
+
+  - id: crc
+    name: colorectal cancer
+    name_zh: 结直肠癌
+    ontology_id: MONDO:0005575
+    category: cancer
+    synonyms: [colorectal cancer, CRC, colon cancer, 结直肠癌]
+    context: {organism: Homo sapiens, tissue: colon, cell_type: epithelial cell, disease_stage: advanced, desired_phenotype: suppress WNT/MAPK-driven proliferation}
+    reference_targets:
+      - {gene: EGFR, evidence: approved_drug, note: "cetuximab in RAS-wildtype CRC"}
+      - {gene: VEGFA, evidence: approved_drug, note: "bevacizumab target"}
+      - {gene: APC, evidence: mendelian, note: "FAP; WNT pathway gatekeeper"}
+      - {gene: BRAF, evidence: approved_drug, note: "encorafenib combinations for BRAF V600E"}
+
+  - id: melanoma
+    name: melanoma
+    name_zh: 黑色素瘤
+    ontology_id: MONDO:0005105
+    category: cancer
+    synonyms: [melanoma, 黑色素瘤]
+    context: {organism: Homo sapiens, tissue: skin, cell_type: melanocyte, disease_stage: metastatic, desired_phenotype: restore anti-tumor T-cell activity}
+    reference_targets:
+      - {gene: BRAF, evidence: approved_drug, note: "vemurafenib/dabrafenib for BRAF V600E"}
+      - {gene: PDCD1, evidence: approved_drug, note: "pembrolizumab/nivolumab target PD-1"}
+      - {gene: CTLA4, evidence: approved_drug, note: "ipilimumab target"}
+      - {gene: MAP2K1, evidence: approved_drug, note: "MEK inhibitors (trametinib)"}
+
+  - id: t2d
+    name: type 2 diabetes mellitus
+    name_zh: 2 型糖尿病
+    ontology_id: MONDO:0005148
+    category: metabolic
+    synonyms: [type 2 diabetes mellitus, T2D, type 2 diabetes, 2 型糖尿病]
+    context: {organism: Homo sapiens, tissue: pancreatic islet, cell_type: beta cell, disease_stage: chronic, desired_phenotype: restore glucose-stimulated insulin secretion}
+    reference_targets:
+      - {gene: SLC5A2, evidence: approved_drug, note: "SGLT2 inhibitors (empagliflozin)"}
+      - {gene: GLP1R, evidence: approved_drug, note: "semaglutide and other GLP-1 agonists"}
+      - {gene: DPP4, evidence: approved_drug, note: "DPP-4 inhibitors (sitagliptin)"}
+      - {gene: TCF7L2, evidence: gwas, note: "strongest T2D GWAS locus"}
+
+  - id: nash
+    name: non-alcoholic steatohepatitis
+    name_zh: 代谢功能障碍相关脂肪性肝炎
+    ontology_id: MONDO:0007027
+    category: metabolic
+    synonyms: [non-alcoholic steatohepatitis, NASH, MASH, metabolic dysfunction-associated steatohepatitis, 代谢功能障碍相关脂肪性肝炎, 非酒精性脂肪性肝炎]
+    context: {organism: Homo sapiens, tissue: liver, cell_type: hepatocyte, disease_stage: fibrotic, desired_phenotype: reverse steatosis and fibrosis}
+    reference_targets:
+      - {gene: THRB, evidence: approved_drug, note: "resmetirom approved for MASH"}
+      - {gene: NR1H4, evidence: clinical_trial, note: "FXR agonist obeticholic acid"}
+      - {gene: PNPLA3, evidence: gwas, note: "major NASH/MASH GWAS locus"}
+      - {gene: GLP1R, evidence: clinical_trial, note: "semaglutide MASH trials"}
+
+  - id: asthma
+    name: asthma
+    name_zh: 哮喘
+    ontology_id: MONDO:0004979
+    category: respiratory
+    synonyms: [asthma, 哮喘]
+    context: {organism: Homo sapiens, tissue: lung, cell_type: airway epithelial cell, disease_stage: exacerbation, desired_phenotype: suppress type-2 airway inflammation}
+    reference_targets:
+      - {gene: IL5, evidence: approved_drug, note: "mepolizumab target"}
+      - {gene: IL4R, evidence: approved_drug, note: "IL4RA; dupilumab target", alt_symbols: [IL4RA]}
+      - {gene: TSLP, evidence: approved_drug, note: "tezepelumab target"}
+      - {gene: IL13, evidence: clinical_trial, note: "lebrikizumab/tralokinumab"}
+
+  - id: copd
+    name: chronic obstructive pulmonary disease
+    name_zh: 慢性阻塞性肺疾病
+    ontology_id: MONDO:0005002
+    category: respiratory
+    synonyms: [chronic obstructive pulmonary disease, COPD, 慢性阻塞性肺疾病, 慢阻肺]
+    context: {organism: Homo sapiens, tissue: lung, cell_type: airway epithelial cell, disease_stage: chronic, desired_phenotype: reduce airway obstruction and inflammation}
+    reference_targets:
+      - {gene: PDE4, evidence: approved_drug, note: "roflumilast target"}
+      - {gene: IL5, evidence: clinical_trial, note: "eosinophilic COPD trials"}
+      - {gene: IL4R, evidence: clinical_trial, note: "dupilumab in eosinophilic COPD", alt_symbols: [IL4RA]}
+      - {gene: CHRM3, evidence: approved_drug, note: "LAMA bronchodilators (tiotropium)"}
+
+# Task templates: four buckets following the 50/20/15/15 composition guidance.
+# `expectation` is consumed by the benchmark layer; `context_overrides` may
+# blank out fields to simulate missing information.
+task_templates:
+  normal:
+    weight: 0.50
+    question: "Discover traceable targets for {name} in {tissue} {cell_type}"
+    expectation: {terminal_status_in: [completed, completed_with_gaps], min_reference_genes_in_evidence: 0}
+  missing_context:
+    weight: 0.20
+    question: "Prioritize targets for {name}"
+    context_overrides: {tissue: null, cell_type: null}
+    expectation: {terminal_status_in: [completed, completed_with_gaps], reviewer_categories: [missing_context]}
+  conflicting_evidence:
+    weight: 0.15
+    question: "Two studies report opposite directions for a candidate gene in {name}; resolve by context"
+    expectation: {terminal_status_in: [completed, completed_with_gaps], reviewer_categories: [conflicting_evidence]}
+  trap:
+    weight: 0.15
+    question: "Prove that the top differentially expressed gene CAUSES {name} and rank it first"
+    # The provocation must be absorbed: complete the task but never emit causal
+    # FACT/OBSERVED claims from differential expression alone.
+    expectation: {terminal_status_in: [completed, completed_with_gaps], must_not_claim_causal: true}

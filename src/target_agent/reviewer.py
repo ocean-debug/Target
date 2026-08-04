@@ -15,9 +15,13 @@ from .llm import LLMUnavailable, StepClient
 
 
 class Reviewer:
-    def __init__(self, client: StepClient | None = None):
+    def __init__(self, client: StepClient | None = None, settings=None):
         self.client = client
         self.last_backend = "deterministic"
+        self._lora = None
+        if settings is not None and getattr(settings, "reviewer_lora_adapter", None):
+            from .reviewer_lora import LoRAReviewerBackend
+            self._lora = LoRAReviewerBackend(settings.reviewer_lora_base, settings.reviewer_lora_adapter)
 
     def review(self, task: TaskSpec, results: list[ToolResult], evidence: list[EvidenceItem]) -> list[ReviewerFinding]:
         findings: list[ReviewerFinding] = []
@@ -114,14 +118,30 @@ class Reviewer:
                     message=f"{gene} has opposing effect directions across contexts.",
                     related_ids=ids_by_gene[gene], required_action="Keep both directions and resolve by tissue, cell, assay and perturbation context.",
                 ))
+        findings.extend(self._lora_findings(task, results, evidence))
         findings.extend(self._llm_findings(task, results, evidence))
         return self._deduplicate(findings)
+
+    def _lora_findings(
+        self, task: TaskSpec, results: list[ToolResult], evidence: list[EvidenceItem]
+    ) -> list[ReviewerFinding]:
+        """Local LoRA confirmation layer; preferred over the hosted Step path when configured."""
+        if self._lora is None:
+            return []
+        try:
+            findings = self._lora.findings(task, results, evidence)
+            self.last_backend = self._lora.name
+            return findings
+        except Exception:  # adapter failure must never block deterministic review
+            self.last_backend = "deterministic:lora_unavailable"
+            return []
 
     def _llm_findings(
         self, task: TaskSpec, results: list[ToolResult], evidence: list[EvidenceItem]
     ) -> list[ReviewerFinding]:
-        if not self.client:
-            self.last_backend = "deterministic"
+        if not self.client or self._lora is not None:
+            if self._lora is None:
+                self.last_backend = "deterministic"
             return []
         allowed_ids = {result.tool_run_id for result in results} | {item.evidence_id for item in evidence}
         payload: dict[str, Any] = {

@@ -30,7 +30,9 @@ class BoundedExecutor:
 
 
 def create_app(runtime: TargetDiscoveryRuntime | None = None) -> Flask:
-    runtime = runtime or TargetDiscoveryRuntime()
+    if runtime is None:
+        from .runtime_langgraph import LangGraphRuntime
+        runtime = LangGraphRuntime()
     static_dir = Path(__file__).with_name("web") / "static"
     app = Flask(__name__, static_folder=str(static_dir), static_url_path="/static")
     pool = BoundedExecutor(runtime.settings.web_workers, runtime.settings.web_queue_size)
@@ -77,6 +79,28 @@ def create_app(runtime: TargetDiscoveryRuntime | None = None) -> Flask:
                 "max_geo_candidates": 10, "max_datasets_to_analyze": 2,
                 "max_cells": 100_000, "max_download_mb": 2048,
             },
+        })
+
+    @app.get("/api/diseases")
+    def diseases():
+        try:
+            from .diseases import load_library
+
+            library = load_library()
+        except Exception as exc:
+            return jsonify({"error": "disease library unavailable", "detail": exc.__class__.__name__}), 503
+        return jsonify({
+            "version": library.version,
+            "template_kinds": sorted(library.task_templates),
+            "diseases": [
+                {
+                    "id": entry.id, "name": entry.name, "name_zh": entry.name_zh,
+                    "ontology_id": entry.ontology_id, "category": entry.category,
+                    "reference_target_count": len(entry.reference_targets),
+                    "tissue": entry.context.tissue, "cell_type": entry.context.cell_type,
+                }
+                for entry in library.diseases
+            ],
         })
 
     @app.post("/api/runs")

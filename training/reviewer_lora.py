@@ -20,6 +20,8 @@ def main() -> None:
     parser.add_argument("--model", default="Qwen/Qwen3-8B")
     parser.add_argument("--allow-pending-review", action="store_true", help="Smoke tests only; resulting adapter is not promotion eligible")
     parser.add_argument("--max-steps", type=int, default=100)
+    parser.add_argument("--gradient-accumulation", type=int, default=8,
+                        help="Micro-batches per optimizer step; use 1 for CPU smoke tests")
     args = parser.parse_args()
 
     rows = load_reviewed_rows(args.data, args.allow_pending_review)
@@ -47,10 +49,12 @@ def main() -> None:
         return encoded
 
     dataset = Dataset.from_list(rows).map(tokenize, remove_columns=list(rows[0]))
+    import torch
+    use_bf16 = torch.cuda.is_available()
     training_args = TrainingArguments(
-        output_dir=str(args.output), per_device_train_batch_size=1, gradient_accumulation_steps=8,
+        output_dir=str(args.output), per_device_train_batch_size=1, gradient_accumulation_steps=args.gradient_accumulation,
         learning_rate=2e-4, max_steps=args.max_steps, logging_steps=5, save_steps=args.max_steps,
-        bf16=True, report_to="none", remove_unused_columns=False,
+        bf16=use_bf16, report_to="none", remove_unused_columns=False,
     )
     trainer = Trainer(model=model, args=training_args, train_dataset=dataset)
     trainer.train()

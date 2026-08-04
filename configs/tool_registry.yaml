@@ -22,6 +22,8 @@ tools:
     enabled: true
   - id: europe_pmc_rag
     enabled: true
+  - id: clinical_trials_gov
+    enabled: true
   - id: mch_causal_gold
     enabled: true
     evidence_dimension: causal_gold
