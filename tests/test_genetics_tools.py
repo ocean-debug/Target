@@ -238,8 +238,13 @@ def test_ranking_ignores_free_form_and_database_aggregate_genetic_scores():
         method="coloc_susie", method_version="5.2.3", strength=0.9, formal_score_eligible=True,
     )
     formal = rank_targets(["IL6"], [_evidence(formal_payload)], [])[0]
+    # Simulate a corrupted/deserialized object that bypassed Pydantic so the
+    # scorer's independent context gate is exercised as a second boundary.
+    low_context_item = _evidence(formal_payload).model_copy(
+        update={"context_match_score": 0.49},
+    )
     context_mismatch = rank_targets(
-        ["IL6"], [_evidence(formal_payload, context_match_score=0.49)], [],
+        ["IL6"], [low_context_item], [],
     )[0]
     assert raw.scores.human_genetics == 0
     assert aggregate.scores.human_genetics == 0
