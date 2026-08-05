@@ -54,6 +54,8 @@ The checkboxes are updated only from remote-node evidence generated for the curr
 
 - Full remote pytest suite passed; two pre-existing model-dependent cases were skipped by their declared capability gates.
 - The internal V2.1 benchmark remained at 11/11 tasks and 27/27 assertions after adding the project control plane.
+- Bounded Reviewer repair was exercised against a transient Europe PMC connector failure: the runtime retried the allowlisted read-only tool, appended both attempts to the evidence ledger, emitted replan/re-review trace events and removed the recovered `tool_failure` from the final findings. Cache-only execution correctly performed no retry.
+- Reviewer repair remains deliberately narrow: it cannot execute arbitrary code or mutate scientific methods, and it stops at the configured review-round and tool-call budgets.
 - A real Step 3.7 Flash request produced the protected four-item vertical plan: project brief, target discovery, independent review and report.
 - The checkpointed smoke project stopped at `needs_input` before any scientific module ran and recorded the exact plan identifier requiring human acceptance.
 - Canonical Pydantic export produced 11 new research-project JSON Schemas under `schemas/`.
