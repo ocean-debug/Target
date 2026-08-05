@@ -639,11 +639,18 @@ def _context_match(context: ToolContext, asset: EqtlColocalizationResultInput) -
         score = 1.0
     else:
         score = 0.3
-    if context.task.context.cell_type and asset.cell_type:
+    if context.task.context.cell_type:
         requested_cell = context.task.context.cell_type.casefold()
-        observed_cell = asset.cell_type.casefold()
-        if requested_cell != observed_cell and requested_cell not in observed_cell and observed_cell not in requested_cell:
+        if not asset.cell_type:
             score = min(score, 0.3)
+        else:
+            observed_cell = asset.cell_type.casefold()
+            if (
+                requested_cell != observed_cell
+                and requested_cell not in observed_cell
+                and observed_cell not in requested_cell
+            ):
+                score = min(score, 0.3)
     return score
 
 

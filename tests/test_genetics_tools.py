@@ -73,14 +73,14 @@ def _fine(**updates) -> FineMappingResultInput:
     return FineMappingResultInput(**payload)
 
 
-def _coloc(tissue: str = "lung") -> EqtlColocalizationResultInput:
+def _coloc(tissue: str = "lung", cell_type: str | None = None) -> EqtlColocalizationResultInput:
     return EqtlColocalizationResultInput(
         asset_id="coloc-l1", relative_path="coloc.tsv", sha256=_sha(FIXTURES / "coloc.tsv"),
         file_format="tsv", genome_build="GRCh38", study_id="EQTL-1",
         phenotype="lung adenocarcinoma", ancestry="EUR", sample_size=500,
         source_uri="https://example.org/coloc-1", source_version="fixture-1",
         method="coloc_susie", method_version="5.2.3", gwas_study_id="GWAS-1",
-        eqtl_study_id="EQTL-1", eqtl_ancestry="EUR", tissue=tissue,
+        eqtl_study_id="EQTL-1", eqtl_ancestry="EUR", tissue=tissue, cell_type=cell_type,
         minimum_variant_overlap_used=10, prior_p1=1e-4, prior_p2=1e-4, prior_p12=1e-5,
         sensitivity_analysis_passed=True, sample_overlap="none",
         columns={
@@ -109,10 +109,13 @@ def _coloc(tissue: str = "lung") -> EqtlColocalizationResultInput:
     )
 
 
-def _task(*assets, tissue: str = "lung") -> TaskSpec:
+def _task(*assets, tissue: str = "lung", cell_type: str | None = None) -> TaskSpec:
     return TaskSpec(
         task_type="gwas_locus_to_target", question="Map the disease locus to an auditable target",
-        context=TaskContext(disease="lung adenocarcinoma", tissue=tissue, genome_build="GRCh38", ancestry="EUR"),
+        context=TaskContext(
+            disease="lung adenocarcinoma", tissue=tissue, cell_type=cell_type,
+            genome_build="GRCh38", ancestry="EUR",
+        ),
         genetics_inputs=list(assets), constraints=TaskConstraints(
             genetics={"minimum_coloc_variant_overlap": 10},
         ),
@@ -170,6 +173,18 @@ def test_gwas_association_without_locus_to_gene_evidence_remains_unresolved(tmp_
 def test_context_mismatched_eqtl_cannot_enter_formal_candidate_set(tmp_path):
     _, _, coloc, candidates = _run_chain(tmp_path, _task(_gwas(), _fine(), _coloc("brain"), tissue="lung"))
     row = coloc.result.outputs["colocalizations"][0]
+    assert row["formal_score_eligible"] is False
+    assert "eqtl_context_mismatch" in row["rejection_reasons"]
+    assert candidates.result.candidate_genes == []
+
+
+def test_missing_requested_cell_type_cannot_enter_formal_candidate_set(tmp_path):
+    _, _, coloc, candidates = _run_chain(
+        tmp_path,
+        _task(_gwas(), _fine(), _coloc(cell_type=None), cell_type="alveolar type II cell"),
+    )
+    row = coloc.result.outputs["colocalizations"][0]
+    assert row["context_match_score"] == 0.3
     assert row["formal_score_eligible"] is False
     assert "eqtl_context_mismatch" in row["rejection_reasons"]
     assert candidates.result.candidate_genes == []
