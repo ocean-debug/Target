@@ -187,6 +187,7 @@
     }
   },
   "additionalProperties": false,
+  "description": "Append-only execution overlay; never a free-form replacement plan.",
   "properties": {
     "contract_version": {
       "const": "3.0.0",
@@ -194,29 +195,85 @@
       "title": "Contract Version",
       "type": "string"
     },
-    "plan_id": {
-      "title": "Plan Id",
+    "revision_id": {
+      "pattern": "^revision-[a-f0-9]{24}$",
+      "title": "Revision Id",
       "type": "string"
     },
     "project_id": {
       "title": "Project Id",
       "type": "string"
     },
-    "items": {
+    "base_plan_id": {
+      "title": "Base Plan Id",
+      "type": "string"
+    },
+    "parent_revision_id": {
+      "anyOf": [
+        {
+          "pattern": "^revision-[a-f0-9]{24}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Parent Revision Id"
+    },
+    "revision_number": {
+      "maximum": 2,
+      "minimum": 1,
+      "title": "Revision Number",
+      "type": "integer"
+    },
+    "repair_request_id": {
+      "pattern": "^repair-[a-f0-9]{24}$",
+      "title": "Repair Request Id",
+      "type": "string"
+    },
+    "operation": {
+      "const": "rerun_subgraph_same_inputs",
+      "default": "rerun_subgraph_same_inputs",
+      "title": "Operation",
+      "type": "string"
+    },
+    "added_items": {
       "items": {
         "$ref": "#/$defs/WorkItemSpec"
       },
       "minItems": 1,
-      "title": "Items",
+      "title": "Added Items",
       "type": "array"
     },
-    "planner_backend": {
-      "title": "Planner Backend",
+    "superseded_item_ids": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Superseded Item Ids",
+      "type": "array"
+    },
+    "superseded_assessment_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Superseded Assessment Ids",
+      "type": "array"
+    },
+    "trigger_snapshot_digest": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Trigger Snapshot Digest",
       "type": "string"
     },
-    "rationale": {
-      "title": "Rationale",
+    "revision_digest": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Revision Digest",
       "type": "string"
+    },
+    "approval_required": {
+      "title": "Approval Required",
+      "type": "boolean"
     },
     "created_at": {
       "title": "Created At",
@@ -224,11 +281,17 @@
     }
   },
   "required": [
+    "revision_id",
     "project_id",
-    "items",
-    "planner_backend",
-    "rationale"
+    "base_plan_id",
+    "revision_number",
+    "repair_request_id",
+    "added_items",
+    "superseded_item_ids",
+    "trigger_snapshot_digest",
+    "revision_digest",
+    "approval_required"
   ],
-  "title": "ResearchPlan",
+  "title": "ResearchPlanRevision",
   "type": "object"
 }

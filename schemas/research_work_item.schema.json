@@ -147,6 +147,32 @@
       "minimum": 1,
       "title": "Max Attempts",
       "type": "integer"
+    },
+    "rerun_of_item_id": {
+      "anyOf": [
+        {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Rerun Of Item Id"
+    },
+    "repair_request_id": {
+      "anyOf": [
+        {
+          "pattern": "^repair-[a-f0-9]{24}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Repair Request Id"
     }
   },
   "required": [

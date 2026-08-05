@@ -21,10 +21,11 @@ from .contracts import TaskSpec, ToolDescriptor, TraceEvent
 from .llm import LLMUnavailable, StepClient
 from .research_contracts import (
     ArtifactRecord, AssessmentDimension, AssessmentLevel, AssessmentRecord,
-    AssessmentResult, ResearchProjectSpec, WorkItemResult, WorkItemSpec,
+    AssessmentResult, FailureClass, ResearchProjectSpec, WorkItemResult, WorkItemSpec,
     WorkItemStatus,
 )
 from .research_projection import DomainActivityProjection, project_trace_event
+from .research_repair import classify_exception, work_item_result_digest
 from .settings import Settings
 
 
@@ -40,6 +41,9 @@ class ModuleDescriptor:
     execution_policy: str
     network_access: bool = False
     supports_resume: bool = True
+    side_effect_free: bool = False
+    replay_safe: bool = False
+    repair_modes: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -140,7 +144,7 @@ class ProjectBriefModule:
         name="project_brief",
         description="Freeze the original goal, constraints, success criteria and expected deliverables.",
         input_types=("ResearchProjectSpec",), output_types=("ProjectBrief",),
-        execution_policy="deterministic_local",
+        execution_policy="deterministic_local", side_effect_free=True, replay_safe=True,
     )
 
     def execute(self, context: ModuleContext) -> ModuleExecution:
@@ -169,6 +173,7 @@ class LiteratureSearchModule:
         description="Search Europe PMC and preserve source identifiers; retrieval hits are not treated as validated claims.",
         input_types=("ResearchGoal",), output_types=("LiteratureRecord[]",),
         execution_policy="read_only_connector", network_access=True,
+        side_effect_free=True, replay_safe=True, repair_modes=("same_input_retry",),
     )
 
     def __init__(self, session: requests.Session | None = None, page_size: int = 15):
@@ -256,7 +261,7 @@ class HypothesisGenerationModule:
         name="hypothesis_generation",
         description="Generate falsifiable hypotheses grounded only in retrieved source records.",
         input_types=("LiteratureRecord[]",), output_types=("Hypothesis[]",),
-        execution_policy="structured_llm",
+        execution_policy="structured_llm", side_effect_free=True, replay_safe=True,
     )
 
     def __init__(self, client: StepClient | None):
@@ -327,10 +332,11 @@ class TargetDiscoveryModule:
         description="Run the existing traceable disease-target workflow as a bounded domain module.",
         input_types=("TaskSpec@2.2.0",), output_types=("TargetCard[]", "DiseaseTargetReport"),
         execution_policy="typed_domain_workflow", network_access=True,
+        side_effect_free=True, replay_safe=True, repair_modes=("same_input_retry",),
     )
 
     def execute(self, context: ModuleContext) -> ModuleExecution:
-        raw_task = context.project.context.get("target_task_spec")
+        raw_task = context.item.inputs.get("target_task_spec", context.project.context.get("target_task_spec"))
         if not isinstance(raw_task, dict):
             return ModuleExecution(result=_result(
                 context.item, WorkItemStatus.NEEDS_INPUT, "The disease-target workflow requires a target_task_spec.",
@@ -352,6 +358,8 @@ class TargetDiscoveryModule:
         from .runtime_langgraph import LangGraphRuntime
 
         child_run_id = f"target-{context.project.project_id}"
+        if context.item.rerun_of_item_id is not None:
+            child_run_id = f"{child_run_id}-{context.item.item_id}"
         run_dir = context.project_dir / "domain_runs" / child_run_id
         runtime = LangGraphRuntime(
             runs_dir=context.project_dir / "domain_runs", cache_dir=context.cache_dir, settings=context.settings,
@@ -368,11 +376,13 @@ class TargetDiscoveryModule:
                     # A full post-run reconciliation determines projection completeness.
                     pass
         child_error: str | None = None
+        child_failure_class: FailureClass | None = None
         try:
             status = runtime.run(task, run_id=child_run_id, resume=run_dir.exists())
         except Exception as exc:
             # Preserve any already-durable child Trace and degrade the project item.
             child_error = exc.__class__.__name__
+            child_failure_class = classify_exception(exc)
             status = {"terminal_status": "failed"}
         terminal = status.get("terminal_status")
         mapped = {
@@ -417,6 +427,14 @@ class TargetDiscoveryModule:
             ("ranked_targets.json", "ranked_targets", "application/json"),
             ("target_cards.json", "target_cards", "application/json"),
             ("trace.jsonl", "target_discovery_trace", "application/x-ndjson"),
+            ("tool_results.jsonl", "target_discovery_tool_results", "application/x-ndjson"),
+            ("evidence_items.jsonl", "target_discovery_evidence", "application/x-ndjson"),
+            ("claims.jsonl", "target_discovery_claims", "application/x-ndjson"),
+            ("reviewer_findings.jsonl", "target_discovery_reviewer_findings", "application/x-ndjson"),
+            ("execution_plan.json", "target_discovery_execution_plan", "application/json"),
+            ("task_spec.json", "target_discovery_task_spec", "application/json"),
+            ("case_record.json", "target_discovery_case_record", "application/json"),
+            ("status.json", "target_discovery_status", "application/json"),
         ):
             path = run_dir / filename
             if path.exists():
@@ -431,6 +449,7 @@ class TargetDiscoveryModule:
                                "domain_activity_projection_complete": projection_complete,
                            },
                            error=child_error,
+                           failure_class=child_failure_class,
                            limitations=([] if scientific_complete else [
                                "The domain workflow has evidence gaps or is missing ranking, TargetCard, experiment, or report artifacts."
                            ]) + ([] if projection_complete else [
@@ -464,7 +483,7 @@ class IndependentReviewModule:
         name="independent_review",
         description="Run deterministic integrity, provenance and schema-alignment gates over durable results.",
         input_types=("WorkItemResult[]", "ArtifactRecord[]"), output_types=("AssessmentRecord[]",),
-        execution_policy="read_only_reviewer",
+        execution_policy="read_only_reviewer", side_effect_free=True, replay_safe=True,
     )
 
     def execute(self, context: ModuleContext) -> ModuleExecution:
@@ -490,10 +509,11 @@ class IndependentReviewModule:
             problematic = result.status in {WorkItemStatus.FAILED, WorkItemStatus.BLOCKED, WorkItemStatus.NEEDS_INPUT}
             assessments.append(AssessmentRecord(
                 project_id=context.project.project_id, target_id=item_id,
+                target_digest=work_item_result_digest(result),
                 dimension=AssessmentDimension.METHODOLOGY, level=AssessmentLevel.A0,
-                result=AssessmentResult.UNCERTAIN if problematic else AssessmentResult.PASS,
+                result=AssessmentResult.FAIL if problematic else AssessmentResult.PASS,
                 actor="independent_review", method="typed_status_gate",
-                rationale=f"Work item terminal status is {result.status.value}.", blocking=False,
+                rationale=f"Work item terminal status is {result.status.value}.", blocking=problematic,
             ))
         status = WorkItemStatus.COMPLETED_WITH_GAPS if failures else WorkItemStatus.COMPLETED
         output_path = context.output_dir / "review_summary.json"
@@ -512,7 +532,7 @@ class ResearchReportModule:
         name="research_report",
         description="Render a project report only from structured work-item results and registered artifacts.",
         input_types=("WorkItemResult[]", "ArtifactRecord[]"), output_types=("ResearchReport",),
-        execution_policy="deterministic_local",
+        execution_policy="deterministic_local", side_effect_free=True, replay_safe=True,
     )
 
     def execute(self, context: ModuleContext) -> ModuleExecution:
@@ -528,7 +548,11 @@ class ResearchReportModule:
                 lines.append("- Limitations: " + "; ".join(result.limitations))
                 gaps.extend(f"{item_id}: {value}" for value in result.limitations)
             lines.append("")
-        target_result = context.prior_results.get("target_discovery")
+        target_result = next(
+            (result for result in context.prior_results.values()
+             if result.module == "target_discovery"),
+            None,
+        )
         if target_result is not None:
             lines.extend([
                 "## Target-discovery deliverables", "",

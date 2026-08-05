@@ -23,15 +23,32 @@ from pydantic import BaseModel
 from .research_contracts import (
     ArtifactRecord,
     AssessmentRecord,
+    AssessmentResult,
+    AutonomyMode,
     DecisionEvent,
+    FailureClass,
     DomainActivityRecord,
     ProjectEvent,
     ProjectState,
+    RepairAction,
+    RepairAuthorization,
+    RepairRequest,
+    RepairResolution,
+    RepairResolutionStatus,
     ResearchPlan,
+    ResearchPlanRevision,
     ResearchProjectSpec,
     WorkItemResult,
+    WorkItemStatus,
 )
 from .research_projection import DomainActivityProjection, trace_event_digest
+from .research_repair import (
+    active_assessments,
+    canonical_sha256,
+    effective_plan,
+    project_snapshot_digest,
+    work_item_result_digest,
+)
 
 
 T = TypeVar("T", bound=BaseModel)
@@ -168,6 +185,76 @@ class ResearchProjectStore:
 
     def load_plan(self) -> ResearchPlan | None:
         return self._read_model(self.project_dir / "research_plan.json", ResearchPlan)
+
+    def append_repair_request(self, request: RepairRequest) -> None:
+        if request.project_id != self.project_id:
+            raise ValueError("repair request project id does not match store project id")
+        request_id = self._safe_component(request.repair_request_id, "repair request id")
+        with self._lock:
+            self._save_immutable(
+                self.project_dir / "repair_requests" / f"{request_id}.json",
+                request,
+                "repair request",
+            )
+
+    def read_repair_requests(self) -> list[RepairRequest]:
+        root = self.project_dir / "repair_requests"
+        if not root.exists():
+            return []
+        return sorted(
+            (RepairRequest.model_validate_json(path.read_text(encoding="utf-8")) for path in root.glob("*.json")),
+            key=lambda row: (row.created_at, row.repair_request_id),
+        )
+
+    def append_plan_revision(self, revision: ResearchPlanRevision) -> None:
+        if revision.project_id != self.project_id:
+            raise ValueError("plan revision project id does not match store project id")
+        revision_id = self._safe_component(revision.revision_id, "plan revision id")
+        with self._lock:
+            existing = self.read_plan_revisions()
+            same_number = next((row for row in existing if row.revision_number == revision.revision_number), None)
+            if same_number is not None and same_number.revision_id != revision.revision_id:
+                raise ValueError("plan revision number already has different immutable content")
+            self._save_immutable(
+                self.project_dir / "plan_revisions" / f"{revision_id}.json",
+                revision,
+                "plan revision",
+            )
+
+    def read_plan_revisions(self) -> list[ResearchPlanRevision]:
+        root = self.project_dir / "plan_revisions"
+        if not root.exists():
+            return []
+        return sorted(
+            (ResearchPlanRevision.model_validate_json(path.read_text(encoding="utf-8"))
+             for path in root.glob("*.json")),
+            key=lambda row: row.revision_number,
+        )
+
+    def load_effective_plan(self) -> ResearchPlan | None:
+        base = self.load_plan()
+        return effective_plan(base, self.read_plan_revisions()) if base is not None else None
+
+    def append_repair_resolution(self, resolution: RepairResolution) -> None:
+        if resolution.project_id != self.project_id:
+            raise ValueError("repair resolution project id does not match store project id")
+        resolution_id = self._safe_component(resolution.resolution_id, "repair resolution id")
+        with self._lock:
+            self._save_immutable(
+                self.project_dir / "repair_resolutions" / f"{resolution_id}.json",
+                resolution,
+                "repair resolution",
+            )
+
+    def read_repair_resolutions(self) -> list[RepairResolution]:
+        root = self.project_dir / "repair_resolutions"
+        if not root.exists():
+            return []
+        return sorted(
+            (RepairResolution.model_validate_json(path.read_text(encoding="utf-8"))
+             for path in root.glob("*.json")),
+            key=lambda row: (row.created_at, row.resolution_id),
+        )
 
     def save_state(self, state: ProjectState) -> None:
         if state.project_id != self.project_id:
@@ -420,9 +507,13 @@ class ResearchProjectStore:
         if spec.project_id != self.project_id:
             raise ValueError("project spec id mismatch")
 
-        plan = self.load_plan()
-        if plan is not None and plan.project_id != self.project_id:
+        base_plan = self.load_plan()
+        if base_plan is not None and base_plan.project_id != self.project_id:
             raise ValueError("research plan project id mismatch")
+        repair_requests = self.read_repair_requests()
+        revisions = self.read_plan_revisions()
+        resolutions = self.read_repair_resolutions()
+        plan = effective_plan(base_plan, revisions) if base_plan is not None else None
         known_items = {item.item_id for item in plan.items} if plan is not None else set()
 
         state = self.load_state()
@@ -495,17 +586,26 @@ class ResearchProjectStore:
         self._unique(assessments, "assessment_id", "assessment")
         self._unique(decisions, "decision_id", "decision")
         self._unique(artifacts, "artifact_id", "artifact")
-        for record in [*assessments, *decisions, *artifacts]:
+        self._unique(repair_requests, "repair_request_id", "repair request")
+        self._unique(revisions, "revision_id", "plan revision")
+        self._unique(resolutions, "resolution_id", "repair resolution")
+        for record in [*assessments, *decisions, *artifacts, *repair_requests, *revisions, *resolutions]:
             if record.project_id != self.project_id:
                 raise ValueError("append-only record project id mismatch")
 
         artifact_ids = {record.artifact_id for record in artifacts}
         assessment_ids = {record.assessment_id for record in assessments}
-        allowed_decision_targets = known_items | artifact_ids | assessment_ids
-        if plan is not None:
-            allowed_decision_targets |= {plan.plan_id, f"release:{plan.plan_id}"}
+        request_ids = {record.repair_request_id for record in repair_requests}
+        revision_ids = {record.revision_id for record in revisions}
+        allowed_decision_targets = known_items | artifact_ids | assessment_ids | request_ids | revision_ids
+        if base_plan is not None:
+            allowed_decision_targets.add(base_plan.plan_id)
         for decision in decisions:
-            unknown_targets = set(decision.target_ids) - allowed_decision_targets
+            unknown_targets = {
+                target for target in decision.target_ids
+                if target not in allowed_decision_targets
+                and not re.fullmatch(r"release:[0-9a-f]{64}", target)
+            }
             if unknown_targets:
                 raise ValueError(f"decision references unknown targets: {sorted(unknown_targets)}")
         for assessment in assessments:
@@ -515,6 +615,173 @@ class ResearchProjectStore:
             missing = set(result.artifact_ids) - artifact_ids
             if missing:
                 raise ValueError(f"work item {result.item_id} references missing artifacts: {sorted(missing)}")
+
+        request_by_id = {row.repair_request_id: row for row in repair_requests}
+        revision_by_id = {row.revision_id: row for row in revisions}
+        if [row.revision_number for row in revisions] != list(range(1, len(revisions) + 1)):
+            raise ValueError("plan revision sequence is not contiguous")
+        known_before = {item.item_id for item in base_plan.items} if base_plan is not None else set()
+        prior_revision_id: str | None = None
+        for revision in revisions:
+            request = request_by_id.get(revision.repair_request_id)
+            if request is None:
+                raise ValueError("plan revision references missing repair request")
+            if base_plan is None or revision.base_plan_id != base_plan.plan_id:
+                raise ValueError("plan revision base plan mismatch")
+            if revision.parent_revision_id != prior_revision_id:
+                raise ValueError("plan revision parent chain is not contiguous")
+            revision_body = {
+                "project_id": revision.project_id,
+                "base_plan_id": revision.base_plan_id,
+                "parent_revision_id": revision.parent_revision_id,
+                "revision_number": revision.revision_number,
+                "repair_request_id": revision.repair_request_id,
+                "operation": revision.operation,
+                "added_items": [item.model_dump(mode="json") for item in revision.added_items],
+                "superseded_item_ids": revision.superseded_item_ids,
+                "superseded_assessment_ids": revision.superseded_assessment_ids,
+                "trigger_snapshot_digest": revision.trigger_snapshot_digest,
+                "approval_required": revision.approval_required,
+            }
+            if canonical_sha256(revision_body) != revision.revision_digest:
+                raise ValueError("plan revision digest mismatch")
+            if revision.trigger_snapshot_digest != request.trigger_snapshot_digest:
+                raise ValueError("plan revision trigger snapshot mismatch")
+            if request.failure_class != FailureClass.TRANSIENT or request.action != RepairAction.RERUN_SUBGRAPH_SAME_INPUTS:
+                raise ValueError("plan revision is not backed by an eligible same-input transient request")
+            expected_authorization = (
+                RepairAuthorization.AUTOMATIC
+                if spec.autonomy_mode == AutonomyMode.AUTONOMOUS
+                else RepairAuthorization.CHECKPOINT_REQUIRED
+            )
+            if request.authorization != expected_authorization:
+                raise ValueError("repair request authorization does not match project autonomy")
+            if revision.approval_required != (expected_authorization == RepairAuthorization.CHECKPOINT_REQUIRED):
+                raise ValueError("plan revision approval requirement does not match repair authorization")
+            if revision.approval_required and not any(
+                decision.action.value == "accept"
+                and request.repair_request_id in decision.target_ids
+                and decision.evidence_snapshot_digest == request.trigger_snapshot_digest
+                for decision in decisions
+            ):
+                raise ValueError("checkpointed plan revision lacks exact-snapshot approval")
+            if any(
+                decision.action.value == "reject"
+                and request.repair_request_id in decision.target_ids
+                and decision.evidence_snapshot_digest == request.trigger_snapshot_digest
+                for decision in decisions
+            ):
+                raise ValueError("plan revision conflicts with an immutable repair rejection")
+            if not set(revision.superseded_item_ids).issubset(known_before):
+                raise ValueError("plan revision supersedes unknown work items")
+            if revision.superseded_item_ids != request.affected_work_item_ids:
+                raise ValueError("plan revision affected work items do not match repair request")
+            added_ids = {item.item_id for item in revision.added_items}
+            if added_ids & known_before:
+                raise ValueError("plan revision reuses an existing work item id")
+            prior_items = {
+                item.item_id: item
+                for item in [*base_plan.items, *(added for prior in revisions
+                                                 if prior.revision_number < revision.revision_number
+                                                 for added in prior.added_items)]
+            }
+            replacement_by_source = {item.rerun_of_item_id: item for item in revision.added_items}
+            if set(replacement_by_source) != set(revision.superseded_item_ids):
+                raise ValueError("plan revision must replace every and only superseded work item")
+            replacement_ids = {
+                source_id: replacement.item_id for source_id, replacement in replacement_by_source.items()
+            }
+            for item in revision.added_items:
+                if item.rerun_of_item_id not in revision.superseded_item_ids:
+                    raise ValueError("revision item does not rerun a superseded work item")
+                source = prior_items[item.rerun_of_item_id]
+                source_payload = source.model_dump(mode="json", exclude={
+                    "item_id", "dependencies", "rerun_of_item_id", "repair_request_id",
+                })
+                item_payload = item.model_dump(mode="json", exclude={
+                    "item_id", "dependencies", "rerun_of_item_id", "repair_request_id",
+                })
+                if source_payload != item_payload:
+                    raise ValueError("plan revision changes work-item content beyond retry metadata")
+                expected_dependencies = [replacement_ids.get(dep, dep) for dep in source.dependencies]
+                if item.dependencies != expected_dependencies:
+                    raise ValueError("plan revision changes dependencies beyond the affected subgraph overlay")
+            known_before |= added_ids
+            prior_revision_id = revision.revision_id
+        for request in repair_requests:
+            source = results.get(request.target_work_item_id)
+            if source is None or work_item_result_digest(source) != request.trigger_result_digest:
+                raise ValueError("repair request source result digest mismatch")
+            if (source.status != WorkItemStatus.FAILED
+                    or source.failure_class != FailureClass.TRANSIENT
+                    or source.input_digest != request.input_digest):
+                raise ValueError("repair request source is not an identical-input transient failure")
+            if not set(request.trigger_assessment_ids).issubset(assessment_ids):
+                raise ValueError("repair request references missing trigger assessment")
+            trigger_assessments = [
+                row for row in assessments if row.assessment_id in request.trigger_assessment_ids
+            ]
+            if any(
+                row.target_id != request.target_work_item_id
+                or row.target_digest != request.trigger_result_digest
+                or row.result != AssessmentResult.FAIL
+                or not row.blocking
+                or row.method != "typed_status_gate"
+                or row.actor not in {"independent_review", "fake_independent_review"}
+                for row in trigger_assessments
+            ):
+                raise ValueError("repair request trigger assessment is not a bound blocking status failure")
+        for resolution in resolutions:
+            if resolution.repair_request_id not in request_ids or resolution.revision_id not in revision_by_id:
+                raise ValueError("repair resolution references missing request or revision")
+            if not set(resolution.verification_assessment_ids).issubset(assessment_ids):
+                raise ValueError("repair resolution references missing verification assessment")
+            request = request_by_id[resolution.repair_request_id]
+            revision = revision_by_id[resolution.revision_id]
+            if resolution.before_snapshot_digest != request.trigger_snapshot_digest:
+                raise ValueError("repair resolution before snapshot mismatch")
+            root = next(
+                item for item in revision.added_items
+                if item.rerun_of_item_id == request.target_work_item_id
+            )
+            root_result = results.get(root.item_id)
+            verification = [
+                row for row in assessments
+                if row.assessment_id in resolution.verification_assessment_ids
+            ]
+            verified = (
+                root_result is not None
+                and any(
+                    row.target_id == root.item_id
+                    and row.target_digest == work_item_result_digest(root_result)
+                    and row.result == AssessmentResult.PASS
+                    and not row.blocking
+                    and row.method == "typed_status_gate"
+                    and row.actor in {"independent_review", "fake_independent_review"}
+                    for row in verification
+                )
+            )
+            if resolution.status == RepairResolutionStatus.RESOLVED:
+                if not verified or root_result.input_digest != request.input_digest:
+                    raise ValueError("resolved repair lacks identical-input independent verification")
+                if any(
+                    results.get(item.item_id) is None
+                    or results[item.item_id].status != WorkItemStatus.COMPLETED
+                    for item in revision.added_items
+                ):
+                    raise ValueError("resolved repair contains an incomplete recomputed work item")
+        if resolutions:
+            latest = max(resolutions, key=lambda row: revision_by_id[row.revision_id].revision_number)
+            if revision_by_id[latest.revision_id].revision_number == len(revisions):
+                current_snapshot = project_snapshot_digest(
+                    plan=plan,
+                    results=results,
+                    assessments=assessments,
+                    artifacts=artifacts,
+                    revisions=revisions,
+                )
+                if latest.after_snapshot_digest != current_snapshot:
+                    raise ValueError("latest repair resolution after snapshot mismatch")
 
         for record in artifacts:
             if known_items and record.work_item_id not in known_items:

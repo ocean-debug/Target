@@ -25,7 +25,7 @@ def _service(tmp_path):
 
 
 def test_public_package_version_matches_distribution_metadata():
-    assert target_agent.__version__ == version("target-discovery-agent") == "0.7.0"
+    assert target_agent.__version__ == version("target-discovery-agent") == "0.8.0"
 
 
 def test_service_advances_one_disease_question_to_durable_deliverables(tmp_path):
@@ -87,7 +87,9 @@ def test_service_exposes_real_checkpoint_progression_and_event_cursor(tmp_path):
         rationale="The evidence scope and budgets are appropriate.",
         resume=True,
     )["project"]
-    release_target = f"release:{plan_id}"
+    release_target = waiting_release["next_actions"][0]["target_id"]
+    assert release_target.startswith("release:")
+    assert len(release_target.removeprefix("release:")) == 64
     assert waiting_release["state"]["status"] == ProjectStatus.WAITING_REVIEW.value
     assert waiting_release["next_actions"][0]["target_id"] == release_target
 
@@ -219,6 +221,8 @@ def test_official_mcp_sdk_exposes_the_same_durable_service(tmp_path):
                 "target_list_projects",
                 "target_get_events",
                 "target_get_domain_activities",
+                "target_get_repairs",
+                "target_decide_repair",
                 "target_accept_checkpoint",
                 "target_read_text_artifact",
             } <= names

@@ -15,9 +15,9 @@ from .contracts import TaskContext, TaskSpec
 from .legacy import parse_task_spec
 from .llm import StepClient
 from .planner import Planner
-from .research_contracts import DecisionAction, DecisionEvent, ResearchProjectSpec
+from .research_contracts import ResearchProjectSpec
 from .research_runtime import ResearchProjectRuntime
-from .research_store import ResearchProjectStore
+from .research_service import ResearchProjectService
 from .runtime import TargetDiscoveryRuntime
 from .runtime_langgraph import LangGraphRuntime
 from .schema_export import export_schemas
@@ -117,6 +117,20 @@ def main() -> None:
     project_approve.add_argument("--resume", action="store_true",
                                  help="Resume the project immediately after recording acceptance")
 
+    project_repairs = sub.add_parser("project-repairs", help="Read the durable project repair queue")
+    project_repairs.add_argument("--project-id", required=True)
+    project_repairs.add_argument("--projects-dir", type=Path)
+
+    repair_decision = sub.add_parser("project-repair-decision", help="Approve or reject one exact repair snapshot")
+    repair_decision.add_argument("--project-id", required=True)
+    repair_decision.add_argument("--repair-request-id", required=True)
+    repair_decision.add_argument("--snapshot-digest", required=True)
+    repair_decision.add_argument("--approve", action=argparse.BooleanOptionalAction, required=True)
+    repair_decision.add_argument("--actor", required=True)
+    repair_decision.add_argument("--rationale", required=True)
+    repair_decision.add_argument("--projects-dir", type=Path)
+    repair_decision.add_argument("--resume", action="store_true")
+
     schemas = sub.add_parser("export-schemas", help="Export canonical Pydantic JSON Schemas")
     schemas.add_argument("--output", type=Path, default=Path("schemas"))
 
@@ -167,40 +181,32 @@ def main() -> None:
         print(json.dumps(project_runtime.run(load_research_project(args.input), resume=args.resume),
                          indent=2, ensure_ascii=False))
     elif args.command == "project-status":
-        store = ResearchProjectStore(args.projects_dir or settings.projects_dir, args.project_id)
-        spec = store.load_spec()
-        state = store.load_state()
-        if spec is None:
-            raise SystemExit(f"project not found: {args.project_id}")
-        print(json.dumps({
-            "spec": spec.model_dump(mode="json"),
-            "state": state.model_dump(mode="json") if state else None,
-            "work_item_results": [row.model_dump(mode="json") for row in store.load_work_item_results().values()],
-            "artifacts": [row.model_dump(mode="json") for row in store.read_artifacts()],
-            "decisions": [row.model_dump(mode="json") for row in store.read_decisions()],
-        }, indent=2, ensure_ascii=False))
+        runtime = ResearchProjectRuntime(projects_dir=args.projects_dir, settings=settings)
+        print(json.dumps(ResearchProjectService(runtime).snapshot(args.project_id), indent=2, ensure_ascii=False))
     elif args.command == "project-approve":
-        store = ResearchProjectStore(args.projects_dir or settings.projects_dir, args.project_id)
-        spec, plan = store.load_spec(), store.load_plan()
-        if spec is None or plan is None:
-            raise SystemExit(f"project or plan not found: {args.project_id}")
-        allowed = {plan.plan_id, *(item.item_id for item in plan.items), f"release:{plan.plan_id}"}
-        if args.target_id not in allowed:
-            raise SystemExit("target id is not part of the frozen plan")
-        decision = next((row for row in store.read_decisions()
-                         if row.action == DecisionAction.ACCEPT and args.target_id in row.target_ids), None)
-        if decision is None:
-            decision = DecisionEvent(
-                project_id=args.project_id, action=DecisionAction.ACCEPT,
-                target_ids=[args.target_id], actor=args.actor, rationale=args.rationale,
-                reversible=False,
-            )
-            store.append_decision(decision)
-        result = {"decision": decision.model_dump(mode="json")}
-        if args.resume:
-            result["state"] = ResearchProjectRuntime(
-                projects_dir=args.projects_dir, settings=settings,
-            ).run(spec, resume=True)
+        runtime = ResearchProjectRuntime(projects_dir=args.projects_dir, settings=settings)
+        result = ResearchProjectService(runtime).accept_checkpoint(
+            project_id=args.project_id,
+            target_id=args.target_id,
+            actor=args.actor,
+            rationale=args.rationale,
+            resume=args.resume,
+        )
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+    elif args.command == "project-repairs":
+        runtime = ResearchProjectRuntime(projects_dir=args.projects_dir, settings=settings)
+        print(json.dumps(ResearchProjectService(runtime).repairs(args.project_id), indent=2, ensure_ascii=False))
+    elif args.command == "project-repair-decision":
+        runtime = ResearchProjectRuntime(projects_dir=args.projects_dir, settings=settings)
+        result = ResearchProjectService(runtime).decide_repair(
+            project_id=args.project_id,
+            repair_request_id=args.repair_request_id,
+            trigger_snapshot_digest=args.snapshot_digest,
+            approve=args.approve,
+            actor=args.actor,
+            rationale=args.rationale,
+            resume=args.resume,
+        )
         print(json.dumps(result, indent=2, ensure_ascii=False))
     elif args.command == "export-schemas":
         for path in export_schemas(args.output):

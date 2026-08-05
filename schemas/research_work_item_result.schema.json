@@ -1,5 +1,18 @@
 {
   "$defs": {
+    "FailureClass": {
+      "enum": [
+        "transient",
+        "permanent",
+        "missing_input",
+        "scientific_gap",
+        "integrity_failure",
+        "unsupported",
+        "internal"
+      ],
+      "title": "FailureClass",
+      "type": "string"
+    },
     "WorkItemStatus": {
       "enum": [
         "pending",
@@ -75,6 +88,56 @@
       ],
       "default": null,
       "title": "Error"
+    },
+    "failure_class": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/FailureClass"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "input_digest": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Input Digest"
+    },
+    "supersedes_result_digest": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Supersedes Result Digest"
+    },
+    "repair_request_id": {
+      "anyOf": [
+        {
+          "pattern": "^repair-[a-f0-9]{24}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Repair Request Id"
     },
     "started_at": {
       "title": "Started At",

@@ -65,6 +65,49 @@
       "title": "Attempts",
       "type": "object"
     },
+    "checkpoint_kind": {
+      "anyOf": [
+        {
+          "enum": [
+            "plan",
+            "work_item",
+            "repair",
+            "release"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Checkpoint Kind"
+    },
+    "checkpoint_target_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Checkpoint Target Id"
+    },
+    "checkpoint_snapshot_digest": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Checkpoint Snapshot Digest"
+    },
     "terminal_reason": {
       "anyOf": [
         {

@@ -338,6 +338,61 @@ def create_app(
             return jsonify({"error": str(exc)}), 400
         return jsonify(page)
 
+    @app.get("/api/projects/<project_id>/repairs")
+    def project_repairs(project_id: str):
+        project_id = _safe_project_id(project_id)
+        try:
+            return jsonify(research_service.repairs(project_id))
+        except ResearchProjectNotFound:
+            return jsonify({"error": "project not found"}), 404
+
+    @app.post("/api/projects/<project_id>/repairs/<repair_request_id>/decision")
+    def decide_project_repair(project_id: str, repair_request_id: str):
+        project_id = _safe_project_id(project_id)
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            return jsonify({"error": "request body must be a JSON object"}), 400
+        actor = str(payload.get("actor") or "").strip()
+        rationale = str(payload.get("rationale") or "").strip()
+        snapshot_digest = str(payload.get("trigger_snapshot_digest") or "").strip()
+        approve = payload.get("approve")
+        if not actor or not rationale or not snapshot_digest or not isinstance(approve, bool):
+            return jsonify({
+                "error": "actor, rationale, trigger_snapshot_digest and boolean approve are required"
+            }), 400
+        try:
+            decided = research_service.decide_repair(
+                project_id=project_id,
+                repair_request_id=repair_request_id,
+                trigger_snapshot_digest=snapshot_digest,
+                approve=approve,
+                actor=actor,
+                rationale=rationale,
+                resume=False,
+            )
+        except ResearchProjectNotFound:
+            return jsonify({"error": "project not found"}), 404
+        except ResearchDecisionError as exc:
+            status = 409 if "stale" in str(exc).lower() else 400
+            return jsonify({"error": str(exc)}), status
+        store = ResearchProjectStore(research_runtime.projects_dir, project_id)
+        spec = store.load_spec()
+        assert spec is not None
+
+        def resume_repair_worker() -> None:
+            try:
+                research_runtime.run(spec, resume=True)
+            except Exception:
+                return
+
+        queued = pool.submit(resume_repair_worker)
+        return jsonify({
+            "decision": decided["decision"],
+            "decision_persisted": True,
+            "resume_queued": queued,
+            "status_url": f"/api/projects/{project_id}",
+        }), 202
+
     @app.post("/api/projects/<project_id>/decisions")
     def accept_project_checkpoint(project_id: str):
         project_id = _safe_project_id(project_id)
@@ -375,9 +430,10 @@ def create_app(
         queued = pool.submit(resume_worker)
         return jsonify({
             "decision": decision,
+            "decision_persisted": True,
             "resume_queued": queued,
             "status_url": f"/api/projects/{project_id}",
-        }), 202 if queued else 429
+        }), 202
 
     @app.get("/api/projects/<project_id>/artifacts/<artifact_id>")
     def project_artifact(project_id: str, artifact_id: str):

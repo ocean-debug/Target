@@ -24,6 +24,8 @@ async def _run() -> None:
             "target_list_projects",
             "target_get_events",
             "target_get_domain_activities",
+            "target_get_repairs",
+            "target_decide_repair",
             "target_accept_checkpoint",
             "target_read_text_artifact",
         }

@@ -4,9 +4,13 @@ import json
 from collections import Counter
 from types import SimpleNamespace
 
+import pytest
+import requests
+
 from target_agent.contracts import TaskContext, TaskSpec, ToolDescriptor, TraceEvent
 from target_agent.research_contracts import (
-    AutonomyMode, DecisionAction, DecisionEvent, ProjectState, ProjectStatus,
+    AssessmentDimension, AssessmentLevel, AssessmentRecord, AssessmentResult, AutonomyMode,
+    DecisionAction, DecisionEvent, ProjectState, ProjectStatus, RepairResolutionStatus,
     ResearchGoal,
     ResearchProjectSpec,
     WorkItemResult,
@@ -20,7 +24,12 @@ from target_agent.research_modules import (
     default_research_registry,
 )
 from target_agent.research_planner import ResearchPlanner
+from target_agent.research_repair import (
+    active_item_ids, build_plan_revision, classify_exception, effective_plan,
+    work_item_result_digest,
+)
 from target_agent.research_runtime import ResearchProjectRuntime
+from target_agent.research_service import ResearchDecisionError, ResearchProjectService
 from target_agent.research_store import ResearchProjectStore
 from target_agent.store import EvidenceStore
 from target_agent.settings import Settings
@@ -33,6 +42,17 @@ BASELINE_MODULES = (
     "independent_review",
     "research_report",
 )
+
+
+def test_exception_classification_does_not_retry_http_4xx_or_local_permission_errors():
+    bad_request = requests.HTTPError(response=requests.Response())
+    bad_request.response.status_code = 400
+    unavailable = requests.HTTPError(response=requests.Response())
+    unavailable.response.status_code = 503
+
+    assert classify_exception(bad_request).value == "permanent"
+    assert classify_exception(unavailable).value == "transient"
+    assert classify_exception(PermissionError(13, "denied")).value == "permanent"
 
 
 def research_project(
@@ -65,6 +85,7 @@ class FakeResearchModule:
         calls: Counter,
         *,
         fail_module: str | None = None,
+        transient_fail_once: str | None = None,
         bad_contract_module: str | None = None,
     ):
         self.descriptor = ModuleDescriptor(
@@ -73,16 +94,23 @@ class FakeResearchModule:
             input_types=("object",),
             output_types=("object",),
             execution_policy="deterministic_test",
+            side_effect_free=True,
+            replay_safe=True,
+            repair_modes=("same_input_retry",) if name in {"literature_search", "target_discovery"} else (),
         )
         self.calls = calls
         self.fail_module = fail_module
+        self.transient_fail_once = transient_fail_once
         self.bad_contract_module = bad_contract_module
 
     def execute(self, context):
         name = self.descriptor.name
+        assessments = []
         self.calls[name] += 1
         if name == self.fail_module:
             raise RuntimeError("synthetic module failure")
+        if name == self.transient_fail_once and self.calls[name] == 1:
+            raise ConnectionError("synthetic transient connector failure")
 
         if name == "project_brief":
             outputs = {
@@ -132,6 +160,21 @@ class FakeResearchModule:
             ]
             outputs = {"assessment_count": len(context.prior_results), "blocking_failures": blocking}
             status = WorkItemStatus.COMPLETED_WITH_GAPS if blocking else WorkItemStatus.COMPLETED
+            assessments = [
+                AssessmentRecord(
+                    project_id=context.project.project_id,
+                    target_id=item_id,
+                    target_digest=work_item_result_digest(result),
+                    dimension=AssessmentDimension.METHODOLOGY,
+                    level=AssessmentLevel.A0,
+                    result=(AssessmentResult.FAIL if item_id in blocking else AssessmentResult.PASS),
+                    actor="fake_independent_review",
+                    method="typed_status_gate",
+                    rationale=f"Observed {result.status.value}.",
+                    blocking=item_id in blocking,
+                )
+                for item_id, result in context.prior_results.items()
+            ]
         elif name == "research_report":
             gaps = [
                 item_id for item_id, result in context.prior_results.items()
@@ -166,6 +209,7 @@ class FakeResearchModule:
                 outputs=outputs,
             ),
             artifacts=[PendingArtifact(artifact_path, logical_name, media_type)],
+            assessments=assessments,
         )
 
 
@@ -173,6 +217,7 @@ def fake_research_runtime(
     tmp_path,
     *,
     fail_module: str | None = None,
+    transient_fail_once: str | None = None,
     bad_contract_module: str | None = None,
 ):
     calls: Counter = Counter()
@@ -181,6 +226,7 @@ def fake_research_runtime(
             name,
             calls,
             fail_module=fail_module,
+            transient_fail_once=transient_fail_once,
             bad_contract_module=bad_contract_module,
         )
         for name in (*BASELINE_MODULES, "target_discovery")
@@ -258,6 +304,186 @@ def test_module_exception_still_produces_a_durable_gap_report(tmp_path):
     assert any(row.logical_name == "research_report" for row in store.read_artifacts())
 
 
+def test_autonomous_transient_failure_reruns_affected_subgraph_and_rebinds_release(tmp_path):
+    runtime, calls = fake_research_runtime(tmp_path, transient_fail_once="literature_search")
+    project = research_project("project-transient-repair")
+
+    terminal = runtime.run(project)
+
+    assert terminal["status"] == ProjectStatus.COMPLETED.value
+    store = ResearchProjectStore(runtime.projects_dir, project.project_id)
+    requests = store.read_repair_requests()
+    revisions = store.read_plan_revisions()
+    resolutions = store.read_repair_resolutions()
+    assert len(requests) == len(revisions) == len(resolutions) == 1
+    assert resolutions[0].status == RepairResolutionStatus.RESOLVED
+    assert calls["literature_search"] == 2
+    assert calls["hypothesis_generation"] == 1
+    assert calls["independent_review"] == 2
+    assert calls["research_report"] == 2
+    results = store.load_work_item_results()
+    assert results["literature_search"].status == WorkItemStatus.FAILED
+    assert results["literature_search__repair_1"].status == WorkItemStatus.COMPLETED
+    assert results["literature_search__repair_1"].input_digest == requests[0].input_digest
+    effective = store.load_effective_plan()
+    assert effective is not None
+    active = active_item_ids(effective, revisions)
+    assert "literature_search" not in active
+    assert "literature_search__repair_1" in active
+    assert any(row.action == DecisionAction.REPLAN for row in store.read_decisions())
+    release = [row for row in store.read_decisions() if row.action == DecisionAction.RELEASE]
+    assert len(release) == 1 and release[0].evidence_snapshot_digest
+    store.assert_integrity()
+
+
+def test_integrity_rejects_tampered_plan_revision_digest(tmp_path):
+    runtime, _ = fake_research_runtime(tmp_path, transient_fail_once="literature_search")
+    project = research_project("project-revision-tamper")
+    runtime.run(project)
+    store = ResearchProjectStore(runtime.projects_dir, project.project_id)
+    revision_path = next((store.project_dir / "plan_revisions").glob("*.json"))
+    payload = json.loads(revision_path.read_text(encoding="utf-8"))
+    payload["revision_digest"] = "0" * 64
+    revision_path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="plan revision digest mismatch"):
+        store.assert_integrity()
+
+
+def test_release_snapshot_ignores_orphan_artifact_not_referenced_by_active_result(tmp_path):
+    runtime, _ = fake_research_runtime(tmp_path)
+    project = research_project("project-orphan-artifact")
+    service = ResearchProjectService(runtime)
+    runtime.run(project)
+    store = ResearchProjectStore(runtime.projects_dir, project.project_id)
+    before = service.snapshot(project.project_id)["release_snapshot_digest"]
+    orphan = store.project_dir / "work_items" / "literature_search" / "orphan.txt"
+    orphan.parent.mkdir(parents=True, exist_ok=True)
+    orphan.write_text("not referenced by the active result", encoding="utf-8")
+    store.register_artifact(orphan, "literature_search", "orphan", "text/plain")
+
+    assert service.snapshot(project.project_id)["release_snapshot_digest"] == before
+
+
+def test_checkpointed_repair_requires_exact_snapshot_approval(tmp_path):
+    runtime, calls = fake_research_runtime(tmp_path, transient_fail_once="literature_search")
+    project = research_project(
+        "project-checkpointed-repair", autonomy_mode=AutonomyMode.CHECKPOINTED,
+    )
+    service = ResearchProjectService(runtime)
+
+    first = runtime.run(project)
+    assert first["status"] == ProjectStatus.NEEDS_INPUT.value
+    store = ResearchProjectStore(runtime.projects_dir, project.project_id)
+    base_plan = store.load_plan()
+    assert base_plan is not None
+    service.accept_checkpoint(
+        project_id=project.project_id,
+        target_id=base_plan.plan_id,
+        actor="reviewer",
+        rationale="Initial plan is in scope.",
+        resume=True,
+    )
+    waiting = store.load_state()
+    assert waiting is not None and waiting.status == ProjectStatus.WAITING_REVIEW
+    request = store.read_repair_requests()[0]
+    assert not store.read_plan_revisions()
+    with pytest.raises(ResearchDecisionError, match="stale"):
+        service.decide_repair(
+            project_id=project.project_id,
+            repair_request_id=request.repair_request_id,
+            trigger_snapshot_digest="0" * 64,
+            approve=True,
+            actor="reviewer",
+            rationale="stale approval",
+        )
+    service.decide_repair(
+        project_id=project.project_id,
+        repair_request_id=request.repair_request_id,
+        trigger_snapshot_digest=request.trigger_snapshot_digest,
+        approve=True,
+        actor="reviewer",
+        rationale="Approve bounded same-input retry.",
+        resume=True,
+    )
+    with pytest.raises(ResearchDecisionError, match="opposite decision"):
+        service.decide_repair(
+            project_id=project.project_id,
+            repair_request_id=request.repair_request_id,
+            trigger_snapshot_digest=request.trigger_snapshot_digest,
+            approve=False,
+            actor="reviewer",
+            rationale="A non-reversible approval cannot later become rejection.",
+        )
+    assert calls["literature_search"] == 2
+    assert len(store.read_plan_revisions()) == 1
+    assert store.load_state().status == ProjectStatus.WAITING_REVIEW
+    next_action = service.snapshot(project.project_id)["next_actions"][0]
+    assert next_action["target_id"].startswith("release:")
+    assert len(next_action["target_id"].removeprefix("release:")) == 64
+
+
+def test_checkpointed_repair_rejection_resumes_to_explicit_gap_terminal(tmp_path):
+    runtime, calls = fake_research_runtime(tmp_path, transient_fail_once="literature_search")
+    project = research_project(
+        "project-checkpointed-repair-reject", autonomy_mode=AutonomyMode.CHECKPOINTED,
+    )
+    service = ResearchProjectService(runtime)
+    runtime.run(project)
+    store = ResearchProjectStore(runtime.projects_dir, project.project_id)
+    plan = store.load_plan()
+    assert plan is not None
+    service.accept_checkpoint(
+        project_id=project.project_id, target_id=plan.plan_id,
+        actor="reviewer", rationale="Accept initial plan.", resume=True,
+    )
+    request = store.read_repair_requests()[0]
+
+    terminal = service.decide_repair(
+        project_id=project.project_id,
+        repair_request_id=request.repair_request_id,
+        trigger_snapshot_digest=request.trigger_snapshot_digest,
+        approve=False,
+        actor="reviewer",
+        rationale="Do not retry; retain the failure as a gap.",
+        resume=True,
+    )["project"]
+
+    assert terminal["state"]["status"] == ProjectStatus.COMPLETED_WITH_GAPS.value
+    assert terminal["next_actions"][0]["action"] == "inspect_gaps"
+    assert calls["literature_search"] == 1
+    assert not store.read_plan_revisions()
+
+
+def test_checkpointed_revision_without_exact_approval_is_rejected_on_resume(tmp_path):
+    runtime, _ = fake_research_runtime(tmp_path, transient_fail_once="literature_search")
+    project = research_project(
+        "project-unapproved-revision", autonomy_mode=AutonomyMode.CHECKPOINTED,
+    )
+    service = ResearchProjectService(runtime)
+    runtime.run(project)
+    store = ResearchProjectStore(runtime.projects_dir, project.project_id)
+    base = store.load_plan()
+    assert base is not None
+    service.accept_checkpoint(
+        project_id=project.project_id, target_id=base.plan_id,
+        actor="reviewer", rationale="Accept initial plan.", resume=True,
+    )
+    request = store.read_repair_requests()[0]
+    revision = build_plan_revision(
+        request=request,
+        base_plan=base,
+        plan=effective_plan(base, []),
+        assessments=store.read_assessments(),
+        artifacts=store.read_artifacts(),
+        revisions=[],
+    )
+    store.append_plan_revision(revision)
+
+    with pytest.raises(ValueError, match="lacks exact-snapshot approval"):
+        runtime.run(project, resume=True)
+
+
 def test_resume_of_terminal_project_is_idempotent_and_does_not_rerun_modules(tmp_path):
     runtime, calls = fake_research_runtime(tmp_path)
     project = research_project("project-resume")
@@ -308,12 +534,16 @@ def test_checkpointed_project_requires_plan_and_release_acceptance(tmp_path):
     assert second["status"] == ProjectStatus.WAITING_REVIEW.value
     assert calls["research_report"] == 1
 
-    store.append_decision(DecisionEvent(
-        project_id=project.project_id, action=DecisionAction.ACCEPT,
-        target_ids=[f"release:{plan.plan_id}"], actor="test-reviewer",
-        rationale="Release artifacts passed review.", reversible=False,
-    ))
-    third = runtime.run(project, resume=True)
+    service = ResearchProjectService(runtime)
+    release_target = service.snapshot(project.project_id)["next_actions"][0]["target_id"]
+    service.accept_checkpoint(
+        project_id=project.project_id,
+        target_id=release_target,
+        actor="test-reviewer",
+        rationale="Release artifacts passed review.",
+        resume=True,
+    )
+    third = store.load_state().model_dump(mode="json")
     assert third["status"] == ProjectStatus.COMPLETED.value
 
 

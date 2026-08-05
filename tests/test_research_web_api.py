@@ -70,6 +70,10 @@ def test_project_post_get_events_and_artifact_download_use_durable_state(tmp_pat
         "next_cursor": 0,
         "has_more": False,
     }
+    repairs = client.get(f"/api/projects/{project.project_id}/repairs")
+    assert repairs.status_code == 200
+    assert repairs.get_json()["requests"] == []
+    assert repairs.get_json()["remaining_replans"] == 2
 
     report = next(row for row in payload["artifacts"] if row["logical_name"] == "research_report")
     downloaded = client.get(
@@ -109,8 +113,27 @@ def test_project_api_missing_resources_are_explicit(tmp_path):
     assert client.get("/api/projects/project-does-not-exist").status_code == 404
     assert client.get("/api/projects/project-does-not-exist/events").status_code == 404
     assert client.get("/api/projects/project-does-not-exist/activities").status_code == 404
+    assert client.get("/api/projects/project-does-not-exist/repairs").status_code == 404
     assert client.get("/api/projects/project-does-not-exist/events?after_sequence=bad").status_code == 400
     assert (
         client.get("/api/projects/project-does-not-exist/artifacts/artifact-missing").status_code
         == 404
     )
+
+
+def test_project_repair_api_exposes_verified_autonomous_repair(tmp_path):
+    research_runtime, _ = fake_research_runtime(
+        tmp_path, transient_fail_once="literature_search",
+    )
+    client = create_app(
+        fake_target_runtime(tmp_path),
+        research_runtime=research_runtime,
+    ).test_client()
+    project = research_project("project-web-repair")
+
+    assert client.post("/api/projects", json=project.model_dump(mode="json")).status_code == 202
+    payload = _wait_for_project(client, project.project_id).get_json()
+    assert payload["state"]["status"] == "completed"
+    queue = client.get(f"/api/projects/{project.project_id}/repairs").get_json()
+    assert len(queue["requests"]) == len(queue["revisions"]) == len(queue["resolutions"]) == 1
+    assert queue["resolutions"][0]["status"] == "resolved"

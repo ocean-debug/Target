@@ -16,4 +16,4 @@ __all__ = [
     "CONTRACT_VERSION", "RESEARCH_CONTRACT_VERSION", "ResearchProjectRuntime",
     "ResearchProjectSpec", "TaskSpec", "TargetDiscoveryRuntime",
 ]
-__version__ = "0.7.0"
+__version__ = "0.8.0"

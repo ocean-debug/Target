@@ -63,6 +63,8 @@ The optional official-SDK stdio server exposes:
 - `target_list_projects`
 - `target_get_events`
 - `target_get_domain_activities`
+- `target_get_repairs`
+- `target_decide_repair`
 - `target_accept_checkpoint`
 - `target_read_text_artifact`
 
@@ -71,14 +73,18 @@ second store. Project and artifact resources are also addressable as `target://`
 Missing biological context is preserved rather than inferred, text artifacts are verified before
 read-back and bounded before entering a model context.
 
+The current repair operation is a constrained execution overlay, not a general LLM replan. It can
+rerun a source-bound transient failure and its transitive dependants only when every module declares
+the required replay policy. Checkpointed approval carries the exact trigger snapshot digest.
+
 ## Remaining product work
 
 The MCP adapter makes Target embeddable, but it does not by itself complete the full product moat.
 The next runtime increments are:
 
-1. Add append-only, digest-bound project plan revisions for explicitly authorized evidence
-   supplementation. The current child Reviewer retry is real and observable, but it must not be
-   misrepresented as project-level replan semantics.
+1. Extend the implemented append-only same-input repair overlay with typed domain repair directives
+   for same-context alternate-dataset selection, evidence exclusion, claim downgrade and explicit
+   downstream invalidation. Arbitrary Reviewer prose must never become executable input.
 2. Add evaluator-owned hidden target-ranking cases and independent expert adjudication.
 3. Build real cross-disease alignment cases from reviewed project decisions instead of template
    expansion.

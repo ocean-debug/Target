@@ -15,8 +15,9 @@ from .contracts import (
 )
 from .research_contracts import (
     ArtifactRecord, AssessmentRecord, DataContract, DecisionEvent, DomainActivityPage,
-    DomainActivityRecord, ProjectEvent, ProjectState, ResearchGoal, ResearchPlan,
-    ResearchProjectSnapshot, ResearchProjectSpec, WorkItemResult, WorkItemSpec,
+    DomainActivityRecord, ProjectEvent, ProjectState, RepairQueueSnapshot, RepairRequest,
+    RepairResolution, ResearchGoal, ResearchPlan, ResearchPlanRevision, ResearchProjectSnapshot,
+    ResearchProjectSpec, WorkItemResult, WorkItemSpec,
 )
 from .blind_benchmark import BlindBenchmarkManifest, BlindLabelSet
 
@@ -59,6 +60,10 @@ MODELS = {
     "research_project_event": ProjectEvent,
     "research_domain_activity": DomainActivityRecord,
     "research_domain_activity_page": DomainActivityPage,
+    "research_repair_request": RepairRequest,
+    "research_plan_revision": ResearchPlanRevision,
+    "research_repair_resolution": RepairResolution,
+    "research_repair_queue": RepairQueueSnapshot,
     "research_project_snapshot": ResearchProjectSnapshot,
     "research_project_state": ProjectState,
     "blind_benchmark_manifest": BlindBenchmarkManifest,

@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Target 产品状态与后续 PRD</title>
+  <style>
+    :root{--bg:#07111f;--panel:#0d1b2d;--panel2:#11233a;--text:#eef6ff;--muted:#98abc3;--line:#203a59;--blue:#5da9ff;--green:#42d392;--amber:#ffbf69;--red:#ff6b7a;--max:1180px}
+    *{box-sizing:border-box} body{margin:0;background:linear-gradient(145deg,#07111f 0%,#0b1830 55%,#091322 100%);color:var(--text);font:15px/1.7 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
+    a{color:#8ec5ff}.wrap{max-width:var(--max);margin:auto;padding:44px 24px 72px}.hero{padding:34px;border:1px solid var(--line);border-radius:22px;background:linear-gradient(135deg,rgba(93,169,255,.14),rgba(66,211,146,.06));box-shadow:0 18px 70px rgba(0,0,0,.22)}
+    h1{font-size:42px;line-height:1.16;margin:0 0 12px}h2{font-size:25px;margin:44px 0 16px}h3{font-size:17px;margin:0 0 7px}.lead{font-size:18px;color:#c8d8ea;max-width:900px}.badges{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px}.badge{padding:6px 11px;border-radius:999px;border:1px solid var(--line);background:#0a1728;color:#caddf3}.ok{color:var(--green)}.next{color:var(--amber)}.stop{color:var(--red)}
+    .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.card{background:rgba(13,27,45,.9);border:1px solid var(--line);border-radius:16px;padding:20px}.card p{color:var(--muted);margin:5px 0 0}.wide{grid-column:span 2}.matrix{width:100%;border-collapse:collapse;background:rgba(13,27,45,.9);border:1px solid var(--line)}th,td{padding:14px 16px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}th{color:#bcd4ee;background:#102239}.state{font-weight:700;white-space:nowrap}.flow{display:flex;gap:7px;flex-wrap:wrap;align-items:center;padding:19px;border:1px solid var(--line);border-radius:16px;background:#0b192a}.node{padding:8px 10px;border-radius:9px;background:var(--panel2);border:1px solid #2c4d70}.arrow{color:var(--blue)}
+    .road{display:grid;grid-template-columns:100px 1fr;gap:12px 20px}.priority{font-weight:800;font-size:18px;color:var(--amber)}ul{margin:7px 0;padding-left:20px;color:#c6d6e8}.note{margin-top:34px;padding:17px 20px;border-left:4px solid var(--amber);background:rgba(255,191,105,.08);color:#dce7f3}.footer{margin-top:45px;color:var(--muted);font-size:13px}
+    @media(max-width:800px){h1{font-size:32px}.grid{grid-template-columns:1fr}.wide{grid-column:auto}.road{grid-template-columns:1fr}.matrix{font-size:13px}th,td{padding:10px}}
+  </style>
+</head>
+<body><main class="wrap">
+  <section class="hero">
+    <h1>Target：从科研 Demo 到可审查产品</h1>
+    <p class="lead">当前版本已经形成“靶点发现科学主链 + 持久化项目控制面 + 有界 Reviewer 修复”的可运行基线。这里将已经完成的能力、明确边界和暂停后的产品路线放在同一页，避免把内部通过误写成开放世界生物学性能。</p>
+    <div class="badges"><span class="badge ok">已实现：动态组学与证据合同</span><span class="badge ok">已实现：项目持久化与快照决策标记</span><span class="badge ok">已实现：同输入 transient 修复</span><span class="badge next">待完成：领域修复与外部盲测</span><span class="badge stop">当前增量完成后暂停</span></div>
+  </section>
+
+  <h2>产品承诺</h2>
+  <div class="grid">
+    <article class="card"><h3>不是基因名单</h3><p>输出排序、TargetCard、支持与反方证据、可药性/安全性、实验路线和证据缺口。</p></article>
+    <article class="card"><h3>不是流畅幻觉</h3><p>所有关键结论必须回链来源、工具运行、参数、版本和不可变产物。</p></article>
+    <article class="card"><h3>不是成功概率</h3><p>排名是研究优先级；因果、预测与观察证据分层，阻断项不能被平均分掩盖。</p></article>
+  </div>
+
+  <h2>当前真实闭环</h2>
+  <div class="flow"><span class="node">冻结研究问题</span><span class="arrow">→</span><span class="node">类型化计划</span><span class="arrow">→</span><span class="node">科学工具</span><span class="arrow">→</span><span class="node">Evidence Store</span><span class="arrow">→</span><span class="node">项目完整性评审</span><span class="arrow">→</span><span class="node">有界执行修复</span><span class="arrow">→</span><span class="node">重算与复核</span><span class="arrow">→</span><span class="node">快照绑定决策标记</span></div>
+
+  <h2>完成情况</h2>
+  <table class="matrix"><thead><tr><th>能力域</th><th>状态</th><th>已经完成</th><th>明确边界</th></tr></thead><tbody>
+    <tr><td>动态组学</td><td class="state ok">已实现</td><td>疾病标准化、GEO 检索、元数据门控、bulk/scRNA 合同与受控分析、富集与候选提取</td><td>不合格数据不会被强行分析；当前验收环境 Census 后端不可用，尚无公开 Census 冷启动端到端证据</td></tr>
+    <tr><td>遗传学</td><td class="state ok">部分产品化</td><td>GWAS 输入审查、候选宇宙冻结、预计算 SuSiE/coloc 审计、checksum lineage</td><td>尚不在主链内重算 fine-mapping/coloc</td></tr>
+    <tr><td>证据与报告</td><td class="state ok">已实现</td><td>多维证据、上下文匹配、反证/安全 blocker、TargetCard、实验计划、Trace</td><td>预测扰动受限；报告不得新增后端不存在的数字</td></tr>
+    <tr><td>项目控制面</td><td class="state ok">已实现</td><td>冻结 spec/plan、工作项、持久状态、不可变 artifact、追加事件/决定、恢复锁</td><td>WorkAttempt/Head 与 worker lease 仍待补齐</td></tr>
+    <tr><td>项目执行修复</td><td class="state ok">窄闭环已实现</td><td>执行/完整性评审触发的 transient + identical-input + replay-safe 子图重跑、复核与 resolution</td><td>领域科学 finding 尚不能驱动补证；不能自动换方法、跨上下文补证或执行自由文本</td></tr>
+    <tr><td>产品接口</td><td class="state ok">已实现</td><td>CLI、HTTP、stdio MCP 共享同一服务；repair queue/decision 可用</td><td>远程认证、多租户、Streamable HTTP MCP 未完成</td></tr>
+    <tr><td>科学验证</td><td class="state next">内部验证</td><td>合同/回归 benchmark、冻结式参考 scorer、模板化 alignment 基线、远程 AD/LUAD/UC 运行记录</td><td>现有 SFT 为 6 模板×20 变体且非独立双人审核；没有外部隐藏疾病与独立专家盲测结果</td></tr>
+  </tbody></table>
+
+  <div class="note"><strong>Benchmark 诚实边界：</strong>历史 conflicting-evidence 桶的 54/54 只检查终态、溯源和报告存在；当时 reviewer category 不是可执行断言，所以不能据此宣称冲突已被识别或修复。当前 runner 已支持显式 finding-category 断言，后续必须用状态迁移案例验证修复。</div>
+
+  <h2>暂停后的 PRD 优先级</h2>
+  <div class="road">
+    <div class="priority">P0</div><div class="card"><h3>可靠性闭环</h3><ul><li>WorkAttempt/Head、ArtifactVersion、ReviewTarget、lease/CAS 与中断恢复</li><li>同上下文数据集替换、完整依赖失效与重算</li><li>类型化领域 Repair Directive 和 R0–R3 策略</li><li>将冲突、修复、supersession、scope 变成机器断言</li></ul></div>
+    <div class="priority">P1</div><div class="card"><h3>科学壁垒</h3><ul><li>真实 fine-mapping/coloc、多上下文 QTL 与扰动 Oracle</li><li>真实而多样的 alignment 数据与双角色审核</li><li>外部隐藏疾病、独立专家标注的盲测排名</li><li>证据快照绑定的专家 release gate</li></ul></div>
+    <div class="priority">P2</div><div class="card"><h3>产品交付</h3><ul><li>认证、多租户、worker lease、资源配额和观测</li><li>Streamable HTTP MCP 与连接器 SDK</li><li>修复队列、证据差异和版本对比工作台</li></ul></div>
+  </div>
+
+  <h2>禁止事项</h2>
+  <div class="grid"><article class="card"><h3>禁止自动改变真值</h3><p>不改变 TaskSpec、来源证据、方法阈值，不删除反证；Agent 综合 Claim 只允许新增降级 revision，不得自动升级。</p></article><article class="card"><h3>禁止任意执行</h3><p>Reviewer 自由文本和 LLM 建议不能直接触发 Shell、Python、R 或未注册工具。</p></article><article class="card"><h3>禁止夸大验证</h3><p>内部 benchmark、模板 held-out 和已知 anchor 不得被表述为外部生物学发现性能。</p></article></div>
+
+  <p class="footer">对应文档：<a href="PRD.md">PRD.md</a> · <a href="COMPLETED.md">COMPLETED.md</a> · <a href="docs/VALIDATION_REPORT.md">VALIDATION_REPORT.md</a><br>本页面无外部脚本、字体或网络依赖，可直接离线打开。</p>
+</main></body></html>

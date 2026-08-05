@@ -111,6 +111,32 @@ def create_mcp_server(
         )
 
     @server.tool()
+    def target_get_repairs(project_id: str) -> dict[str, Any]:
+        """Read immutable repair requests, execution overlays and verified outcomes."""
+        return product.repairs(project_id)
+
+    @server.tool()
+    def target_decide_repair(
+        project_id: str,
+        repair_request_id: str,
+        trigger_snapshot_digest: str,
+        approve: bool,
+        actor: str,
+        rationale: str,
+        resume: bool = True,
+    ) -> dict[str, Any]:
+        """Approve or reject one exact repair snapshot; stale digests are refused."""
+        return product.decide_repair(
+            project_id=project_id,
+            repair_request_id=repair_request_id,
+            trigger_snapshot_digest=trigger_snapshot_digest,
+            approve=approve,
+            actor=actor,
+            rationale=rationale,
+            resume=resume,
+        )
+
+    @server.tool()
     def target_accept_checkpoint(
         project_id: str,
         target_id: str,

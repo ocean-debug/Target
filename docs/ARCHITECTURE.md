@@ -9,7 +9,8 @@ Target research question + TaskSpec
   -> recoverable execution through an allowlisted target-tool registry
   -> content-addressed Artifacts + append-only Events and Decisions
   -> target-evidence synthesis + separate digest-bound Assessment
-  -> Reviewer findings -> bounded connector retry / human checkpoint
+  -> project execution/integrity finding -> typed RepairRequest -> policy-constrained execution overlay
+  -> affected subgraph rerun -> independent re-review / human checkpoint
   -> release gate -> ranked targets, TargetCards and falsifiable experiments
 ```
 
@@ -48,8 +49,10 @@ The Agent never runs arbitrary generated code. LLM output can propose only tools
   append-only activity ledger exposes only stage, tool status, coverage and source IDs through its
   own cursor. It never copies candidate genes, evidence statements, scores or Reviewer prose.
 - **Recovery:** work-item completion is checkpointed. Resume uses persisted terminal results and never guesses whether an interrupted side effect succeeded.
-- **Review and repair:** structural checks are separate from scientific judgment. Reviewer findings are bound to a target digest and may recommend a dataset switch, evidence supplementation or replan; current automatic execution is limited to bounded retries of failed allowlisted read-only connectors. Deterministic gates remain authoritative.
-- **Transient repair boundary:** only failed allowlisted read-only connectors are automatically retried. The Reviewer runs again on each tool's latest attempt; all earlier attempts remain auditable. Scientific ineligibility, context mismatch and unsupported causal scope cannot be cleared by retry.
+- **Review and repair:** structural checks are separate from scientific judgment. At child level, failed allowlisted read-only connectors have bounded retries. At project level, an execution/integrity FAIL assessment bound to the failed result digest can become an immutable `RepairRequest`; deterministic policy may add an append-only `ResearchPlanRevision` execution overlay and rerun the complete affected subgraph. Domain scientific findings do not yet drive this project repair path.
+- **Project repair boundary:** automatic repair requires a typed `transient` failure, identical effective input digest, `side_effect_free`, `replay_safe` and explicit `same_input_retry` capability. Checkpointed/supervised projects require snapshot-bound approval. Scientific ineligibility, context mismatch, unsupported causal scope, method changes and arbitrary evidence supplementation are never cleared by this retry.
+- **Supersession:** prior results, assessments and artifacts remain immutable. A revision declares which work items and assessments are superseded; review, report and release read only the active overlay while integrity checks still cover history.
+- **Release freshness:** the release decision marker binds to the current active project snapshot SHA-256 rather than only a plan id. Any repair changes the marker target and makes an older approval inapplicable. This is not yet a certified release package or expert signature.
 - **Human control:** supervised or checkpointed projects may pause before execution, high-risk interpretation, goal change or release. An override is an explicit decision, never a hidden flag.
 
 ## Vertical capability boundary
@@ -66,7 +69,7 @@ Target owns the disease-target contract, typed project lifecycle, allowlisted sc
 evidence gates, Reviewer decisions, immutable artifacts and release semantics. HTTP, CLI and MCP
 are adapters over those records rather than independent Agent implementations.
 
-The MCP adapter exposes create/run/status/event/domain-activity/checkpoint/artifact operations through
+The MCP adapter exposes create/run/status/event/domain-activity/repair/checkpoint/artifact operations through
 `ResearchProjectService`. A host may stop after any human checkpoint and resume later without
 reconstructing state from conversation history. It cannot use MCP to bypass a frozen plan,
 artifact digest, biological-context gate or terminal evidence gap.

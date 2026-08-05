@@ -47,7 +47,7 @@ def jsonl(path: Path) -> list[dict]:
 
 def observable(run_dir: Path) -> dict:
     evidence = jsonl(run_dir / "evidence_items.jsonl")
-    findings = jsonl(run_dir / "findings.jsonl")
+    findings = jsonl(run_dir / "reviewer_findings.jsonl")
     trace = jsonl(run_dir / "trace.jsonl")
     tool_results = jsonl(run_dir / "tool_results.jsonl")
     ranking_path = run_dir / "ranked_targets.json"
@@ -225,6 +225,11 @@ def check_assertion(assertion: dict, ctx: dict) -> str | None:
         needle = assertion["substring"].casefold()
         return None if any(needle in str(f.get("message", "")).casefold() for f in findings) else \
             f"no reviewer finding message contains {assertion['substring']!r}"
+    if kind == "finding_category":
+        findings = jsonl(run_dir / "reviewer_findings.jsonl")
+        category = assertion["category"]
+        return None if any(f.get("category") == category for f in findings) else \
+            f"reviewer finding category {category!r} was not observed"
     return f"unknown assertion type {kind}"
 
 

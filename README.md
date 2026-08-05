@@ -2,7 +2,9 @@
 
 A traceable, recoverable vertical Agent for disease-driven drug-target discovery. It connects genetics, disease-context omics, perturbation, mechanism, druggability and safety evidence into ranked candidates, TargetCards and falsifiable experiments. Internal rubrics and benchmarks are quality gates, not the product itself.
 
-V3 adds an internal project-level reliability layer above the target-discovery runtime: typed work items, immutable artifacts, resumable execution, append-only decisions and a separate digest-bound assessment stage. This infrastructure does not turn Target into a general-purpose scientific workbench. See [PRODUCT_V3.md](docs/PRODUCT_V3.md) for the product boundary, current capability and roadmap.
+V3 adds an internal project-level reliability layer above the target-discovery runtime: typed work items, immutable artifacts, resumable execution, append-only decisions, digest-bound assessment and a narrowly scoped project repair loop. A typed transient failure in a replay-safe, side-effect-free module can produce an immutable repair request, rerun the affected subgraph, rerun project execution/integrity review and bind the release decision marker to a new snapshot. Domain scientific findings do not yet trigger automatic evidence repair. This infrastructure does not turn Target into a general-purpose scientific workbench. See [PRODUCT_V3.md](docs/PRODUCT_V3.md) for the product boundary, current capability and roadmap.
+
+Product handoff: [next-stage PRD](PRD.md), [evidence-bounded completed capabilities](COMPLETED.md) and [offline status page](product_status.html).
 
 ## Target-discovery workflow (V2.2)
 
@@ -38,7 +40,7 @@ Disease -> GEO/CELLxGENE discovery -> metadata audit -> reviewed analysis recipe
 
 - 18 diseases across autoimmune, neurodegenerative, cancer, metabolic and respiratory categories. Every `ontology_id` (MONDO/EFO) was verified against live EBI OLS search on 2026-08-04; new identifiers must pass the same live check before being added.
 - Each entry carries evidence-graded reference targets (`approved_drug > gwas > mendelian > clinical_trial > mechanistic`) used as ranking sanity anchors, plus a default biological context (tissue / cell type / stage / desired phenotype).
-- Four benchmark task templates follow the project 50/20/15/15 composition: `normal`, `missing_context` (blanks tissue/cell type), `conflicting_evidence` and `trap` (causal-overreach provocation), each with a machine-checkable `expectation` block for the benchmark layer.
+- Four benchmark task templates follow the project 50/20/15/15 composition: `normal`, `missing_context` (blanks tissue/cell type), `conflicting_evidence` and `trap` (causal-overreach provocation). Expectations are metadata until the generated case contains an explicit executable assertion; a bucket label alone is not evidence that the behavior was detected or repaired.
 - The disease resolver merges library aliases at runtime, so every id, English name, Chinese name and synonym resolves to the verified ontology identifier without touching the OLS network path.
 
 ```bash
@@ -79,15 +81,22 @@ target-agent --env-file .env llm-smoke-test
 target-agent run --input cases/main_demo/input.uc_demo.yaml
 target-agent project-run --input cases/research_project.example.yaml
 target-agent project-status --project-id project-alzheimer-example
+target-agent project-repairs --project-id project-alzheimer-example
 # For the example's checkpointed mode, accept the printed plan id and resume:
 target-agent project-approve --project-id project-alzheimer-example --target-id PLAN_ID \
   --actor reviewer --rationale "Plan scope and evidence budget accepted" --resume
+# A checkpointed repair requires the exact request snapshot digest:
+target-agent project-repair-decision --project-id project-alzheimer-example \
+  --repair-request-id REPAIR_ID --snapshot-digest SNAPSHOT_SHA256 --approve \
+  --actor reviewer --rationale "Approve bounded same-input retry" --resume
 target-agent serve --host 127.0.0.1 --port "$TARGET_AGENT_PORT"
 ```
 
 `serve` uses Waitress. Add `--dev` only when the Flask development server is intentionally required.
 The V3 HTTP surface adds `POST /api/projects`, `GET /api/projects/{project_id}`,
 `GET /api/projects/{project_id}/events`, `GET /api/projects/{project_id}/activities`,
+`GET /api/projects/{project_id}/repairs`,
+`POST /api/projects/{project_id}/repairs/{repair_request_id}/decision`,
 `POST /api/projects/{project_id}/decisions` and content-addressed artifact downloads. The activity
 endpoint pages through a safe projection of the authoritative child Trace: domain stage, tool status,
 coverage and source IDs are visible while candidates, evidence text and ranking values remain in the
@@ -104,7 +113,8 @@ target-agent-mcp
 ```
 
 It provides typed operations to create a disease project, advance it to the next checkpoint,
-inspect state/events/domain activities, accept a frozen checkpoint and read checksum-verified text artifacts.
+inspect state/events/domain activities and repair records, approve or reject one exact repair snapshot,
+accept a frozen checkpoint and read checksum-verified text artifacts.
 It does not expose arbitrary shell or model-generated code execution. Streamable HTTP MCP,
 remote registry publication and host-specific installation bundles remain future integration work.
 
