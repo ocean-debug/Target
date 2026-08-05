@@ -49,3 +49,13 @@ This file records portable acceptance facts only. Infrastructure identifiers are
 - The trained Reviewer adapter is promotion-eligible at the pipeline level (dual review signed by the owner; no training override). If a second independent reviewer is required by team policy, co-sign alignment_data/REVIEW_WORKSHEET.md and re-run training/mark_review.py with both names, then retrain per training/RUNBOOK.md §3.
 
 The checkboxes are updated only from remote-node evidence generated for the current commit.
+
+## V3 project-control-plane acceptance (2026-08-05)
+
+- Full remote pytest suite passed; two pre-existing model-dependent cases were skipped by their declared capability gates.
+- The internal V2.1 benchmark remained at 11/11 tasks and 27/27 assertions after adding the project control plane.
+- A real Step 3.7 Flash request produced the protected four-item vertical plan: project brief, target discovery, independent review and report.
+- The checkpointed smoke project stopped at `needs_input` before any scientific module ran and recorded the exact plan identifier requiring human acceptance.
+- Canonical Pydantic export produced 11 new research-project JSON Schemas under `schemas/`.
+- Repository policy scan returned `REPO_POLICY=OK` after generated runtime outputs were kept under excluded artifact storage.
+- Acceptance covered atomic project reservation, cross-process execution locking, terminal-resume integrity checks, protected planner contracts, input/output alignment gates, dependency failure, attempt budget, content-addressed artifact versions, fail-closed target deliverables and plan/release checkpoints.
