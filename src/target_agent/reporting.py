@@ -21,9 +21,22 @@ def build_disease_report(
     results: list[ToolResult],
 ) -> tuple[dict[str, Any], str]:
     datasets = []
+    genetics_trace: dict[str, Any] = {
+        "input_audit": [], "credible_sets": [], "colocalizations": [], "locus_to_gene_links": [],
+    }
     for result in results:
         if result.tool_name == "geo_metadata_audit":
             datasets = result.outputs.get("selection_trace", [])
+        elif result.tool_name == "genetics_input_audit":
+            genetics_trace["input_audit"] = result.outputs.get("assets", [])
+            genetics_trace["failed_assets"] = result.outputs.get("failed_assets", [])
+        elif result.tool_name == "fine_mapping_audit":
+            genetics_trace["credible_sets"] = result.outputs.get("credible_sets", [])
+        elif result.tool_name == "eqtl_colocalization_audit":
+            genetics_trace["colocalizations"] = result.outputs.get("colocalizations", [])
+        elif result.tool_name == "genetics_candidate_extraction":
+            genetics_trace["locus_to_gene_links"] = result.outputs.get("locus_to_gene_links", [])
+            genetics_trace["unresolved_gwas_loci"] = result.outputs.get("unresolved_gwas_loci", [])
     report = {
         "contract_version": CONTRACT_VERSION,
         "task_id": task.task_id,
@@ -31,6 +44,7 @@ def build_disease_report(
         "question": task.question,
         "context": task.context.model_dump(mode="json"),
         "dataset_selection_trace": datasets,
+        "genetics_selection_trace": genetics_trace,
         "ranked_targets": ranked,
         "highlighted_targets": [row["gene"] for row in ranked[:3]],
         "target_cards": [card.model_dump(mode="json") for card in cards],

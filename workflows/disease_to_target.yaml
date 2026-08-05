@@ -1,4 +1,4 @@
-contract_version: "2.1.0"
+contract_version: "2.2.0"
 workflow: disease_to_target
 limits:
   review_rounds: 2
@@ -27,9 +27,18 @@ required_tools:
   - omics_candidate_extraction
   - open_targets
   - europe_pmc_rag
+conditional_genetics_tools:
+  activation: genetics_inputs_present
+  required_chain:
+    - genetics_input_audit
+    - fine_mapping_audit
+    - eqtl_colocalization_audit
+    - genetics_candidate_extraction
 rules:
   - missing omics coverage becomes completed_with_gaps while independent evidence chains continue
   - context_match_score below 0.5 is excluded from formal ranking
   - every material claim references EvidenceItem and ToolResult
   - report reads structured Evidence Store only
   - arbitrary generated code and shell execution are forbidden
+  - Open Targets aggregate association scores never substitute for locus-level human genetics
+  - GWAS association alone remains an unresolved locus and is never mapped to the nearest gene

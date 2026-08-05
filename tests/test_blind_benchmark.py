@@ -27,12 +27,12 @@ def _write_run(root, run_id="run-blind-1", disease_id="MONDO_0000001", task=None
     run_dir = root / run_id
     run_dir.mkdir(parents=True)
     task_payload = task or {
-        "contract_version": "2.1.0",
+        "contract_version": "2.2.0",
         "task_type": "disease_to_target",
         "question": "rank targets for the held-out disease",
-        "context": {"contract_version": "2.1.0", "disease": "held-out disease",
+        "context": {"contract_version": "2.2.0", "disease": "held-out disease",
                     "disease_id": disease_id},
-        "constraints": {"contract_version": "2.1.0"},
+        "constraints": {"contract_version": "2.2.0"},
         "candidate_genes": [],
     }
     default_ranking = [
@@ -127,7 +127,7 @@ def test_frozen_ranking_tamper_and_candidate_leakage_fail_isolation(tmp_path):
     assert report["cases"][0]["error_code"] == "gold_isolation_failure"
 
     leaked = _write_run(tmp_path, run_id="run-leak", task={
-        "contract_version": "2.1.0", "task_type": "disease_to_target", "question": "leaked",
+        "contract_version": "2.2.0", "task_type": "disease_to_target", "question": "leaked",
         "context": {"disease": "held-out", "disease_id": "MONDO_0000001"},
         "candidate_genes": ["A"],
     })

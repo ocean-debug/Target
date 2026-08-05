@@ -31,6 +31,7 @@ from .contracts import (
 )
 from .graphs import build_mechanistic_graph
 from .llm import StepClient
+from .legacy import migrate_current_contract
 from .planner import Planner
 from .ranking import RankedTarget, rank_targets
 from .repair import latest_tool_results, repair_transient_connector_failures
@@ -39,7 +40,7 @@ from .reviewer import Reviewer
 from .settings import Settings, load_settings
 from .store import EvidenceStore
 from .tools import ToolRegistry, default_registry
-from .tools.base import ToolContext
+from .tools.base import ToolContext, execute_tool_safely
 
 
 class PipelineState(TypedDict, total=False):
@@ -165,7 +166,9 @@ class LangGraphRuntime:
         task, store, checkpoint = state["task"], state["store"], state["checkpoint"]
         plan_path = store.run_dir / "execution_plan.json"
         if checkpoint and plan_path.exists():
-            plan = ExecutionPlan.model_validate_json(plan_path.read_text(encoding="utf-8"))
+            plan = ExecutionPlan.model_validate(migrate_current_contract(
+                json.loads(plan_path.read_text(encoding="utf-8")),
+            ))
         else:
             plan = self.planner.create_plan(task)
             store.save_plan(plan)
@@ -203,7 +206,7 @@ class LangGraphRuntime:
             tool = self.registry.get(step.tool)
             self._trace(store, run_id, task, "tool_call", "tool_execution",
                         {"tool": step.tool, "step_id": step.step_id})
-            execution = tool.run(ToolContext(
+            execution = execute_tool_safely(tool, ToolContext(
                 task=task, run_dir=store.run_dir, cache_dir=self.cache_dir, candidate_genes=candidate_genes,
                 prior_results=prior_results, settings=self.settings,
             ))
@@ -306,7 +309,7 @@ class LangGraphRuntime:
         cards: list[Any] = []
         final_claims: list[Claim] = []
         candidate_genes = state["candidate_genes"]
-        if task.task_type == "disease_to_target" and candidate_genes:
+        if task.task_type in {"disease_to_target", "gwas_locus_to_target"} and candidate_genes:
             ranked = rank_targets(candidate_genes, state["evidence"], state["results"])
             ranked_payload = self._serialize_ranked(ranked, task.constraints.max_ranked_targets)
             cards = build_cards(task, ranked)
@@ -333,7 +336,7 @@ class LangGraphRuntime:
     def _node_report(self, state: PipelineState) -> dict[str, Any]:
         task, store, status = state["task"], state["store"], state["status"]
         results = state["results"]
-        if task.task_type == "disease_to_target":
+        if task.task_type in {"disease_to_target", "gwas_locus_to_target"}:
             report_payload, markdown = build_disease_report(
                 task, status, state["ranked_payload"], state["cards"], state["findings"], results)
         else:
@@ -375,6 +378,9 @@ class LangGraphRuntime:
                 "supporting_ids": item.supporting_ids, "opposing_ids": item.opposing_ids,
                 "safety_blockers": item.safety_blockers, "evidence_gaps": item.evidence_gaps,
                 "matched_drugs": item.matched_drugs,
+                "genetic_evidence_summary": [
+                    row.model_dump(mode="json") for row in item.genetic_evidence_summary
+                ],
             }
             for rank, item in enumerate(ranked[:limit], start=1)
         ]
@@ -409,10 +415,17 @@ class LangGraphRuntime:
     @staticmethod
     def _merge_candidates(current: list[str], result: ToolResult, limit: int) -> list[str]:
         emitted = [str(gene).upper() for gene in result.candidate_genes if gene]
-        if result.tool_name == "omics_candidate_extraction" and emitted:
-            base = emitted
+        if result.tool_name in {"omics_candidate_extraction", "genetics_candidate_extraction"}:
+            if current and emitted:
+                quota = max(1, limit // 2)
+                base = [*emitted[:quota], *current[: limit - quota], *emitted[quota:], *current[limit - quota:]]
+            else:
+                base = [*emitted, *current]
+        elif result.tool_name == "open_targets" and emitted:
+            novel = [gene for gene in emitted if gene not in current][: max(1, limit // 4)]
+            base = [*current[: limit - len(novel)], *novel, *current[limit - len(novel):]]
         else:
-            base = [*emitted, *current]
+            base = [*current, *emitted]
         return list(dict.fromkeys(base))[:limit]
 
     @staticmethod

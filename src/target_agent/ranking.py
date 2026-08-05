@@ -4,7 +4,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from .contracts import ClaimClass, EvidenceItem, ScoreBreakdown, Stance, ToolResult
+from .contracts import (
+    ClaimClass, EvidenceItem, ScoreBreakdown, Stance, TargetGeneticEvidenceSummary,
+    ToolResult,
+)
 
 
 WEIGHTS = {
@@ -27,6 +30,7 @@ class RankedTarget:
     safety_blockers: list[str]
     evidence_gaps: list[str]
     matched_drugs: list[dict[str, Any]]
+    genetic_evidence_summary: list[TargetGeneticEvidenceSummary]
     decision: str
 
 
@@ -71,11 +75,37 @@ def rank_targets(candidates: list[str], evidence: list[EvidenceItem], results: l
         blockers = []
         matched_drugs = ot_by_gene.get(gene, {}).get("known_drugs", [])
         tractability = ot_by_gene.get(gene, {}).get("tractability", [])
+        has_strict_genetics = False
+        genetic_summaries: list[TargetGeneticEvidenceSummary] = []
 
         for item in formal:
             context = item.context_match_score
-            if "genetic_score" in item.effect:
-                genetics = max(genetics, WEIGHTS["human_genetics"] * float(item.effect["genetic_score"]) * context)
+            genetic = item.genetic_evidence
+            if (
+                genetic is not None
+                and genetic.formal_score_eligible
+                and genetic.analysis_level == "colocalization_supported"
+                and genetic.evidence_type in {"colocalization", "locus_to_gene"}
+                and genetic.evidence_type != "open_targets_genetic_association"
+                and item.gene_symbol == genetic.gene_symbol
+                and item.context.study_id == genetic.study_id
+                and item.context.locus_id == genetic.locus_id
+                and item.context.signal_id == genetic.signal_id
+                and bool(item.context.genome_build and item.context.ancestry)
+            ):
+                genetics = max(
+                    genetics,
+                    WEIGHTS["human_genetics"] * genetic.strength * context,
+                )
+                has_strict_genetics = True
+                genetic_summaries.append(TargetGeneticEvidenceSummary(
+                    evidence_id=item.evidence_id, study_id=genetic.study_id,
+                    molecular_study_id=genetic.molecular_study_id or "",
+                    locus_id=genetic.locus_id or "", signal_id=genetic.signal_id or "",
+                    method=genetic.method or "", method_version=genetic.method_version or "",
+                    strength=genetic.strength, genome_build=item.context.genome_build,
+                    ancestry=item.context.ancestry or "", tissue=item.context.tissue,
+                ))
             if "legacy_disease_strength_0_60" in item.effect:
                 normalized = float(item.effect["legacy_disease_strength_0_60"]) / 60.0
                 omics = max(omics, WEIGHTS["disease_omics"] * normalized * context)
@@ -126,8 +156,8 @@ def rank_targets(candidates: list[str], evidence: list[EvidenceItem], results: l
             druggability=_clamp(druggability, 10), safety_translation=_clamp(safety, 10),
             total=_clamp(genetics + omics + perturb + mechanism + druggability + safety, 100),
         )
-        independent = sum([genetics > 0, has_omics, has_observed_perturb, has_literature, bool(matched_drugs)])
-        gate = genetics > 0 or has_observed_perturb
+        independent = sum([has_strict_genetics, has_omics, has_observed_perturb, has_literature, bool(matched_drugs)])
+        gate = has_strict_genetics or has_observed_perturb
         if blockers:
             decision = "CONDITIONAL_GO" if independent >= 2 else "INSUFFICIENT_EVIDENCE"
         elif independent >= 2 and gate:
@@ -140,6 +170,7 @@ def rank_targets(candidates: list[str], evidence: list[EvidenceItem], results: l
             gene=gene, scores=scores, evidence_ids=[item.evidence_id for item in items],
             supporting_ids=supporting, opposing_ids=opposing, safety_blockers=blockers,
             evidence_gaps=gaps, matched_drugs=matched_drugs, decision=decision,
+            genetic_evidence_summary=genetic_summaries,
         ))
     ranked.sort(key=lambda row: (-row.scores.total, row.gene))
     return ranked

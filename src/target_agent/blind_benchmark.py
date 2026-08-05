@@ -215,8 +215,8 @@ def evaluate_case(case: BlindCaseManifest, labels: BlindCaseLabels, runs_root: P
     leaked = _find_forbidden_keys(task)
     if leaked:
         raise ValueError(f"case {case.case_id}: evaluation labels leaked into TaskSpec at {leaked}")
-    if task.get("contract_version") != "2.1.0" or task.get("task_type") != "disease_to_target":
-        raise ValueError(f"case {case.case_id}: blind discovery requires TaskSpec 2.1.0 disease_to_target")
+    if task.get("contract_version") != "2.2.0" or task.get("task_type") != "disease_to_target":
+        raise ValueError(f"case {case.case_id}: blind discovery requires TaskSpec 2.2.0 disease_to_target")
     if task.get("candidate_genes"):
         raise ValueError(f"case {case.case_id}: candidate_genes must be empty in blind discovery")
     disease_id = str((task.get("context") or {}).get("disease_id") or "").replace(":", "_")

@@ -28,6 +28,59 @@ DISEASE_STEPS = [
     PlanStep(step_id="report", name="Generate TargetCards and traceable report", dependencies=["ranking"], success_criteria=["all numbers originate in the Evidence Store"]),
 ]
 
+GENETICS_INPUT_STEPS = [
+    PlanStep(
+        step_id="genetics_input_audit",
+        name="Validate and normalize controlled genetics inputs",
+        tool="genetics_input_audit",
+        dependencies=["scope"],
+        success_criteria=["checksums, genome builds, alleles and tabular contracts pass deterministic QC"],
+        stop_conditions=["no genetics asset passes input QC"],
+    ),
+    PlanStep(
+        step_id="fine_mapping_audit",
+        name="Audit fine-mapping credible sets and LD provenance",
+        tool="fine_mapping_audit",
+        dependencies=["genetics_input_audit"],
+        success_criteria=["eligible credible sets have matched LD, valid signal-posterior mass and GWAS overlap"],
+        degradation_conditions=["no fine-mapping result was supplied or no credible set passes QC"],
+    ),
+    PlanStep(
+        step_id="eqtl_colocalization_audit",
+        name="Audit eQTL colocalization and tissue context",
+        tool="eqtl_colocalization_audit",
+        dependencies=["fine_mapping_audit"],
+        success_criteria=["formal links pass regional overlap, allele, posterior, sensitivity and context gates"],
+        degradation_conditions=["no colocalization result was supplied or all links fail a formal gate"],
+    ),
+    PlanStep(
+        step_id="genetics_candidate_extraction",
+        name="Extract only formally supported locus-to-gene hypotheses",
+        tool="genetics_candidate_extraction",
+        dependencies=["eqtl_colocalization_audit"],
+        success_criteria=["every emitted gene is linked to typed, QC-passing statistical evidence"],
+        degradation_conditions=["GWAS loci remain unresolved instead of being assigned to nearest genes"],
+    ),
+]
+
+GENETICS_CHAIN = (
+    ("genetics_input_audit", "genetics_input_audit", "scope"),
+    ("fine_mapping_audit", "fine_mapping_audit", "genetics_input_audit"),
+    ("eqtl_colocalization_audit", "eqtl_colocalization_audit", "fine_mapping_audit"),
+    ("genetics_candidate_extraction", "genetics_candidate_extraction", "eqtl_colocalization_audit"),
+)
+
+GWAS_STEPS = [
+    PlanStep(step_id="scope", name="Normalize disease and locus context", tool="disease_resolver", success_criteria=["disease, build, ancestry and locus context are explicit"], stop_conditions=["missing disease or genetics input"]),
+    *GENETICS_INPUT_STEPS,
+    PlanStep(step_id="genetics", name="Retrieve independent disease-level target evidence", tool="open_targets", dependencies=["genetics_candidate_extraction"], success_criteria=["association records include stable disease and target IDs"], degradation_conditions=["network or disease resolution unavailable"]),
+    PlanStep(step_id="trials", name="Retrieve gene-named clinical trial registry records", tool="clinical_trials_gov", dependencies=["genetics"], success_criteria=["every claim names the gene in the intervention or title text"], degradation_conditions=["no gene-named registry record"]),
+    PlanStep(step_id="literature", name="Retrieve source-grounded literature claims", tool="europe_pmc_rag", dependencies=["genetics_candidate_extraction", "genetics"], success_criteria=["every claim has a literal source span"], degradation_conditions=["no span-valid claim"]),
+    PlanStep(step_id="review", name="Review provenance, context, conflicts and causal language", dependencies=["genetics_candidate_extraction", "genetics", "trials", "literature"], success_criteria=["no blocking finding remains"], degradation_conditions=["major evidence gaps remain after two rounds"]),
+    PlanStep(step_id="ranking", name="Rank candidates while retaining blockers", dependencies=["review"], success_criteria=["score is not represented as probability"]),
+    PlanStep(step_id="report", name="Generate TargetCards and traceable report", dependencies=["ranking"], success_criteria=["all numbers originate in the Evidence Store"]),
+]
+
 MCH_STEPS = [
     PlanStep(step_id="scope", name="Validate MCH-only gold-sample scope", success_criteria=["trait equals MCH"], stop_conditions=["non-MCH trait"]),
     PlanStep(step_id="mch", name="Validate paper and extended causal-model reproductions", tool="mch_causal_gold", dependencies=["scope"], success_criteria=["paper 43/59 and extension 94/147 remain separate"]),
@@ -45,10 +98,17 @@ class Planner:
     def allowed_tools(self) -> set[str]:
         if self.registry:
             return set(self.registry.names)
-        return {step.tool for step in DISEASE_STEPS + MCH_STEPS if step.tool}
+        return {step.tool for step in DISEASE_STEPS + GENETICS_INPUT_STEPS + GWAS_STEPS + MCH_STEPS if step.tool}
 
     def deterministic(self, task: TaskSpec, reason: str | None = None) -> ExecutionPlan:
-        steps = DISEASE_STEPS if task.task_type == "disease_to_target" else MCH_STEPS
+        if task.task_type == "disease_to_target":
+            steps = list(DISEASE_STEPS)
+            if task.genetics_inputs:
+                steps = [steps[0], *GENETICS_INPUT_STEPS, *steps[1:]]
+        elif task.task_type == "gwas_locus_to_target":
+            steps = list(GWAS_STEPS)
+        else:
+            steps = list(MCH_STEPS)
         if task.task_type == "disease_to_target":
             modes = set(task.constraints.dataset_selection.omics_modes)
             excluded_steps: set[str] = set()
@@ -60,13 +120,22 @@ class Planner:
                 excluded_steps.add("single_cell")
             steps = [step for step in steps if step.step_id not in excluded_steps]
         available = self.allowed_tools
+        if task.genetics_inputs or task.task_type == "gwas_locus_to_target":
+            missing = {tool for _, tool, _ in GENETICS_CHAIN} - available
+            if missing:
+                raise ValueError(f"required genetics workflow tools are unavailable: {sorted(missing)}")
         selected = [step.model_copy(deep=True) for step in steps if not step.tool or step.tool in available]
+        if task.genetics_inputs and task.task_type == "disease_to_target":
+            by_id = {step.step_id: step for step in selected}
+            for step_id in ("genetics", "review"):
+                if step_id in by_id and "genetics_candidate_extraction" not in by_id[step_id].dependencies:
+                    by_id[step_id].dependencies.append("genetics_candidate_extraction")
         selected_ids = {step.step_id for step in selected}
         for step in selected:
             step.dependencies = [item for item in step.dependencies if item in selected_ids]
         return ExecutionPlan(
             task_id=task.task_id,
-            planner_backend="deterministic:v2.1" if not reason else f"deterministic:v2.1 ({reason})",
+            planner_backend="deterministic:v2.2" if not reason else f"deterministic:v2.2 ({reason})",
             steps=selected, fallback_used=bool(reason),
         )
 
@@ -99,6 +168,15 @@ class Planner:
 
         for step_id in ids:
             visit(step_id)
+        genetics_required = bool(task.genetics_inputs) or task.task_type == "gwas_locus_to_target"
+        genetics_tools = {tool for _, tool, _ in GENETICS_CHAIN}
+        if genetics_required:
+            for step_id, tool, dependency in GENETICS_CHAIN:
+                step = by_id.get(step_id)
+                if step is None or step.tool != tool or dependency not in step.dependencies:
+                    raise ValueError("planner omitted or rewired the required genetics workflow chain")
+        elif any(step.tool in genetics_tools for step in plan.steps):
+            raise ValueError("planner selected genetics input tools without genetics_inputs")
         if task.task_type == "disease_to_target":
             required = {"disease_resolver", "omics_candidate_extraction"}
             modes = set(task.constraints.dataset_selection.omics_modes)
@@ -108,6 +186,10 @@ class Planner:
                 required.add("cellxgene_discovery")
             if "cellxgene" in modes or "local_single_cell" in modes or task.omics_inputs:
                 required.add("single_cell_analysis")
+            if genetics_required:
+                required.update(genetics_tools)
+        elif task.task_type == "gwas_locus_to_target":
+            required = {"disease_resolver", *genetics_tools}
         else:
             required = {"mch_causal_gold"}
         enabled_required = required & self.allowed_tools

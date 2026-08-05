@@ -232,10 +232,10 @@ byId('run').addEventListener('click', async () => {
   if (byId('mode-geo').checked) omicsModes.push('geo_bulk');
   if (byId('mode-census').checked) omicsModes.push('cellxgene');
   const payload = {
-    contract_version: '2.1.0', task_type: 'disease_to_target',
+    contract_version: '2.2.0', task_type: 'disease_to_target',
     question: `Discover traceable targets for ${byId('disease').value}`,
-    context: {contract_version:'2.1.0', disease:byId('disease').value, disease_subtype:byId('subtype').value || null, disease_stage:byId('stage').value || null, organism:byId('organism').value, tissue:byId('tissue').value || null, cell_type:byId('cell').value || null, assay:byId('assay').value || null, desired_phenotype:byId('phenotype').value || null},
-    constraints: {contract_version:'2.1.0', dataset_selection:{contract_version:'2.1.0', preferred_dataset_accessions:preferred, excluded_dataset_accessions:[], omics_modes:omicsModes}},
+    context: {contract_version:'2.2.0', disease:byId('disease').value, disease_subtype:byId('subtype').value || null, disease_stage:byId('stage').value || null, organism:byId('organism').value, tissue:byId('tissue').value || null, cell_type:byId('cell').value || null, assay:byId('assay').value || null, desired_phenotype:byId('phenotype').value || null},
+    constraints: {contract_version:'2.2.0', dataset_selection:{contract_version:'2.2.0', preferred_dataset_accessions:preferred, excluded_dataset_accessions:[], omics_modes:omicsModes}},
     candidate_genes: [], omics_inputs: [], requested_outputs: ['ranked_targets','target_cards','report']
   };
   button.disabled = true; button.textContent = '正在提交…';

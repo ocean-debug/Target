@@ -30,7 +30,7 @@ CATEGORIES = {
 }
 SEVERITIES = {"blocking", "major", "minor"}
 
-# SFT taxonomy -> canonical ReviewerFinding.category (contract 2.1.0 Literal).
+# SFT taxonomy -> canonical ReviewerFinding.category (contract 2.2.0 Literal).
 # The original SFT category stays visible in the finding message for traceability.
 FINDING_CATEGORY_MAP = {
     "missing_context": "coverage_gap",
@@ -64,7 +64,7 @@ def build_probes(task: TaskSpec, results: list[ToolResult],
                  evidence: list[EvidenceItem]) -> list[dict[str, Any]]:
     """One probe per concrete case condition, mirroring the SFT categories."""
     probes: list[dict[str, Any]] = []
-    base_input: dict[str, Any] = {"contract_version": "2.1.0", "task_type": task.task_type}
+    base_input: dict[str, Any] = {"contract_version": "2.2.0", "task_type": task.task_type}
     if task.task_type == "disease_to_target" and (not task.context.tissue or not task.context.cell_type):
         probes.append({
             "category": "missing_context",

@@ -5,7 +5,10 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from ..contracts import EvidenceItem, TaskSpec, ToolDescriptor, ToolResult
+from ..contracts import (
+    CoverageStatus, EvidenceItem, TaskSpec, ToolCapability, ToolDescriptor,
+    ToolResult, ToolStatus,
+)
 from ..settings import Settings, load_settings
 
 
@@ -34,6 +37,30 @@ class ScientificTool(ABC):
     @abstractmethod
     def run(self, context: ToolContext) -> ToolExecution:
         raise NotImplementedError
+
+
+def execute_tool_safely(tool: ScientificTool, context: ToolContext) -> ToolExecution:
+    """Convert unexpected tool exceptions into a traceable failed ToolResult."""
+    try:
+        return tool.run(context)
+    except Exception as exc:  # scientific workflow must retain a structured terminal path
+        message = str(exc)
+        for path in (context.run_dir, context.cache_dir, context.settings.input_root):
+            message = message.replace(str(path), "[configured-path]")
+        for secret_name in ("step_api_key", "ncbi_api_key"):
+            secret = getattr(context.settings, secret_name, None)
+            if secret:
+                value = secret.get_secret_value()
+                if value:
+                    message = message.replace(value, "[redacted]")
+        return ToolExecution(result=ToolResult(
+            tool_name=tool.name, tool_version=tool.version,
+            status=ToolStatus.FAILED, coverage_status=CoverageStatus.UNKNOWN,
+            context_match_score=0.0, inputs={}, outputs={},
+            capability=ToolCapability(validation_scope="unexpected tool exception"),
+            error=f"{exc.__class__.__name__}: {message[:500]}",
+            limitations=["The tool raised an unexpected exception; no scientific output was accepted."],
+        ), evidence=[])
 
 
 class ToolRegistry:

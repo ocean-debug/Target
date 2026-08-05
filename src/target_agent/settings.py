@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     runs_dir: Path = Field(default=PROJECT_ROOT / "runs", alias="TARGET_AGENT_RUN_DIR")
     projects_dir: Path = Field(default=PROJECT_ROOT / "projects", alias="RESEARCH_AGENT_PROJECT_DIR")
     cache_dir: Path = Field(default=PROJECT_ROOT / "cache", alias="TARGET_AGENT_CACHE_DIR")
+    input_root: Path = Field(default=PROJECT_ROOT / "data" / "input", alias="TARGET_AGENT_INPUT_ROOT")
     tool_registry_path: Path = Field(
         default=PROJECT_ROOT / "configs" / "tool_registry.yaml",
         alias="TARGET_AGENT_TOOL_REGISTRY",
@@ -62,6 +63,7 @@ class Settings(BaseSettings):
             "runs_dir_writable": _writable_parent(self.runs_dir),
             "projects_dir_writable": _writable_parent(self.projects_dir),
             "cache_dir_writable": _writable_parent(self.cache_dir),
+            "input_root_writable": _writable_parent(self.input_root),
         }
 
 

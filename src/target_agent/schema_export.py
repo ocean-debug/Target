@@ -5,10 +5,13 @@ import json
 from pathlib import Path
 
 from .contracts import (
-    AnalysisRecipe, CaseRecord, CausalGraph, Claim, DatasetCandidate,
-    DatasetSelectionConstraint, EvidenceItem, ExecutionPlan, ExperimentPlan,
-    OmicsResult, ReviewerFinding, TargetCard, TaskSpec, ToolDescriptor, ToolResult,
-    TraceEvent,
+    AnalysisEvidenceArtifact, AnalysisRecipe, CaseRecord, CausalGraph, Claim, DatasetCandidate,
+    DatasetSelectionConstraint, EqtlColocalizationResultInput, EvidenceItem,
+    ExecutionPlan, ExperimentPlan, FineMappingResultInput, GeneticEvidencePayload,
+    GeneticsAnalysisConstraints, GwasSummaryStatsInput, HarmonizedVariantManifest,
+    LDReferenceSpec, OmicsResult,
+    ReviewerFinding, TargetCard, TargetGeneticEvidenceSummary, TaskSpec, ToolDescriptor,
+    ToolResult, TraceEvent,
 )
 from .research_contracts import (
     ArtifactRecord, AssessmentRecord, DataContract, DecisionEvent, ProjectEvent,
@@ -31,6 +34,15 @@ MODELS = {
     "case_record": CaseRecord,
     "dataset_candidate": DatasetCandidate,
     "dataset_selection_constraint": DatasetSelectionConstraint,
+    "genetics_analysis_constraints": GeneticsAnalysisConstraints,
+    "gwas_summary_statistics_input": GwasSummaryStatsInput,
+    "fine_mapping_result_input": FineMappingResultInput,
+    "eqtl_colocalization_result_input": EqtlColocalizationResultInput,
+    "harmonized_variant_manifest": HarmonizedVariantManifest,
+    "analysis_evidence_artifact": AnalysisEvidenceArtifact,
+    "ld_reference_spec": LDReferenceSpec,
+    "genetic_evidence_payload": GeneticEvidencePayload,
+    "target_genetic_evidence_summary": TargetGeneticEvidenceSummary,
     "analysis_recipe": AnalysisRecipe,
     "omics_result": OmicsResult,
     "tool_descriptor": ToolDescriptor,

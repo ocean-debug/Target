@@ -1,31 +1,74 @@
-"""Explicit one-way adapters into the current 2.1.0 contracts."""
+"""Explicit one-way adapters into the current 2.2.0 contracts."""
 from __future__ import annotations
 
 from typing import Any
 
 from .contracts import (
-    ClaimClass, CoverageStatus, EvidenceContext, EvidenceItem, SourceLocator,
+    CONTRACT_VERSION, ClaimClass, CoverageStatus, EvidenceContext, EvidenceItem, SourceLocator,
     TaskSpec, ToolCapability, ToolResult, ToolStatus,
 )
 
 
 LEGACY_VERSIONS = {"1.0.0", "1.1.0", "1.0", "1.1"}
 V2_CONTRACT_VERSION = "2.0.0"
+V21_CONTRACT_VERSION = "2.1.0"
 
 
-def adapt_task_spec_2_0(payload: dict[str, Any]) -> TaskSpec:
-    """Explicitly migrate one 2.0 TaskSpec before it enters a 2.1 run."""
-    if payload.get("contract_version") != V2_CONTRACT_VERSION:
-        raise ValueError("only a 2.0.0 TaskSpec can use the 2.0-to-2.1 adapter")
+def migrate_current_contract(payload: dict[str, Any]) -> dict[str, Any]:
+    """Validate or migrate one homogeneous 2.0/2.1/current payload tree."""
+    root_version = payload.get("contract_version")
+    if root_version not in {CONTRACT_VERSION, V2_CONTRACT_VERSION, V21_CONTRACT_VERSION}:
+        raise ValueError(f"unsupported contract version: {root_version or 'missing'}")
+    discovered: set[str] = set()
+
+    def collect(value: Any) -> None:
+        if isinstance(value, dict):
+            if "contract_version" in value:
+                discovered.add(str(value["contract_version"]))
+            for item in value.values():
+                collect(item)
+        elif isinstance(value, list):
+            for item in value:
+                collect(item)
+
+    collect(payload)
+    if discovered - {str(root_version)}:
+        raise ValueError(f"mixed contract versions in one payload: {sorted(discovered)}")
+    if root_version == CONTRACT_VERSION:
+        return payload
 
     def migrate(value: Any) -> Any:
         if isinstance(value, dict):
-            return {key: ("2.1.0" if key == "contract_version" and item == V2_CONTRACT_VERSION else migrate(item)) for key, item in value.items()}
+            return {
+                key: (CONTRACT_VERSION if key == "contract_version" else migrate(item))
+                for key, item in value.items()
+            }
         if isinstance(value, list):
             return [migrate(item) for item in value]
         return value
 
-    return TaskSpec.model_validate(migrate(payload))
+    return migrate(payload)
+
+
+def parse_task_spec(payload: dict[str, Any]) -> TaskSpec:
+    return TaskSpec.model_validate(migrate_current_contract(payload))
+
+
+def _migrate_task_payload(payload: dict[str, Any], source_version: str) -> TaskSpec:
+    if payload.get("contract_version") != source_version:
+        raise ValueError(f"only a {source_version} TaskSpec can use this adapter")
+
+    return parse_task_spec(payload)
+
+
+def adapt_task_spec_2_0(payload: dict[str, Any]) -> TaskSpec:
+    """Explicitly migrate one 2.0 TaskSpec before it enters a 2.2 run."""
+    return _migrate_task_payload(payload, V2_CONTRACT_VERSION)
+
+
+def adapt_task_spec_2_1(payload: dict[str, Any]) -> TaskSpec:
+    """Explicitly migrate one 2.1 TaskSpec before it enters a 2.2 run."""
+    return _migrate_task_payload(payload, V21_CONTRACT_VERSION)
 
 
 def _assert_legacy(payload: dict[str, Any]) -> None:

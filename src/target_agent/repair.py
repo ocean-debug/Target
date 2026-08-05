@@ -8,7 +8,7 @@ from .contracts import EvidenceItem, ReviewerFinding, TaskSpec, ToolResult, Tool
 from .reviewer import Reviewer
 from .settings import Settings
 from .store import EvidenceStore
-from .tools.base import ToolContext, ToolRegistry
+from .tools.base import ToolContext, ToolRegistry, execute_tool_safely
 
 
 REPAIRABLE_READ_ONLY_TOOLS = frozenset({
@@ -93,7 +93,7 @@ def repair_transient_connector_failures(
                 "tool": tool_name, "repair_round": repair_round,
                 "reason": "previous_read_only_connector_failure",
             }, [])
-            execution = registry.get(tool_name).run(ToolContext(
+            execution = execute_tool_safely(registry.get(tool_name), ToolContext(
                 task=task,
                 run_dir=store.run_dir,
                 cache_dir=cache_dir,

@@ -45,13 +45,47 @@ class Reviewer:
                     message=f"Evidence {item.evidence_id} has context match {item.context_match_score:.2f} and cannot enter formal ranking.",
                     related_ids=[item.evidence_id], required_action="Exclude from formal score and retain only as exploratory context.",
                 ))
-            causal_words = ("causes", "causal evidence", "drives disease", "proves")
-            if item.claim_class != ClaimClass.INFERRED and any(word in item.statement.lower() for word in causal_words):
+            causal_words = (
+                "causes", "causal evidence", "drives disease", "proves", "is causal",
+                "causal target", "致病", "因果靶点", "证明因果",
+            )
+            if any(word in item.statement.lower() for word in causal_words):
                 findings.append(ReviewerFinding(
                     severity="major", category="causal_overreach",
                     message=f"Evidence {item.evidence_id} uses causal language beyond its evidence class.",
                     related_ids=[item.evidence_id], required_action="Downgrade language or add a valid causal design.",
                 ))
+            genetic = item.genetic_evidence
+            if genetic is not None:
+                if genetic.formal_score_eligible and (
+                    genetic.analysis_level in {"association_only", "database_aggregate"}
+                    or genetic.evidence_type == "open_targets_genetic_association"
+                ):
+                    findings.append(ReviewerFinding(
+                        severity="major", category="gene_mapping_overreach",
+                        message=f"Evidence {item.evidence_id} marks aggregate or association-only genetics as formal score eligible.",
+                        related_ids=[item.evidence_id],
+                        required_action="Remove formal-score eligibility until audited fine-mapping or colocalization supports the gene mapping.",
+                    ))
+                if genetic.formal_score_eligible and (
+                    not item.context.genome_build or not genetic.locus_id
+                ):
+                    findings.append(ReviewerFinding(
+                        severity="blocking", category="missing_provenance",
+                        message=f"Formal genetic evidence {item.evidence_id} lacks genome build or locus provenance.",
+                        related_ids=[item.evidence_id],
+                        required_action="Provide a normalized genome build and stable locus identifier before scoring.",
+                    ))
+                if genetic.formal_score_eligible and item.effect_direction != "unclear" and (
+                    "aligned_eqtl_beta" not in item.effect
+                    or "harmonization=" not in item.source_span
+                ):
+                    findings.append(ReviewerFinding(
+                        severity="major", category="allele_harmonization",
+                        message=f"Genetic evidence {item.evidence_id} reports direction without an auditable allele-harmonization result.",
+                        related_ids=[item.evidence_id],
+                        required_action="Set direction to unclear or attach the aligned effect and harmonization trace.",
+                    ))
         for result in results:
             missing = set(result.evidence_ids) - evidence_ids
             if missing:
@@ -94,6 +128,74 @@ class Reviewer:
                     related_ids=[result.tool_run_id],
                     required_action="Remove or recompute the invalid numeric output before reporting.",
                 ))
+            if result.tool_name == "genetics_input_audit":
+                assets = result.outputs.get("assets", [])
+                builds = {row.get("genome_build") for row in assets if row.get("genome_build")}
+                ancestries = {str(row.get("ancestry")).casefold() for row in assets if row.get("ancestry")}
+                if len(builds) > 1:
+                    findings.append(ReviewerFinding(
+                        severity="blocking", category="genome_build_mismatch",
+                        message="Genetics assets use multiple genome builds within one analysis.",
+                        related_ids=[result.tool_run_id],
+                        required_action="Normalize all assets to one declared build with an auditable conversion trace.",
+                    ))
+                if len(ancestries) > 1:
+                    findings.append(ReviewerFinding(
+                        severity="major", category="ancestry_mismatch",
+                        message="Genetics assets declare different ancestries.",
+                        related_ids=[result.tool_run_id],
+                        required_action="Justify cross-ancestry integration or use ancestry-matched GWAS, eQTL and LD inputs.",
+                    ))
+                for failed in result.outputs.get("failed_assets", []):
+                    error = str(failed.get("error") or "")
+                    if any(token in error for token in ("allele", "palindromic", "orientation")):
+                        findings.append(ReviewerFinding(
+                            severity="blocking", category="allele_harmonization",
+                            message=f"Genetics asset {failed.get('asset_id', 'unknown')} failed allele QC: {error}.",
+                            related_ids=[result.tool_run_id],
+                            required_action="Repair allele encoding or exclude the asset before genetic scoring.",
+                        ))
+            if result.tool_name == "fine_mapping_audit":
+                for credible_set in result.outputs.get("credible_sets", []):
+                    reasons = credible_set.get("rejection_reasons", [])
+                    if reasons:
+                        findings.append(ReviewerFinding(
+                            severity="blocking", category="fine_mapping_invalid",
+                            message=(
+                                f"Fine-mapping set {credible_set.get('credible_set_id', 'unknown')} "
+                                f"is not score eligible: {', '.join(reasons)}."
+                            ),
+                            related_ids=[result.tool_run_id],
+                            required_action=(
+                                "Correct LD/build/ancestry/signal-posterior provenance or retain the set as non-formal evidence."
+                            ),
+                        ))
+            if result.tool_name == "eqtl_colocalization_audit":
+                for coloc in result.outputs.get("colocalizations", []):
+                    reasons = set(coloc.get("rejection_reasons", []))
+                    if not reasons:
+                        continue
+                    if reasons & {
+                        "allele_set_mismatch", "palindromic_ambiguous_without_frequency",
+                        "palindromic_ambiguous_without_informative_frequency",
+                        "orientation_unresolved", "regional_allele_harmonization_failed",
+                    }:
+                        category, severity = "allele_harmonization", "blocking"
+                    elif "eqtl_context_mismatch" in reasons:
+                        category, severity = "context_mismatch", "major"
+                    elif "gwas_eqtl_ancestry_mismatch" in reasons:
+                        category, severity = "ancestry_mismatch", "blocking"
+                    else:
+                        category, severity = "colocalization_invalid", "major"
+                    findings.append(ReviewerFinding(
+                        severity=severity, category=category,
+                        message=(
+                            f"Colocalization result for {coloc.get('gene', 'unknown')} at "
+                            f"{coloc.get('locus_id', 'unknown')} is not score eligible: {', '.join(sorted(reasons))}."
+                        ),
+                        related_ids=[result.tool_run_id],
+                        required_action="Resolve the stated QC/context issue or retain the result as non-formal evidence.",
+                    ))
             if result.tool_name == "geo_metadata_audit":
                 selected = result.outputs.get("selected_datasets", [])
                 for rejected in result.outputs.get("rejected_datasets", []):
@@ -123,6 +225,24 @@ class Reviewer:
                     message=f"{gene} has opposing effect directions across contexts.",
                     related_ids=ids_by_gene[gene], required_action="Keep both directions and resolve by tissue, cell, assay and perturbation context.",
                 ))
+        seen_genetics: dict[tuple[str, str, str, str], str] = {}
+        for item in evidence:
+            genetic = item.genetic_evidence
+            if genetic is None or not genetic.formal_score_eligible:
+                continue
+            key = (
+                item.gene_symbol or genetic.gene_symbol or "",
+                genetic.study_id, genetic.locus_id or "", genetic.signal_id or "",
+            )
+            if key in seen_genetics:
+                findings.append(ReviewerFinding(
+                    severity="major", category="duplicate_genetic_study",
+                    message=f"Formal genetic evidence duplicates study/locus/type for {key[0] or 'an unresolved gene'}.",
+                    related_ids=[seen_genetics[key], item.evidence_id],
+                    required_action="Deduplicate the study/locus signal before scoring.",
+                ))
+            else:
+                seen_genetics[key] = item.evidence_id
         findings.extend(self._lora_findings(task, results, evidence))
         findings.extend(self._llm_findings(task, results, evidence))
         return self._deduplicate(findings)

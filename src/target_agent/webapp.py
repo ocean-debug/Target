@@ -11,6 +11,7 @@ from flask import Flask, Response, jsonify, request, send_file, send_from_direct
 from pydantic import ValidationError
 
 from .contracts import CONTRACT_VERSION, TaskSpec, new_id
+from .legacy import parse_task_spec
 from .research_contracts import (
     RESEARCH_CONTRACT_VERSION, DecisionAction, DecisionEvent, ProjectStatus, ResearchProjectSpec,
 )
@@ -157,9 +158,11 @@ def create_app(
         if not isinstance(payload, dict):
             return jsonify({"error": "request body must be a JSON object"}), 400
         try:
-            task = TaskSpec.model_validate(payload)
+            task = parse_task_spec(payload)
         except ValidationError as exc:
             return jsonify({"error": "invalid TaskSpec", "detail": exc.errors(include_url=False)}), 400
+        except ValueError as exc:
+            return jsonify({"error": "invalid TaskSpec", "detail": str(exc)}), 400
         run_id = new_id("run")
 
         def worker() -> None:

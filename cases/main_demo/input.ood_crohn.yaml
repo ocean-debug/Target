@@ -1,18 +1,18 @@
-contract_version: "2.1.0"
+contract_version: "2.2.0"
 task_id: task-crohn-generic
 task_type: disease_to_target
 question: Discover traceable Crohn disease targets without using the UC snapshot
 context:
-  contract_version: "2.1.0"
+  contract_version: "2.2.0"
   disease: Crohn disease
   organism: Homo sapiens
   tissue: ileum
   cell_type: epithelial cell
   desired_phenotype: restore epithelial barrier
 constraints:
-  contract_version: "2.1.0"
+  contract_version: "2.2.0"
   dataset_selection:
-    contract_version: "2.1.0"
+    contract_version: "2.2.0"
     omics_modes: [geo_bulk, cellxgene]
 candidate_genes: []
 omics_inputs: []

@@ -12,6 +12,7 @@ from .contracts import (
     CaseRecord, Claim, EvidenceItem, ExecutionPlan, ReviewerFinding, TargetCard,
     TaskSpec, ToolResult, TraceEvent,
 )
+from .legacy import migrate_current_contract, parse_task_spec
 
 
 T = TypeVar("T", bound=BaseModel)
@@ -48,7 +49,7 @@ class EvidenceStore:
         path = self.run_dir / "task_spec.json"
         if not path.exists():
             return None
-        return TaskSpec.model_validate_json(path.read_text(encoding="utf-8"))
+        return parse_task_spec(json.loads(path.read_text(encoding="utf-8")))
 
     def save_plan(self, plan: ExecutionPlan) -> None:
         self._json("execution_plan.json", plan)
@@ -88,7 +89,10 @@ class EvidenceStore:
         path = self.run_dir / name
         if not path.exists():
             return []
-        return [model.model_validate_json(line) for line in path.read_text(encoding="utf-8").splitlines() if line]
+        return [
+            model.model_validate(migrate_current_contract(json.loads(line)))
+            for line in path.read_text(encoding="utf-8").splitlines() if line
+        ]
 
     def evidences(self) -> list[EvidenceItem]:
         return self.read_jsonl("evidence_items.jsonl", EvidenceItem)

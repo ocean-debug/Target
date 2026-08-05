@@ -40,7 +40,7 @@ def test_health_and_capabilities_never_expose_secret(tmp_path):
     assert capabilities.status_code == 200
     text = capabilities.get_data(as_text=True)
     assert "step_api_key" not in text.lower()
-    assert capabilities.get_json()["contract_version"] == "2.1.0"
+    assert capabilities.get_json()["contract_version"] == "2.2.0"
 
 
 def test_demo_catalog_and_bundle_are_frontend_ready(tmp_path):
@@ -74,6 +74,22 @@ def test_missing_run_event_stream_and_invalid_json_fail_fast(tmp_path):
     response = client.post("/api/runs", data="not-json", content_type="application/json")
     assert response.status_code == 400
     assert response.get_json()["error"] == "request body must be a JSON object"
+
+
+def test_web_accepts_homogeneous_2_1_task_through_explicit_adapter(tmp_path):
+    client = create_app(fake_runtime(tmp_path)).test_client()
+    response = client.post("/api/runs", json={
+        "contract_version": "2.1.0",
+        "task_type": "disease_to_target",
+        "question": "Find traceable UC targets",
+        "context": {
+            "contract_version": "2.1.0",
+            "disease": "ulcerative colitis",
+        },
+        "constraints": {"contract_version": "2.1.0"},
+    })
+    assert response.status_code == 202
+    assert response.get_json()["run_id"].startswith("run-")
 
 
 def test_workbench_assets_are_utf8_chinese_and_demo_oriented():

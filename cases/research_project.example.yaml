@@ -18,20 +18,20 @@ goal:
     - Do not present ranking scores as clinical success probabilities.
 context:
   target_task_spec:
-    contract_version: "2.1.0"
+    contract_version: "2.2.0"
     task_id: task-alzheimer-example
     task_type: disease_to_target
     question: Find traceable Alzheimer disease targets in human brain.
     context:
-      contract_version: "2.1.0"
+      contract_version: "2.2.0"
       disease: Alzheimer disease
       organism: Homo sapiens
       tissue: brain
       desired_phenotype: reduce neurodegeneration
     constraints:
-      contract_version: "2.1.0"
+      contract_version: "2.2.0"
       dataset_selection:
-        contract_version: "2.1.0"
+        contract_version: "2.2.0"
         preferred_dataset_accessions: []
         excluded_dataset_accessions: []
         omics_modes: [geo_bulk, cellxgene]

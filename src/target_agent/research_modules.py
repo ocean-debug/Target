@@ -322,7 +322,7 @@ class TargetDiscoveryModule:
     descriptor = ModuleDescriptor(
         name="target_discovery",
         description="Run the existing traceable disease-target workflow as a bounded domain module.",
-        input_types=("TaskSpec@2.1.0",), output_types=("TargetCard[]", "DiseaseTargetReport"),
+        input_types=("TaskSpec@2.2.0",), output_types=("TargetCard[]", "DiseaseTargetReport"),
         execution_policy="typed_domain_workflow", network_access=True,
     )
 
@@ -334,11 +334,17 @@ class TargetDiscoveryModule:
                 limitations=["No target_task_spec was supplied; the vertical workflow was not executed."],
             ))
         try:
-            task = TaskSpec.model_validate(raw_task)
+            from .legacy import parse_task_spec
+            task = parse_task_spec(raw_task)
         except ValidationError as exc:
             return ModuleExecution(result=_result(
                 context.item, WorkItemStatus.NEEDS_INPUT, "The target-discovery input contract is invalid.",
                 error="TaskSpecValidationError", limitations=[str(exc.errors(include_url=False))],
+            ))
+        except ValueError as exc:
+            return ModuleExecution(result=_result(
+                context.item, WorkItemStatus.NEEDS_INPUT, "The target-discovery input contract is invalid.",
+                error="TaskSpecVersionError", limitations=[str(exc)],
             ))
         from .runtime_langgraph import LangGraphRuntime
 

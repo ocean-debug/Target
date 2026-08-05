@@ -12,6 +12,7 @@ from .contracts import (
 )
 from .graphs import build_mechanistic_graph
 from .llm import StepClient
+from .legacy import migrate_current_contract
 from .planner import Planner
 from .ranking import RankedTarget, rank_targets
 from .repair import latest_tool_results, repair_transient_connector_failures
@@ -20,7 +21,7 @@ from .reviewer import Reviewer
 from .settings import Settings, load_settings
 from .store import EvidenceStore
 from .tools import ToolRegistry, default_registry
-from .tools.base import ToolContext
+from .tools.base import ToolContext, execute_tool_safely
 
 
 class TargetDiscoveryRuntime:
@@ -65,6 +66,9 @@ class TargetDiscoveryRuntime:
                 "supporting_ids": item.supporting_ids, "opposing_ids": item.opposing_ids,
                 "safety_blockers": item.safety_blockers, "evidence_gaps": item.evidence_gaps,
                 "matched_drugs": item.matched_drugs,
+                "genetic_evidence_summary": [
+                    row.model_dump(mode="json") for row in item.genetic_evidence_summary
+                ],
             }
             for rank, item in enumerate(ranked[:limit], start=1)
         ]
@@ -99,12 +103,19 @@ class TargetDiscoveryRuntime:
     @staticmethod
     def _merge_candidates(current: list[str], result: ToolResult, limit: int) -> list[str]:
         emitted = [str(gene).upper() for gene in result.candidate_genes if gene]
-        if result.tool_name == "omics_candidate_extraction" and emitted:
-            base = emitted
+        if result.tool_name in {"omics_candidate_extraction", "genetics_candidate_extraction"}:
+            if current and emitted:
+                # Reserve half the budget for the other typed lane so genetics
+                # and omics cannot erase one another by execution order.
+                quota = max(1, limit // 2)
+                base = [*emitted[:quota], *current[: limit - quota], *emitted[quota:], *current[limit - quota:]]
+            else:
+                base = [*emitted, *current]
+        elif result.tool_name == "open_targets" and emitted:
+            novel = [gene for gene in emitted if gene not in current][: max(1, limit // 4)]
+            base = [*current[: limit - len(novel)], *novel, *current[limit - len(novel):]]
         else:
-            # A later evidence source must be able to contribute candidates even
-            # when an earlier source has already filled the initial-candidate budget.
-            base = [*emitted, *current]
+            base = [*current, *emitted]
         return list(dict.fromkeys(base))[:limit]
 
     def run(self, task: TaskSpec, run_id: str | None = None, resume: bool = False) -> dict[str, Any]:
@@ -157,7 +168,7 @@ class TargetDiscoveryRuntime:
                 break
             tool = self.registry.get(step.tool)
             self._trace(store, run_id, task, "tool_call", "tool_execution", {"tool": step.tool, "step_id": step.step_id})
-            execution = tool.run(ToolContext(
+            execution = execute_tool_safely(tool, ToolContext(
                 task=task, run_dir=run_dir, cache_dir=self.cache_dir, candidate_genes=candidate_genes,
                 prior_results=prior_results, settings=self.settings,
             ))
@@ -236,7 +247,7 @@ class TargetDiscoveryRuntime:
         ranked_payload: list[dict[str, Any]] = []
         cards = []
         final_claims: list[Claim] = []
-        if task.task_type == "disease_to_target" and candidate_genes:
+        if task.task_type in {"disease_to_target", "gwas_locus_to_target"} and candidate_genes:
             ranked = rank_targets(candidate_genes, evidence, results)
             ranked_payload = self._serialize_ranked(ranked, task.constraints.max_ranked_targets)
             cards = build_cards(task, ranked)
@@ -259,7 +270,7 @@ class TargetDiscoveryRuntime:
                 "highlighted_targets": [row["gene"] for row in ranked_payload[:3]],
             }, [card.target_card_id for card in cards])
 
-        if task.task_type == "disease_to_target":
+        if task.task_type in {"disease_to_target", "gwas_locus_to_target"}:
             report_payload, markdown = build_disease_report(task, status, ranked_payload, cards, findings, results)
         else:
             mch_result = next((result for result in results if result.tool_name == "mch_causal_gold"), None)
@@ -292,7 +303,9 @@ class TargetDiscoveryRuntime:
     def _load_or_plan(self, store: EvidenceStore, task: TaskSpec, checkpoint: dict[str, Any] | None) -> ExecutionPlan:
         plan_path = store.run_dir / "execution_plan.json"
         if checkpoint and plan_path.exists():
-            return ExecutionPlan.model_validate_json(plan_path.read_text(encoding="utf-8"))
+            return ExecutionPlan.model_validate(migrate_current_contract(
+                json.loads(plan_path.read_text(encoding="utf-8")),
+            ))
         plan = self.planner.create_plan(task)
         store.save_plan(plan)
         return plan

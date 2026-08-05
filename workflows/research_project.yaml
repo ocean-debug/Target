@@ -9,7 +9,7 @@ product_boundary:
   not_claimed: general_purpose_scientific_workbench
 
 required_input:
-  contract: TaskSpec@2.1.0
+  contract: TaskSpec@2.2.0
   fields:
     - disease
     - biological_context
@@ -26,8 +26,12 @@ required_outputs:
 evidence_lanes:
   human_genetics:
     weight: 0.25
-    current: open_targets_association_and_genetics
-    roadmap: [gwas_summary_statistics, fine_mapping, eqtl_colocalization]
+    current:
+      - open_targets_aggregate_association_non_formal
+      - checksum_bound_gwas_summary_statistics_audit
+      - precomputed_susie_signal_credible_set_audit
+      - precomputed_coloc_with_variant_level_harmonization_manifest
+    roadmap: [allowlisted_fine_mapping_recomputation, allowlisted_colocalization_recomputation]
   disease_context_omics:
     weight: 0.20
     current: [geo_bulk, cellxgene_or_standard_single_cell]
@@ -78,7 +82,7 @@ internal_modules:
     dependencies: [literature_search]
   - module: target_discovery
     required: true
-    input_contract: TaskSpec@2.1.0
+    input_contract: TaskSpec@2.2.0
     dependencies: [project_brief]
   - module: independent_review
     required: true

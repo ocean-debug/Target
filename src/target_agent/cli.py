@@ -12,7 +12,7 @@ import yaml
 
 from .alignment import generate
 from .contracts import TaskContext, TaskSpec
-from .legacy import adapt_task_spec_2_0
+from .legacy import parse_task_spec
 from .llm import StepClient
 from .planner import Planner
 from .research_contracts import DecisionAction, DecisionEvent, ResearchProjectSpec
@@ -28,9 +28,7 @@ from .webapp import create_app
 
 def load_task(path: Path) -> TaskSpec:
     payload = yaml.safe_load(path.read_text(encoding="utf-8"))
-    if payload.get("contract_version") == "2.0.0":
-        return adapt_task_spec_2_0(payload)
-    return TaskSpec.model_validate(payload)
+    return parse_task_spec(payload)
 
 
 def load_research_project(path: Path) -> ResearchProjectSpec:
