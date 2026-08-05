@@ -24,6 +24,7 @@ sys.path.insert(0, str(ROOT / "tests"))
 from pydantic import ValidationError  # noqa: E402
 
 from target_agent.contracts import ExecutionPlan, PlanStep, TaskSpec  # noqa: E402
+from target_agent.legacy import parse_task_spec  # noqa: E402
 from target_agent.planner import Planner  # noqa: E402
 from target_agent.runtime import TargetDiscoveryRuntime  # noqa: E402
 from target_agent.runtime_langgraph import LangGraphRuntime  # noqa: E402
@@ -242,7 +243,7 @@ def run_task(entry: dict, work: Path, cache_dir: Path | None = None) -> dict:
 
     engine = entry.get("runtime", "langgraph")
     registry_kind = entry.get("registry", "default")
-    task = TaskSpec(**entry["task"])
+    task = parse_task_spec(entry["task"])
     runtime = build_runtime(engine, registry_kind, work,
                             cache_dir=cache_dir if entry["mode"] == "live" else None)
     run_id = f"bm-{entry['id'].lower()}"
