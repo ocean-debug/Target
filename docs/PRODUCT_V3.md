@@ -52,7 +52,7 @@ Current status: Open Targets genetics/association/drug evidence, dynamic GEO/CEL
 
 The Reviewer should detect missing provenance, invalid sample grouping, context mismatch, contradictory evidence, unsupported causal language, numeric inconsistency and incomplete outputs. An actionable finding can trigger a bounded alternate-dataset selection, evidence supplementation or replan. A deterministic scientific gate cannot be waived by the LLM.
 
-Current status: deterministic review, optional structured LLM/LoRA confirmation and bounded replan hooks exist. Automated repair is still limited to encoded failure paths; general repair across every evidence lane is a roadmap capability.
+Current status: deterministic review, optional structured LLM/LoRA confirmation and bounded repair exist. A failed allowlisted read-only connector (GEO search, CELLxGENE discovery, Open Targets, Europe PMC or ClinicalTrials.gov) can be retried within the declared tool/review budget and is then independently re-reviewed. Historical failed attempts remain in the ledger, while release uses the latest effective attempt. Invalid matrices, context mismatch, OOD models and scientific coverage gaps are never “repaired” by retry. General repair across every evidence lane remains a roadmap capability.
 
 ### 5. Blind ranking benchmark and expert audit
 

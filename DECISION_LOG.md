@@ -52,3 +52,11 @@ Cross-module contracts, workflow choices, model boundaries and scientific-safety
 - Accepted plans use allowlisted typed modules. Artifact snapshots are content-addressed; project events, assessments and decisions are append-only.
 - The vertical project plan invokes the existing disease-target workflow as one bounded module instead of duplicating its literature, omics and evidence-fusion stages at project level.
 - Phase-one HTTP project endpoints are shipped for embedding. MCP, external blind target-ranking evaluation, GWAS/eQTL ingestion and broad perturbation Oracles remain roadmap work and must not be represented as completed.
+
+## 2026-08-05 - Reviewer repair is bounded to transient read-only failures
+
+- **Status:** accepted
+- Automatic repair may retry only allowlisted read-only connectors and must remain within both tool-call and review-round budgets.
+- The append-only ToolResult ledger retains failed attempts. Review and terminal status use the latest effective attempt for each tool after repair.
+- Matrix eligibility, replication, biological context, model scope, causal boundaries and safety blockers cannot be cleared by retry.
+- If repair is unavailable or still fails, the system preserves the corresponding evidence gap and degraded terminal status.

@@ -14,6 +14,7 @@ from .graphs import build_mechanistic_graph
 from .llm import StepClient
 from .planner import Planner
 from .ranking import RankedTarget, rank_targets
+from .repair import latest_tool_results, repair_transient_connector_failures
 from .reporting import build_disease_report, build_mch_report, write_report
 from .reviewer import Reviewer
 from .settings import Settings, load_settings
@@ -205,7 +206,28 @@ class TargetDiscoveryRuntime:
             "minor": sum(f.severity == "minor" for f in findings),
             "reviewer_backend": self.reviewer.last_backend,
         }, [f.finding_id for f in findings])
-        if any(f.severity in {"blocking", "major"} for f in findings):
+        repaired = repair_transient_connector_failures(
+            task=task, run_id=run_id, store=store, registry=self.registry,
+            reviewer=self.reviewer, cache_dir=self.cache_dir, settings=self.settings,
+            results=results, evidence=evidence, findings=findings,
+            candidate_genes=candidate_genes, tool_calls=tool_calls,
+            merge_candidates=self._merge_candidates,
+            trace=lambda event_type, phase, detail, related: self._trace(
+                store, run_id, task, event_type, phase, detail, related,
+            ),
+        )
+        results, evidence, findings = repaired.results, repaired.evidence, repaired.findings
+        candidate_genes, tool_calls = repaired.candidate_genes, repaired.tool_calls
+        revision_history.extend(repaired.actions)
+        if repaired.actions:
+            checkpoint = {
+                "stage": "reviewer_repair", "completed_steps": sorted(completed_steps),
+                "candidate_genes": candidate_genes, "tool_calls": tool_calls,
+                "revision_history": revision_history,
+            }
+            store.checkpoint(checkpoint)
+            self._trace(store, run_id, task, "checkpoint", "reviewer_repair", checkpoint)
+        elif any(f.severity in {"blocking", "major"} for f in findings):
             action = {"round": 2, "action": "retain unresolved external evidence gaps; no fabricated repair"}
             revision_history.append(action)
             self._trace(store, run_id, task, "replan", "reviewer", action)
@@ -277,6 +299,7 @@ class TargetDiscoveryRuntime:
 
     @staticmethod
     def _terminal_status(task: TaskSpec, findings: list[ReviewerFinding], results: list[ToolResult]) -> TerminalStatus:
+        results = latest_tool_results(results)
         blocking = [finding for finding in findings if finding.severity == "blocking"]
         if any(finding.category == "missing_provenance" for finding in blocking):
             return TerminalStatus.FAILED

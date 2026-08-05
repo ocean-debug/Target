@@ -44,6 +44,7 @@ The Agent never runs arbitrary generated code. LLM output can propose only tools
 - **Auditability:** project events, assessments and decisions are append-only. A snapshot is a materialized view, not the audit source.
 - **Recovery:** work-item completion is checkpointed. Resume uses persisted terminal results and never guesses whether an interrupted side effect succeeded.
 - **Review and repair:** structural checks are separate from scientific judgment. Reviewer findings are bound to a target digest and may trigger a bounded dataset switch, evidence supplementation or replan; deterministic gates remain authoritative.
+- **Transient repair boundary:** only failed allowlisted read-only connectors are automatically retried. The Reviewer runs again on each tool's latest attempt; all earlier attempts remain auditable. Scientific ineligibility, context mismatch and unsupported causal scope cannot be cleared by retry.
 - **Human control:** supervised or checkpointed projects may pause before execution, high-risk interpretation, goal change or release. An override is an explicit decision, never a hidden flag.
 
 ## Vertical capability boundary
