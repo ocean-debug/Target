@@ -547,15 +547,31 @@ class LangGraphRuntime:
             return TerminalStatus.FAILED
         if task.task_type == "trait_mechanism" and any(finding.category == "coverage_gap" for finding in blocking):
             return TerminalStatus.NEEDS_INPUT
+        if task.task_type == "gwas_locus_to_target":
+            input_qc_failures = [
+                result for result in results
+                if result.tool_name == "genetics_input_audit"
+                and result.status.value == "failed"
+                and result.outputs.get("covered") is False
+                and bool(result.outputs.get("failed_assets"))
+            ]
+            input_qc_failure_ids = {result.tool_run_id for result in input_qc_failures}
+            if any(
+                result.status.value == "failed" and result.tool_run_id not in input_qc_failure_ids
+                for result in results
+            ):
+                return TerminalStatus.COMPLETED_WITH_GAPS
+            if input_qc_failures:
+                return TerminalStatus.NEEDS_INPUT
+            if not formal_gwas_candidates(
+                results,
+                evidence or [],
+                task.constraints.genetics.minimum_coloc_pp4,
+                task.constraints.max_initial_candidates,
+            ):
+                return TerminalStatus.NEEDS_INPUT
         if any(result.status.value == "failed" for result in results):
             return TerminalStatus.COMPLETED_WITH_GAPS
-        if task.task_type == "gwas_locus_to_target" and not formal_gwas_candidates(
-            results,
-            evidence or [],
-            task.constraints.genetics.minimum_coloc_pp4,
-            task.constraints.max_initial_candidates,
-        ):
-            return TerminalStatus.NEEDS_INPUT
         if any(finding.severity in {"blocking", "major"} for finding in unresolved):
             return TerminalStatus.COMPLETED_WITH_GAPS
         return TerminalStatus.COMPLETED

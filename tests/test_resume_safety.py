@@ -486,10 +486,11 @@ def test_resume_rejects_duplicate_evidence_ids(runtime_class, tmp_path):
             chunk_id="row-1",
         ),
         source_span="synthetic fixture span",
-        context=EvidenceContext(disease="ulcerative colitis"),
-        stance=Stance.SUPPORTS,
-        uncertainty="Synthetic test fixture.",
-    )
+            context=EvidenceContext(disease="ulcerative colitis"),
+            stance=Stance.SUPPORTS,
+            uncertainty="Synthetic test fixture.",
+            context_match_score=1.0,
+        )
     result = _stored_result("bulk_expression_analysis").model_copy(update={
         "tool_run_id": evidence.tool_run_id,
         "evidence_ids": [evidence.evidence_id],
