@@ -76,7 +76,7 @@ The checkboxes above record the historical V2.1 remote-node baseline, not curren
 
 ## V2.2 controlled-genetics source acceptance (2026-08-05)
 
-- Source commit `920ed28` was archived and executed only in the external scheduled-node acceptance environment. The witness reported Python 3.11.13, the configured `agenttest` environment, the requested node and 35 allocated CPU slots; infrastructure identifiers remain outside Git.
+- Source commit `920ed28` was archived and executed only in the external scheduled-node acceptance environment. The witness reported Python 3.11.13, the configured isolated Conda environment, the requested node and 35 allocated CPU slots; infrastructure identifiers remain outside Git.
 - The focused genetics/contract/runtime/Web suite passed 105/105 tests.
 - The full suite passed 202 tests with two optional model-backed Reviewer tests skipped by their declared capability gate. The only emitted warnings came from the existing synthetic single-cell/PyDESeq2 fixtures.
 - The internal fake/unit benchmark passed 11/11 tasks and 27/27 assertions. It validates contracts, recovery, deterministic behavior and refusal boundaries; it is not an external blind biological result.
