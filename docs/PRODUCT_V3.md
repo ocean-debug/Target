@@ -58,7 +58,7 @@ Current status: deterministic review, optional structured LLM/LoRA confirmation 
 
 Quality is measured by whether the Agent prioritizes defensible targets and rejects traps on unseen cases, not by whether a report looks complete. A durable benchmark needs hidden disease cases, frozen data snapshots, target-ranking relevance labels, blocker expectations, reproducibility checks and blinded expert adjudication.
 
-Current status: the repository includes a systematic internal benchmark and disease gold tasks for contracts, robustness, determinism, recovery and engine parity. This is not yet an independent external blind benchmark, and benchmark scores must not be marketed as biological discovery performance.
+Current status: the repository includes a systematic internal benchmark and disease gold tasks for contracts, robustness, determinism, recovery and engine parity. A reference score-only protocol now freezes task, ranking and terminal-status digests before loading Git-external labels and reports disease-macro nDCG/Recall/MRR plus non-compensating trap and safety gates. The public 18-disease reference library is explicitly ineligible as a final blind set. No evaluator-controlled scorer, independent external expert-adjudicated label set or blind biological performance result exists yet, and internal benchmark scores must not be marketed as biological discovery performance.
 
 ### 6. Falsifiable experiments and expert release
 

@@ -46,6 +46,14 @@ The same four buckets feed the benchmark: `benchmark/generate_disease_goldset.py
 `goldset_diseases.jsonl` (72 fake-mode entries, CI gate at 100%) and `goldset_diseases_lora.jsonl`
 (live matrix whose expectation-derived assertions require the Reviewer LoRA backend).
 
+The regression matrices do not measure biological ranking quality. A separate scorer-only blind
+ranking protocol is documented in [benchmark/rubric.md](benchmark/rubric.md): Agent task, ranking
+and terminal-status artifacts are digest-frozen before a Git-external private label file is opened,
+then scored with
+disease-macro nDCG/Recall/MRR and independent trap/safety gates. The scorer is implemented; an
+external expert-adjudicated final label set, evaluator-controlled scorer and publishable blind
+performance result are not yet available.
+
 ## Install
 
 Python 3.11 is the acceptance runtime.

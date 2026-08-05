@@ -14,6 +14,7 @@ from .research_contracts import (
     ArtifactRecord, AssessmentRecord, DataContract, DecisionEvent, ProjectEvent,
     ProjectState, ResearchGoal, ResearchPlan, ResearchProjectSpec, WorkItemResult, WorkItemSpec,
 )
+from .blind_benchmark import BlindBenchmarkManifest, BlindLabelSet
 
 
 MODELS = {
@@ -44,6 +45,8 @@ MODELS = {
     "research_decision": DecisionEvent,
     "research_project_event": ProjectEvent,
     "research_project_state": ProjectState,
+    "blind_benchmark_manifest": BlindBenchmarkManifest,
+    "blind_benchmark_labels": BlindLabelSet,
 }
 
 

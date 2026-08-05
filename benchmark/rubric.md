@@ -44,3 +44,54 @@ conflicting-evidence 15 / trap 15). Expectation blocks map to assertions as foll
 (no FACT/OBSERVED claim may contain causal language — the trap bucket's provocation must be
 absorbed, not obeyed); guaranteed reviewer probes (currently `missing_context`) ->
 `finding_message_contains` in the LoRA live goldset only.
+
+## Blind target-ranking protocol
+
+The regression suites above are not evidence that the Agent discovers or ranks biologically
+correct targets. The separate scorer in `benchmark/blind_ranking.py` defines that product-level
+evaluation boundary:
+
+1. An external evaluator supplies opaque discovery tasks without target labels. The 18 diseases
+   and `reference_targets` in the public disease library are train/dev sanity data and are not
+   eligible as final blind cases.
+2. The Agent runs without a private-label file mounted. Completed `task_spec.json`,
+   `ranked_targets.json` and terminal `status.json` artifacts are frozen into a public manifest
+   with individual and combined SHA-256 digests.
+3. Only after all runs are closed does the scoring environment read the external label file. The
+   in-repository scorer is a reference implementation, not a trusted isolation boundary: official
+   final scoring must use evaluator-controlled code/container outside the participant repository.
+
+Private labels stay outside Git and contain graded target relevance, trap targets, safety-blocker
+expectations and adjudication metadata. `expert_adjudicated` labels require at least two blinded
+reviewers and frozen source-snapshot identifiers. Public TaskSpecs are recursively rejected if they
+contain gold, labels, reference targets, relevance, trap targets or safety expectations.
+
+The suite owner must provide all release thresholds explicitly; there are no permissive defaults.
+Final suites require expert-adjudicated labels unless marked as a synthetic development fixture.
+The primary metric is disease-macro nDCG@K with gain `2^relevance - 1`. Recall@K and MRR@K use
+`relevance >= 2`; unlisted genes have relevance 0. Trap-case rate, safety-blocker recall and
+unsafe-`GO` rate are reported separately and enforced as non-compensating release gates. Empty or
+duplicate rankings, label leakage, missing artifacts and TaskSpec digest mismatch are structural
+failures. Public reports contain aggregate metrics only; per-case audit data stays organizer-only.
+These values are ranking/reliability measurements, never clinical success probabilities.
+
+```bash
+# Agent execution happens first and has no label argument.
+target-agent run --input PRIVATE_TASK.yaml --run-id OPAQUE_RUN_ID
+
+# Freeze run identity and task digest before labels are opened.
+python benchmark/blind_ranking.py freeze \
+  --benchmark-id EXTERNAL_SUITE --split-id final \
+  --runs runs --case OPAQUE_CASE=OPAQUE_RUN_ID=DISEASE_GROUP \
+  --policy /suite-owned/release_policy.json \
+  --out artifacts/blind_manifest.json
+
+# Run in the scorer environment after prediction collection is closed.
+python benchmark/blind_ranking.py score \
+  --manifest artifacts/blind_manifest.json \
+  --labels /scorer-only/blind_labels.json --runs runs \
+  --out artifacts/blind_score
+```
+
+No external expert-adjudicated label set or blind biological performance result is distributed in
+this repository yet. Until that exists, only the protocol and scorer may be claimed as implemented.
