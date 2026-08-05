@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+from importlib.metadata import version
 
 import pytest
+import target_agent
 
 from target_agent.research_contracts import ProjectStatus
 from target_agent.research_service import (
@@ -17,6 +19,10 @@ from .test_research_runtime import fake_research_runtime
 def _service(tmp_path):
     runtime, calls = fake_research_runtime(tmp_path)
     return ResearchProjectService(runtime), calls
+
+
+def test_public_package_version_matches_distribution_metadata():
+    assert target_agent.__version__ == version("target-discovery-agent") == "0.6.0"
 
 
 def test_service_advances_one_disease_question_to_durable_deliverables(tmp_path):

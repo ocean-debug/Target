@@ -83,4 +83,14 @@ The checkboxes above record the historical V2.1 remote-node baseline, not curren
 - Canonical export produced 38 JSON Schemas. `TaskSpec` and the target-discovery contracts use `2.2.0`; the genetics evidence schema and `multi_evidence` tool descriptor were explicitly witnessed.
 - The repository policy scan returned `REPO_POLICY=OK` after benchmark reports were changed to store portable path labels rather than deployment-specific absolute paths.
 - Acceptance covered strict GWAS candidate-universe freezing, checksum/provenance lineage, valid fine-mapping plus colocalization gates, PP4/context/stance thresholds, upstream Reviewer blockers, tool-budget degradation, terminal-status witness checks, duplicate-ID rejection and Legacy/LangGraph parity.
-- The controlled lane audits supplied, pre-staged GWAS, SuSiE and coloc outputs. It does not recompute fine-mapping/colocalization, establish causal genes or therapeutic direction, validate an external hidden benchmark, provide an independent expert panel, ship MCP, or constitute a large open-world alignment-data moat.
+- The controlled lane audits supplied, pre-staged GWAS, SuSiE and coloc outputs. It does not recompute fine-mapping/colocalization, establish causal genes or therapeutic direction, validate an external hidden benchmark, provide an independent expert panel, provide remote/multi-user MCP deployment, or constitute a large open-world alignment-data moat.
+
+## Durable product service and stdio MCP acceptance (2026-08-05)
+
+- The project-facing application boundary is now `ResearchProjectService`. The HTTP workbench and optional MCP adapter read and mutate the same immutable project specification, frozen plan, ordered events, decisions, assessments and content-addressed artifacts.
+- Disease-project intake preserves omitted tissue, cell type, stage and phenotype as missing. It does not infer biological scope from prose before the scientific workflow can assess or request it.
+- The official MCP Python SDK `2.0.0` was installed through the optional `mcp` extra. Its in-memory client exercised project creation and execution against the real durable service.
+- A separate stdio subprocess smoke completed protocol initialization, discovered all eight Target tools and called `target_capabilities`; the witness was `TARGET_MCP_STDIO=OK`.
+- The focused research-service/runtime/Web suite passed. The complete suite passed 207 tests with two optional model-backed Reviewer tests skipped and three existing synthetic omics warnings.
+- `pip check` reported no broken requirements, canonical Schema export remained successful and the repository policy returned `REPO_POLICY=OK`.
+- This acceptance proves the local stdio product adapter and shared durable semantics. It does not prove Streamable HTTP MCP, registry publication, multi-user authorization, external-host compatibility matrices, external blind target-ranking quality or independent expert review.

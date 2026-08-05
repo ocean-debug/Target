@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "target-discovery-agent"
-version = "0.5.0"
+version = "0.6.0"
 description = "Evidence-gated Agent for disease-driven drug-target discovery"
 readme = "README.md"
 requires-python = ">=3.11"
