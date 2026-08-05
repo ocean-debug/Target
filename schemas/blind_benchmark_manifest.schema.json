@@ -1,0 +1,156 @@
+{
+  "$defs": {
+    "BlindCaseManifest": {
+      "additionalProperties": false,
+      "properties": {
+        "case_id": {
+          "minLength": 1,
+          "title": "Case Id",
+          "type": "string"
+        },
+        "disease_group_id": {
+          "minLength": 1,
+          "title": "Disease Group Id",
+          "type": "string"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "task_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Task Sha256",
+          "type": "string"
+        },
+        "ranking_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Ranking Sha256",
+          "type": "string"
+        },
+        "status_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Status Sha256",
+          "type": "string"
+        },
+        "bundle_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Bundle Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "case_id",
+        "disease_group_id",
+        "run_id",
+        "task_sha256",
+        "ranking_sha256",
+        "status_sha256",
+        "bundle_sha256"
+      ],
+      "title": "BlindCaseManifest",
+      "type": "object"
+    },
+    "RankingThresholds": {
+      "additionalProperties": false,
+      "properties": {
+        "min_ndcg_at_k": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Min Ndcg At K",
+          "type": "number"
+        },
+        "min_recall_at_k": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Min Recall At K",
+          "type": "number"
+        },
+        "min_mrr_at_k": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Min Mrr At K",
+          "type": "number"
+        },
+        "max_trap_case_rate": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Max Trap Case Rate",
+          "type": "number"
+        },
+        "min_safety_blocker_recall": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Min Safety Blocker Recall",
+          "type": "number"
+        },
+        "max_unsafe_go_rate": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Max Unsafe Go Rate",
+          "type": "number"
+        }
+      },
+      "required": [
+        "min_ndcg_at_k",
+        "min_recall_at_k",
+        "min_mrr_at_k",
+        "max_trap_case_rate",
+        "min_safety_blocker_recall",
+        "max_unsafe_go_rate"
+      ],
+      "title": "RankingThresholds",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "contract_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "benchmark_id": {
+      "minLength": 1,
+      "title": "Benchmark Id",
+      "type": "string"
+    },
+    "split_id": {
+      "minLength": 1,
+      "title": "Split Id",
+      "type": "string"
+    },
+    "k": {
+      "default": 10,
+      "maximum": 100,
+      "minimum": 1,
+      "title": "K",
+      "type": "integer"
+    },
+    "require_expert_adjudication": {
+      "default": true,
+      "title": "Require Expert Adjudication",
+      "type": "boolean"
+    },
+    "thresholds": {
+      "$ref": "#/$defs/RankingThresholds"
+    },
+    "cases": {
+      "items": {
+        "$ref": "#/$defs/BlindCaseManifest"
+      },
+      "minItems": 1,
+      "title": "Cases",
+      "type": "array"
+    }
+  },
+  "required": [
+    "benchmark_id",
+    "split_id",
+    "thresholds",
+    "cases"
+  ],
+  "title": "BlindBenchmarkManifest",
+  "type": "object"
+}

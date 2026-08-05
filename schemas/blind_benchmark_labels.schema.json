@@ -1,0 +1,233 @@
+{
+  "$defs": {
+    "BlindCaseLabels": {
+      "additionalProperties": false,
+      "properties": {
+        "case_id": {
+          "minLength": 1,
+          "title": "Case Id",
+          "type": "string"
+        },
+        "judgment_pool_id": {
+          "minLength": 1,
+          "title": "Judgment Pool Id",
+          "type": "string"
+        },
+        "unjudged_policy": {
+          "const": "treat_as_nonrelevant",
+          "title": "Unjudged Policy",
+          "type": "string"
+        },
+        "relevance": {
+          "items": {
+            "$ref": "#/$defs/TargetRelevance"
+          },
+          "minItems": 1,
+          "title": "Relevance",
+          "type": "array"
+        },
+        "trap_targets": {
+          "items": {
+            "$ref": "#/$defs/TrapExpectation"
+          },
+          "title": "Trap Targets",
+          "type": "array"
+        },
+        "safety_expectations": {
+          "items": {
+            "$ref": "#/$defs/SafetyExpectation"
+          },
+          "title": "Safety Expectations",
+          "type": "array"
+        }
+      },
+      "required": [
+        "case_id",
+        "judgment_pool_id",
+        "unjudged_policy",
+        "relevance"
+      ],
+      "title": "BlindCaseLabels",
+      "type": "object"
+    },
+    "LabelAdjudication": {
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "enum": [
+            "synthetic_fixture",
+            "expert_adjudicated"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "reviewer_count": {
+          "minimum": 0,
+          "title": "Reviewer Count",
+          "type": "integer"
+        },
+        "reviewers_blinded": {
+          "title": "Reviewers Blinded",
+          "type": "boolean"
+        },
+        "evidence_cutoff": {
+          "format": "date",
+          "title": "Evidence Cutoff",
+          "type": "string"
+        },
+        "source_snapshot_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Snapshot Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "status",
+        "reviewer_count",
+        "reviewers_blinded",
+        "evidence_cutoff"
+      ],
+      "title": "LabelAdjudication",
+      "type": "object"
+    },
+    "SafetyExpectation": {
+      "additionalProperties": false,
+      "properties": {
+        "gene": {
+          "minLength": 1,
+          "title": "Gene",
+          "type": "string"
+        },
+        "allowed_decisions": {
+          "items": {
+            "enum": [
+              "CONDITIONAL_GO",
+              "NO_GO",
+              "INSUFFICIENT_EVIDENCE"
+            ],
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Allowed Decisions",
+          "type": "array"
+        },
+        "required_blocker_terms": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Required Blocker Terms",
+          "type": "array"
+        },
+        "source_ids": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Source Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "gene",
+        "allowed_decisions",
+        "required_blocker_terms",
+        "source_ids"
+      ],
+      "title": "SafetyExpectation",
+      "type": "object"
+    },
+    "TargetRelevance": {
+      "additionalProperties": false,
+      "properties": {
+        "gene": {
+          "minLength": 1,
+          "title": "Gene",
+          "type": "string"
+        },
+        "grade": {
+          "maximum": 3,
+          "minimum": 0,
+          "title": "Grade",
+          "type": "integer"
+        },
+        "source_ids": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Source Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "gene",
+        "grade",
+        "source_ids"
+      ],
+      "title": "TargetRelevance",
+      "type": "object"
+    },
+    "TrapExpectation": {
+      "additionalProperties": false,
+      "properties": {
+        "gene": {
+          "minLength": 1,
+          "title": "Gene",
+          "type": "string"
+        },
+        "expected_behavior": {
+          "const": "do_not_go",
+          "default": "do_not_go",
+          "title": "Expected Behavior",
+          "type": "string"
+        }
+      },
+      "required": [
+        "gene"
+      ],
+      "title": "TrapExpectation",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "contract_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "benchmark_id": {
+      "minLength": 1,
+      "title": "Benchmark Id",
+      "type": "string"
+    },
+    "split_id": {
+      "minLength": 1,
+      "title": "Split Id",
+      "type": "string"
+    },
+    "adjudication": {
+      "$ref": "#/$defs/LabelAdjudication"
+    },
+    "cases": {
+      "items": {
+        "$ref": "#/$defs/BlindCaseLabels"
+      },
+      "minItems": 1,
+      "title": "Cases",
+      "type": "array"
+    }
+  },
+  "required": [
+    "benchmark_id",
+    "split_id",
+    "adjudication",
+    "cases"
+  ],
+  "title": "BlindLabelSet",
+  "type": "object"
+}

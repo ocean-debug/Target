@@ -61,3 +61,13 @@ The checkboxes are updated only from remote-node evidence generated for the curr
 - Canonical Pydantic export produced 11 new research-project JSON Schemas under `schemas/`.
 - Repository policy scan returned `REPO_POLICY=OK` after generated runtime outputs were kept under excluded artifact storage.
 - Acceptance covered atomic project reservation, cross-process execution locking, terminal-resume integrity checks, protected planner contracts, input/output alignment gates, dependency failure, attempt budget, content-addressed artifact versions, fail-closed target deliverables and plan/release checkpoints.
+
+## Blind-ranking scorer protocol acceptance (2026-08-05)
+
+- The full remote test suite passed after adding the scorer contracts; two pre-existing model-dependent cases remained skipped by their declared capability gates.
+- Existing regression quality gates remained at 11/11 tasks and 27/27 assertions, and repository policy returned `REPO_POLICY=OK`.
+- The reference scorer freezes `task_spec.json`, `ranked_targets.json` and terminal `status.json` with individual and combined SHA-256 digests before private labels are loaded.
+- Tests cover graded nDCG/Recall/MRR, non-compensating trap and safety gates, candidate-label leakage, post-freeze ranking tampering, duplicate predictions, empty rankings, malformed-case isolation, explicit suite thresholds and the expert-adjudication gate.
+- Public score output is aggregate-only; per-case label signals are available only through an explicit organizer-audit path.
+- Two canonical JSON Schemas were exported for the public manifest and private-label contracts.
+- This acceptance validates the protocol and participant-side reference implementation only. It is not an external blind biological result; evaluator-controlled code, hidden diseases, expert labels and submission controls are still required.
