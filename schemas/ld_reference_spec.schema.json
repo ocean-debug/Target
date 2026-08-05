@@ -1,0 +1,65 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "contract_version": {
+      "const": "2.2.0",
+      "default": "2.2.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "reference_id": {
+      "minLength": 1,
+      "title": "Reference Id",
+      "type": "string"
+    },
+    "ancestry": {
+      "minLength": 1,
+      "title": "Ancestry",
+      "type": "string"
+    },
+    "genome_build": {
+      "enum": [
+        "GRCh37",
+        "GRCh38"
+      ],
+      "title": "Genome Build",
+      "type": "string"
+    },
+    "source_uri": {
+      "minLength": 1,
+      "title": "Source Uri",
+      "type": "string"
+    },
+    "version": {
+      "minLength": 1,
+      "title": "Version",
+      "type": "string"
+    },
+    "sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Sha256",
+      "type": "string"
+    },
+    "sample_size": {
+      "exclusiveMinimum": 0,
+      "title": "Sample Size",
+      "type": "integer"
+    },
+    "matched_to_study": {
+      "default": false,
+      "title": "Matched To Study",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "reference_id",
+    "ancestry",
+    "genome_build",
+    "source_uri",
+    "version",
+    "sha256",
+    "sample_size"
+  ],
+  "title": "LDReferenceSpec",
+  "type": "object"
+}

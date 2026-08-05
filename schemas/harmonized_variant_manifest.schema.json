@@ -1,0 +1,115 @@
+{
+  "$defs": {
+    "HarmonizedVariantColumnMap": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_version": {
+          "const": "2.2.0",
+          "default": "2.2.0",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "gene": {
+          "title": "Gene",
+          "type": "string"
+        },
+        "locus_id": {
+          "title": "Locus Id",
+          "type": "string"
+        },
+        "signal_id": {
+          "title": "Signal Id",
+          "type": "string"
+        },
+        "chromosome": {
+          "title": "Chromosome",
+          "type": "string"
+        },
+        "position": {
+          "title": "Position",
+          "type": "string"
+        },
+        "gwas_effect_allele": {
+          "title": "Gwas Effect Allele",
+          "type": "string"
+        },
+        "gwas_other_allele": {
+          "title": "Gwas Other Allele",
+          "type": "string"
+        },
+        "eqtl_effect_allele": {
+          "title": "Eqtl Effect Allele",
+          "type": "string"
+        },
+        "eqtl_other_allele": {
+          "title": "Eqtl Other Allele",
+          "type": "string"
+        },
+        "variant_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Variant Id"
+        }
+      },
+      "required": [
+        "gene",
+        "locus_id",
+        "signal_id",
+        "chromosome",
+        "position",
+        "gwas_effect_allele",
+        "gwas_other_allele",
+        "eqtl_effect_allele",
+        "eqtl_other_allele"
+      ],
+      "title": "HarmonizedVariantColumnMap",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "contract_version": {
+      "const": "2.2.0",
+      "default": "2.2.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "relative_path": {
+      "minLength": 1,
+      "title": "Relative Path",
+      "type": "string"
+    },
+    "sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Sha256",
+      "type": "string"
+    },
+    "file_format": {
+      "enum": [
+        "tsv",
+        "csv",
+        "tsv.gz"
+      ],
+      "title": "File Format",
+      "type": "string"
+    },
+    "columns": {
+      "$ref": "#/$defs/HarmonizedVariantColumnMap"
+    }
+  },
+  "required": [
+    "relative_path",
+    "sha256",
+    "file_format",
+    "columns"
+  ],
+  "title": "HarmonizedVariantManifest",
+  "type": "object"
+}

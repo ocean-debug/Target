@@ -73,3 +73,14 @@ The checkboxes above record the historical V2.1 remote-node baseline, not curren
 - Public score output is aggregate-only; per-case label signals are available only through an explicit organizer-audit path.
 - Two canonical JSON Schemas were exported for the public manifest and private-label contracts.
 - This acceptance validates the protocol and participant-side reference implementation only. It is not an external blind biological result; evaluator-controlled code, hidden diseases, expert labels and submission controls are still required.
+
+## V2.2 controlled-genetics source acceptance (2026-08-05)
+
+- Source commit `920ed28` was archived and executed only in the external scheduled-node acceptance environment. The witness reported Python 3.11.13, the configured `agenttest` environment, the requested node and 35 allocated CPU slots; infrastructure identifiers remain outside Git.
+- The focused genetics/contract/runtime/Web suite passed 105/105 tests.
+- The full suite passed 202 tests with two optional model-backed Reviewer tests skipped by their declared capability gate. The only emitted warnings came from the existing synthetic single-cell/PyDESeq2 fixtures.
+- The internal fake/unit benchmark passed 11/11 tasks and 27/27 assertions. It validates contracts, recovery, deterministic behavior and refusal boundaries; it is not an external blind biological result.
+- Canonical export produced 38 JSON Schemas. `TaskSpec` and the target-discovery contracts use `2.2.0`; the genetics evidence schema and `multi_evidence` tool descriptor were explicitly witnessed.
+- The repository policy scan returned `REPO_POLICY=OK` after benchmark reports were changed to store portable path labels rather than deployment-specific absolute paths.
+- Acceptance covered strict GWAS candidate-universe freezing, checksum/provenance lineage, valid fine-mapping plus colocalization gates, PP4/context/stance thresholds, upstream Reviewer blockers, tool-budget degradation, terminal-status witness checks, duplicate-ID rejection and Legacy/LangGraph parity.
+- The controlled lane audits supplied, pre-staged GWAS, SuSiE and coloc outputs. It does not recompute fine-mapping/colocalization, establish causal genes or therapeutic direction, validate an external hidden benchmark, provide an independent expert panel, ship MCP, or constitute a large open-world alignment-data moat.

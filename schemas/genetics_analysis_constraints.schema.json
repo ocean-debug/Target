@@ -1,0 +1,72 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "contract_version": {
+      "const": "2.2.0",
+      "default": "2.2.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "max_file_size_mb": {
+      "default": 250,
+      "maximum": 2048,
+      "minimum": 1,
+      "title": "Max File Size Mb",
+      "type": "integer"
+    },
+    "max_rows_per_asset": {
+      "default": 250000,
+      "maximum": 2000000,
+      "minimum": 1000,
+      "title": "Max Rows Per Asset",
+      "type": "integer"
+    },
+    "gwas_p_value_threshold": {
+      "default": 5e-08,
+      "exclusiveMinimum": 0,
+      "maximum": 1,
+      "title": "Gwas P Value Threshold",
+      "type": "number"
+    },
+    "credible_set_level": {
+      "default": 0.95,
+      "exclusiveMaximum": 1.0,
+      "exclusiveMinimum": 0.5,
+      "title": "Credible Set Level",
+      "type": "number"
+    },
+    "credible_set_sum_tolerance": {
+      "default": 0.05,
+      "exclusiveMinimum": 0,
+      "maximum": 0.2,
+      "title": "Credible Set Sum Tolerance",
+      "type": "number"
+    },
+    "minimum_coloc_variant_overlap": {
+      "default": 50,
+      "maximum": 100000,
+      "minimum": 10,
+      "title": "Minimum Coloc Variant Overlap",
+      "type": "integer"
+    },
+    "minimum_coloc_pp4": {
+      "default": 0.8,
+      "maximum": 1.0,
+      "minimum": 0.5,
+      "title": "Minimum Coloc Pp4",
+      "type": "number"
+    },
+    "require_coloc_sensitivity": {
+      "default": true,
+      "title": "Require Coloc Sensitivity",
+      "type": "boolean"
+    },
+    "reject_palindromic_without_frequency": {
+      "default": true,
+      "title": "Reject Palindromic Without Frequency",
+      "type": "boolean"
+    }
+  },
+  "title": "GeneticsAnalysisConstraints",
+  "type": "object"
+}

@@ -1,0 +1,280 @@
+{
+  "$defs": {
+    "FineMappingColumnMap": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_version": {
+          "const": "2.2.0",
+          "default": "2.2.0",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "chromosome": {
+          "title": "Chromosome",
+          "type": "string"
+        },
+        "position": {
+          "title": "Position",
+          "type": "string"
+        },
+        "effect_allele": {
+          "title": "Effect Allele",
+          "type": "string"
+        },
+        "other_allele": {
+          "title": "Other Allele",
+          "type": "string"
+        },
+        "signal_posterior": {
+          "title": "Signal Posterior",
+          "type": "string"
+        },
+        "credible_set_id": {
+          "title": "Credible Set Id",
+          "type": "string"
+        },
+        "locus_id": {
+          "title": "Locus Id",
+          "type": "string"
+        },
+        "variant_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Variant Id"
+        }
+      },
+      "required": [
+        "chromosome",
+        "position",
+        "effect_allele",
+        "other_allele",
+        "signal_posterior",
+        "credible_set_id",
+        "locus_id"
+      ],
+      "title": "FineMappingColumnMap",
+      "type": "object"
+    },
+    "LDReferenceSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_version": {
+          "const": "2.2.0",
+          "default": "2.2.0",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "reference_id": {
+          "minLength": 1,
+          "title": "Reference Id",
+          "type": "string"
+        },
+        "ancestry": {
+          "minLength": 1,
+          "title": "Ancestry",
+          "type": "string"
+        },
+        "genome_build": {
+          "enum": [
+            "GRCh37",
+            "GRCh38"
+          ],
+          "title": "Genome Build",
+          "type": "string"
+        },
+        "source_uri": {
+          "minLength": 1,
+          "title": "Source Uri",
+          "type": "string"
+        },
+        "version": {
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "sample_size": {
+          "exclusiveMinimum": 0,
+          "title": "Sample Size",
+          "type": "integer"
+        },
+        "matched_to_study": {
+          "default": false,
+          "title": "Matched To Study",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "reference_id",
+        "ancestry",
+        "genome_build",
+        "source_uri",
+        "version",
+        "sha256",
+        "sample_size"
+      ],
+      "title": "LDReferenceSpec",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "contract_version": {
+      "const": "2.2.0",
+      "default": "2.2.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "asset_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{2,127}$",
+      "title": "Asset Id",
+      "type": "string"
+    },
+    "relative_path": {
+      "minLength": 1,
+      "title": "Relative Path",
+      "type": "string"
+    },
+    "sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Sha256",
+      "type": "string"
+    },
+    "file_format": {
+      "enum": [
+        "tsv",
+        "csv",
+        "tsv.gz"
+      ],
+      "title": "File Format",
+      "type": "string"
+    },
+    "genome_build": {
+      "enum": [
+        "GRCh37",
+        "GRCh38"
+      ],
+      "title": "Genome Build",
+      "type": "string"
+    },
+    "study_id": {
+      "minLength": 1,
+      "title": "Study Id",
+      "type": "string"
+    },
+    "phenotype": {
+      "minLength": 1,
+      "title": "Phenotype",
+      "type": "string"
+    },
+    "phenotype_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Phenotype Id"
+    },
+    "ancestry": {
+      "minLength": 1,
+      "title": "Ancestry",
+      "type": "string"
+    },
+    "sample_size": {
+      "exclusiveMinimum": 0,
+      "title": "Sample Size",
+      "type": "integer"
+    },
+    "source_uri": {
+      "minLength": 1,
+      "title": "Source Uri",
+      "type": "string"
+    },
+    "source_version": {
+      "minLength": 1,
+      "title": "Source Version",
+      "type": "string"
+    },
+    "public_data": {
+      "default": true,
+      "title": "Public Data",
+      "type": "boolean"
+    },
+    "kind": {
+      "const": "fine_mapping_result",
+      "default": "fine_mapping_result",
+      "title": "Kind",
+      "type": "string"
+    },
+    "method": {
+      "const": "susie",
+      "title": "Method",
+      "type": "string"
+    },
+    "method_version": {
+      "minLength": 1,
+      "title": "Method Version",
+      "type": "string"
+    },
+    "posterior_kind": {
+      "const": "signal_posterior",
+      "default": "signal_posterior",
+      "title": "Posterior Kind",
+      "type": "string"
+    },
+    "credible_level": {
+      "default": 0.95,
+      "exclusiveMaximum": 1.0,
+      "exclusiveMinimum": 0.5,
+      "title": "Credible Level",
+      "type": "number"
+    },
+    "ld_reference": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/LDReferenceSpec"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "columns": {
+      "$ref": "#/$defs/FineMappingColumnMap"
+    }
+  },
+  "required": [
+    "asset_id",
+    "relative_path",
+    "sha256",
+    "file_format",
+    "genome_build",
+    "study_id",
+    "phenotype",
+    "ancestry",
+    "sample_size",
+    "source_uri",
+    "source_version",
+    "method",
+    "method_version",
+    "columns"
+  ],
+  "title": "FineMappingResultInput",
+  "type": "object"
+}
