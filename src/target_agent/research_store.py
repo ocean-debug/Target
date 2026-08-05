@@ -126,7 +126,8 @@ class ResearchProjectStore:
     def _save_immutable(self, path: Path, value: BaseModel, label: str) -> None:
         existing = self._read_model(path, type(value))
         if existing is not None:
-            if existing.model_dump(mode="json") != value.model_dump(mode="json"):
+            if (existing.model_dump(mode="json", exclude={"created_at"})
+                    != value.model_dump(mode="json", exclude={"created_at"})):
                 raise ValueError(f"{label} is immutable once written")
             return
         self._write_json_atomic(path, value)
@@ -148,7 +149,9 @@ class ResearchProjectStore:
                 return True
             except FileExistsError:
                 existing = self.load_spec()
-                if existing is None or existing.model_dump(mode="json") != spec.model_dump(mode="json"):
+                if (existing is None
+                        or existing.model_dump(mode="json", exclude={"created_at"})
+                        != spec.model_dump(mode="json", exclude={"created_at"})):
                     raise ValueError("project spec is immutable once written")
                 return False
 

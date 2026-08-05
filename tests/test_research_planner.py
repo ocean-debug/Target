@@ -170,7 +170,8 @@ def test_non_whitelisted_and_shell_modules_never_enter_plan_or_prompt():
     items.insert(-2, unsafe)
     client = FakeClient({"items": items, "rationale": "Use a shell."})
 
-    plan = ResearchPlanner(modules, client).create_plan(project())
+    planner = ResearchPlanner(modules, client)
+    plan = planner.create_plan(project())
 
     assert "arbitrary_shell" not in planner.allowed_modules
     assert "arbitrary_shell" not in [item.module for item in plan.items]

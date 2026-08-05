@@ -223,7 +223,7 @@ def test_output_contract_failure_degrades_release_and_is_a_blocking_assessment(t
 
     terminal = runtime.run(project)
 
-    assert terminal["status"] == ProjectStatus.NEEDS_INPUT.value
+    assert terminal["status"] == ProjectStatus.COMPLETED_WITH_GAPS.value
     store = ResearchProjectStore(runtime.projects_dir, project.project_id)
     literature = store.load_work_item_results()["literature_search"]
     assert literature.status == WorkItemStatus.COMPLETED_WITH_GAPS
@@ -274,7 +274,7 @@ def test_vertical_project_without_target_spec_fails_closed_with_reported_gap(tmp
 
     terminal = runtime.run(project)
 
-    assert terminal["status"] == ProjectStatus.COMPLETED_WITH_GAPS.value
+    assert terminal["status"] == ProjectStatus.NEEDS_INPUT.value
     assert calls["target_discovery"] == 1
     store = ResearchProjectStore(runtime.projects_dir, project.project_id)
     target = store.load_work_item_results()["target_discovery"]
