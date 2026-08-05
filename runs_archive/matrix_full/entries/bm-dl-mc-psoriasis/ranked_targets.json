@@ -1,0 +1,913 @@
+[
+  {
+    "rank": 1,
+    "gene": "IL12B",
+    "scores": {
+      "contract_version": "2.1.0",
+      "human_genetics": 21.8612,
+      "disease_omics": 0.0,
+      "perturbation": 0.0,
+      "mechanism": 4.0,
+      "druggability": 8.5,
+      "safety_translation": 0.0,
+      "total": 34.3612
+    },
+    "decision": "GO",
+    "evidence_ids": [
+      "ev-f84d9065747d",
+      "ev-3c12c2484d86",
+      "ev-d67cb19cc872",
+      "ev-e2c5d1c06548",
+      "ev-009aa82442a5",
+      "ev-0dc1e7e56979",
+      "ev-b49defccec4b",
+      "ev-0556722368c2",
+      "ev-026032a3f4c8",
+      "ev-2e2eb94add23",
+      "ev-0ba6d4b1f5d4"
+    ],
+    "supporting_ids": [
+      "ev-f84d9065747d",
+      "ev-3c12c2484d86",
+      "ev-d67cb19cc872",
+      "ev-e2c5d1c06548",
+      "ev-009aa82442a5",
+      "ev-0dc1e7e56979",
+      "ev-b49defccec4b",
+      "ev-0556722368c2",
+      "ev-026032a3f4c8",
+      "ev-2e2eb94add23",
+      "ev-0ba6d4b1f5d4"
+    ],
+    "opposing_ids": [],
+    "safety_blockers": [],
+    "evidence_gaps": [
+      "No matched, source-grounded safety evidence was retrieved.",
+      "No matched-context measured perturbation evidence for this target."
+    ],
+    "matched_drugs": [
+      {
+        "targetId": "ENSG00000113302",
+        "drugId": "CHEMBL4650437",
+        "prefName": "EBDAROKIMAB",
+        "phase": "PHASE_3",
+        "status": "Open Targets clinical candidate",
+        "disease_ids": [
+          "EFO_1001494",
+          "MONDO_0005083",
+          "MONDO_0005101"
+        ],
+        "chembl_url": "https://www.ebi.ac.uk/chembl/explore/compound/CHEMBL4650437"
+      },
+      {
+        "targetId": "ENSG00000113302",
+        "drugId": "CHEMBL2364648",
+        "prefName": "GUSELKUMAB",
+        "phase": "APPROVAL",
+        "status": "Open Targets clinical candidate",
+        "disease_ids": [
+          "EFO_1001494",
+          "MONDO_0011849",
+          "MONDO_0005083",
+          "EFO_1001494",
+          "MONDO_0022205",
+          "MONDO_0005101",
+          "MONDO_0005101",
+          "MONDO_0005011",
+          "MONDO_0005046",
+          "MONDO_0004979",
+          "MONDO_0100491",
+          "MONDO_0015597",
+          "MONDO_0024419",
+          "MONDO_0005011",
+          "MONDO_0019436",
+          "MONDO_0005083",
+          "MONDO_0002406",
+          "MONDO_0005480",
+          "HP_0011123",
+          "MONDO_0008383",
+          "MONDO_0006559",
+          "MONDO_0100017",
+          "MONDO_0005556",
+          "MONDO_0008538",
+          "MONDO_0005100",
+          "EFO_0006835",
+          "MONDO_0008218",
+          "Orphanet_733",
+          "MONDO_0005575",
+          "MONDO_0005130",
+          "MONDO_0043693",
+          "MONDO_0005083",
+          "MONDO_0005011",
+          "MONDO_0013209",
+          "MONDO_0007027",
+          "MONDO_0005265",
+          "MONDO_0013209"
+        ],
+        "chembl_url": "https://www.ebi.ac.uk/chembl/explore/compound/CHEMBL2364648"
+      },
+      {
+        "targetId": "ENSG00000113302",
+        "drugId": "CHEMBL3990014",
+        "prefName": "MIRIKIZUMAB",
+        "phase": "APPROVAL",
+        "status": "Open Targets clinical candidate",
+        "disease_ids": [
+          "MONDO_0005011",
+          "MONDO_0005101",
+          "MONDO_0005101",
+          "MONDO_0005046",
+          "EFO_1001494",
+          "EFO_1001494",
+          "MONDO_0005011",
+          "HP_0001513",
+          "HP_0025502",
+          "MONDO_0005083",
+          "MONDO_0005011"
+        ],
+        "chembl_url": "https://www.ebi.ac.uk/chembl/explore/compound/CHEMBL3990014"
+      },
+      {
+        "targetId": "ENSG00000113302",
+        "drugId": "CHEMBL1201835",
+        "prefName": "USTEKINUMAB",
+        "phase": "APPROVAL",
+        "status": "Open Targets clinical candidate",
+        "disease_ids": [
+          "EFO_1001494",
+          "MONDO_0011849",
+          "MONDO_0005011",
+          "EFO_1001494",
+          "MONDO_0005083",
+          "MONDO_0005011",
+          "MONDO_0005011",
+          "MONDO_0011849",
+          "MONDO_0005101",
+          "MONDO_0005046",
+          "MONDO_0015597",
+          "MONDO_0005011",
+          "MONDO_0005083",
+          "MONDO_0005101",
+          "MONDO_0005306",
+          "MONDO_0019436",
+          "MONDO_0008383",
+          "MONDO_0007915",
+          "MONDO_0016367",
+          "MONDO_0019127",
+          "MONDO_0005312",
+          "MONDO_0017991",
+          "MONDO_0004565",
+          "MONDO_0005265",
+          "MONDO_0005147",
+          "MONDO_0002406",
+          "MONDO_0005480",
+          "HP_0011123",
+          "MONDO_0005301",
+          "MONDO_0019338",
+          "MONDO_0005306",
+          "MONDO_0005388",
+          "MONDO_0006559",
+          "MONDO_0004980",
+          "MONDO_0005147",
+          "HP_0000155",
+          "MONDO_0006918",
+          "MONDO_0017255",
+          "MONDO_0007191",
+          "MONDO_0006806",
+          "MONDO_0008538",
+          "MONDO_0020283",
+          "MONDO_0019082",
+          "MONDO_0018881",
+          "HP_0004386",
+          "MONDO_0015517",
+          "MONDO_0007293",
+          "MONDO_0010030",
+          "MONDO_0011849",
+          "MONDO_0019269",
+          "MONDO_0009735",
+          "MONDO_0007239",
+          "MONDO_0017265",
+          "MONDO_0017778",
+          "MONDO_0019306",
+          "MONDO_0005136",
+          "MONDO_0005011",
+          "MONDO_0100491"
+        ],
+        "chembl_url": "https://www.ebi.ac.uk/chembl/explore/compound/CHEMBL1201835"
+      },
+      {
+        "targetId": "ENSG00000113302",
+        "drugId": "CHEMBL3833372",
+        "prefName": "BRAZIKUMAB",
+        "phase": "PHASE_3",
+        "status": "Open Targets clinical candidate",
+        "disease_ids": [
+          "MONDO_0005011",
+          "MONDO_0005011",
+          "MONDO_0005101",
+          "MONDO_0005083"
+        ],
+        "chembl_url": "https://www.ebi.ac.uk/chembl/explore/compound/CHEMBL3833372"
+      },
+      {
+        "targetId": "ENSG00000113302",
+        "drugId": "CHEMBL1742995",
+        "prefName": "BRIAKINUMAB",
+        "phase": "APPROVAL",
+        "status": "Open Targets clinical candidate",
+        "disease_ids": [
+          "MONDO_0005046",
+          "EFO_1001494",
+          "MONDO_0005083",
+          "MONDO_0005011",
+          "MONDO_0005301",
+          "MONDO_0005011",
+          "MONDO_0008383"
+        ],
+        "chembl_url": "https://www.ebi.ac.uk/chembl/explore/compound/CHEMBL1742995"
+      },
+      {
+        "targetId": "ENSG00000113302",
+        "drugId": "CHEMBL2108681",
+        "prefName": "TILDRAKIZUMAB",
+        "phase": "APPROVAL",
+        "status": "Open Targets clinical candidate",
+        "disease_ids": [
+          "EFO_1001494",
+          "EFO_1001494",
+          "MONDO_0005083",
+          "MONDO_0005046",
+          "MONDO_0005083",
+          "MONDO_0011849",
+          "MONDO_0005306",
+          "MONDO_0008315",
+          "MONDO_0019082",
+          "MONDO_0008661"
+        ],
+        "chembl_url": "https://www.ebi.ac.uk/chembl/explore/compound/CHEMBL2108681"
+      },
+      {
+        "targetId": "ENSG00000113302",
+        "drugId": "CHEMBL3990029",
+        "prefName": "RISANKIZUMAB",
+        "phase": "APPROVAL",
+        "status": "Open Targets clinical candidate",
+        "disease_ids": [
+          "MONDO_0005011",
+          "MONDO_0011849",
+          "MONDO_0005083",
+          "MONDO_0005101",
+          "MONDO_0022205",
+          "EFO_1001494",
+          "MONDO_0005046",
+          "MONDO_0100491",
+          "MONDO_0005011",
+          "MONDO_0005083",
+          "MONDO_0015597",
+          "MONDO_0019436",
+          "MONDO_0005011",
+          "MONDO_0004565",
+          "MONDO_0005306",
+          "MONDO_0005011",
+          "MONDO_0004979",
+          "MONDO_0004980",
+          "MONDO_0006559",
+          "MONDO_0100096",
+          "MONDO_0005083",
+          "MONDO_0005083"
+        ],
+        "chembl_url": "https://www.ebi.ac.uk/chembl/explore/compound/CHEMBL3990029"
+      }
+    ]
+  },
+  {
+    "rank": 2,
+    "gene": "TYK2",
+    "scores": {
+      "contract_version": "2.1.0",
+      "human_genetics": 21.0542,
+      "disease_omics": 0.0,
+      "perturbation": 0.0,
+      "mechanism": 4.0,
+      "druggability": 8.5,
+      "safety_translation": 0.0,
+      "total": 33.5542
+    },
+    "decision": "GO",
+    "evidence_ids": [
+      "ev-694dc1855147",
+      "ev-e6ad6027d4a5",
+      "ev-6ddf7449d6c2",
+      "ev-eada94ade43b",
+      "ev-1ea2b045749b",
+      "ev-8d48547102de",
+      "ev-0b4c77d03484",
+      "ev-fa5d4210aca2",
+      "ev-32dec8c61953",
+      "ev-04f14de846d6",
+      "ev-6b089882d909",
+      "ev-2475fc6ae2e2"
+    ],
+    "supporting_ids": [
+      "ev-694dc1855147",
+      "ev-e6ad6027d4a5",
+      "ev-6ddf7449d6c2",
+      "ev-eada94ade43b",
+      "ev-1ea2b045749b",
+      "ev-8d48547102de",
+      "ev-0b4c77d03484",
+      "ev-fa5d4210aca2",
+      "ev-32dec8c61953",
+      "ev-6b089882d909",
+      "ev-2475fc6ae2e2"
+    ],
+    "opposing_ids": [],
+    "safety_blockers": [],
+    "evidence_gaps": [
+      "No matched, source-grounded safety evidence was retrieved.",
+      "No matched-context measured perturbation evidence for this target."
+    ],
+    "matched_drugs": [
+      {
+        "targetId": "ENSG00000105397",
+        "drugId": "CHEMBL4297477",
+        "prefName": "BREPOCITINIB",
+        "phase": "PHASE_3",
+        "status": "Open Targets clinical candidate",
+        "disease_ids": [
+          "MONDO_0016367",
+          "EFO_0009856",
+          "MONDO_0004979",
+          "EFO_1001494",
+          "MONDO_0005101",
+          "MONDO_0005340",
+          "MONDO_0005011",
+          "MONDO_0007915",
+          "MONDO_0004980",
+          "MONDO_0011849",
+          "MONDO_0006559",
+          "EFO_1002028",
+          "MONDO_0020283",
+          "MONDO_0006611",
+          "EFO_1001494",
+          "MONDO_0005083",
+          "MONDO_0005046"
+        ],
+        "chembl_url": "https://www.ebi.ac.uk/chembl/explore/compound/CHEMBL4297477"
+      },
+      {
+        "targetId": "ENSG00000105397",
+        "drugId": "CHEMBL4297507",
+        "prefName": "DELGOCITINIB",
+        "phase": "APPROVAL",
+        "status": "Open Targets clinical candidate",
+        "disease_ids": [
+          "MONDO_0004980",
+          "HP_0000964",
+          "MONDO_0004980",
+          "HP_0000964",
+          "MONDO_0002406",
+          "EFO_0022959",
+          "HP_0000964",
+          "MONDO_0007899",
+          "MONDO_0004979",
+          "MONDO_0005340",
+          "MONDO_0005083",
+          "MONDO_0019558",
+          "EFO_0009855",
+          "MONDO_0015597",
+          "EFO_0009856",
+          "MONDO_0022113"
+        ],
+        "chembl_url": "https://www.ebi.ac.uk/chembl/explore/compound/CHEMBL4297507"
+      },
+      {
+        "targetId": "ENSG00000105397",
+        "drugId": "CHEMBL4435170",
+        "prefName": "DEUCRAVACITINIB",
+        "phase": "APPROVAL",
+        "status": "Open Targets clinical candidate",
+        "disease_ids": [
+          "EFO_1001494",
+          "MONDO_0005083",
+          "MONDO_0022205",
+          "EFO_1001494",
+          "MONDO_0005083",
+          "MONDO_0011849",
+          "MONDO_0007915",
+          "MONDO_0010030",
+          "MONDO_0019436",
+          "MONDO_0005011",
+          "MONDO_0005101",
+          "MONDO_0005556",
+          "MONDO_0019558",
+          "MONDO_0005340",
+          "MONDO_0006559",
+          "EFO_0009856",
+          "MONDO_0008661",
+          "MONDO_0100017",
+          "MONDO_0019338",
+          "MONDO_0006554",
+          "MONDO_0008054",
+          "MONDO_0016367",
+          "MONDO_0008315",
+          "EFO_0009855",
+          "MONDO_0022113",
+          "MONDO_0005083",
+          "HP_0000999",
+          "MP_0001845",
+          "MONDO_0005083",
+          "MONDO_0005083",
+          "MONDO_0100491",
+          "HP_0000964",
+          "MONDO_0004980",
+          "MONDO_0015597",
+          "MONDO_0600023"
+        ],
+        "chembl_url": "https://www.ebi.ac.uk/chembl/explore/compound/CHEMBL4435170"
+      },
+      {
+        "targetId": "ENSG00000105397",
+        "drugId": "CHEMBL4459585",
+        "prefName": "ROPSACITINIB",
+        "phase": "PHASE_2",
+        "status": "Open Targets clinical candidate",
+        "disease_ids": [
+          "EFO_1001494",
+          "MONDO_0006559",
+          "MONDO_0005101",
+          "MONDO_0005083",
+          "MONDO_0005083",
+          "MONDO_0005265"
+        ],
+        "chembl_url": "https://www.ebi.ac.uk/chembl/explore/compound/CHEMBL4459585"
+      },
+      {
+        "targetId": "ENSG00000105397",
+        "drugId": "CHEMBL221959",
+        "prefName": "TOFACITINIB",
+        "phase": "APPROVAL",
+        "status": "Open Targets clinical candidate",
+        "disease_ids": [
+          "MONDO_0008383",
+          "MONDO_0008383",
+          "EFO_1001494",
+          "MONDO_0005101",
+          "MONDO_0011849",
+          "MONDO_0019434",
+          "MONDO_0019437",
+          "MONDO_0011429",
+          "MONDO_0005083",
+          "MONDO_0005306",
+          "MONDO_0006502",
+          "MONDO_0100096",
+          "MONDO_0012105",
+          "MONDO_0018177",
+          "MONDO_0017991",
+          "MONDO_0019735",
+          "MONDO_0019080",
+          "Orphanet_701",
+          "MONDO_0005340",
+          "MONDO_0018456",
+          "MONDO_0015597",
+          "MONDO_0005306",
+          "MONDO_0005446",
+          "MONDO_0005011",
+          "MONDO_0005083",
+          "MONDO_0004980",
+          "MONDO_0001718",
+          "MONDO_0020283",
+          "MP_0001845",
+          "MONDO_0021113",
+          "MONDO_0005249",
+          "MONDO_0005312",
+          "MONDO_0010030",
+          "MONDO_0015925",
+          "MONDO_0018905",
+          "MONDO_0016367",
+          "MONDO_0021167",
+          "EFO_0009659",
+          "MONDO_0005100",
+          "MONDO_0004496",
+          "MONDO_0000607",
+          "MONDO_0004967",
+          "MONDO_0008608",
+          "MONDO_0005282",
+          "MONDO_0007915",
+          "MONDO_0002009",
+          "MONDO_0010030",
+          "MONDO_0018305",
+          "MONDO_0005265",
+          "EFO_1001494",
+          "MONDO_0019338",
+          "MONDO_0001708",
+          "MONDO_0019338",
+          "MONDO_0006554",
+          "MONDO_0006047",
+          "MONDO_0008661",
+          "MONDO_0019558",
+          "MONDO_0009688",
+          "MONDO_0019810",
+          "MONDO_0004976",
+          "EFO_0008532",
+          "MONDO_0015492",
+          "MONDO_0005095",
+          "MONDO_0017287",
+          "MONDO_0019436",
+          "MONDO_0026045",
+          "EFO_0009855",
+          "EFO_0009856",
+          "MONDO_0018229",
+          "HP_0001369",
+          "MONDO_0008523",
+          "MONDO_0006559",
+          "MONDO_0004907"
+        ],
+        "chembl_url": "https://www.ebi.ac.uk/chembl/explore/compound/CHEMBL221959"
+      },
+      {
+        "targetId": "ENSG00000105397",
+        "drugId": "CHEMBL3622821",
+        "prefName": "UPADACITINIB",
+        "phase": "APPROVAL",
+        "status": "Open Targets clinical candidate",
+        "disease_ids": [
+          "MONDO_0008383",
+          "MONDO_0004980",
+          "MONDO_0005101",
+          "MONDO_0005011",
+          "MONDO_0011849",
+          "MONDO_0008538",
+          "MONDO_0008383",
+          "MONDO_0005306",
+          "MONDO_0011849",
+          "MONDO_0005101",
+          "MONDO_0005011",
+          "MONDO_0004980",
+          "MONDO_0017991",
+          "MONDO_0005306",
+          "MONDO_0019434",
+          "MONDO_0007915",
+          "MONDO_0006559",
+          "MONDO_0005340",
+          "MONDO_0008661",
+          "HP_0002360",
+          "HP_0002094",
+          "HP_0012378",
+          "HP_0002098",
+          "HP_0100543",
+          "MONDO_0010030",
+          "MONDO_0008558",
+          "MONDO_0007191",
+          "EFO_0009856",
+          "MONDO_0005361",
+          "MONDO_0019125",
+          "MONDO_0011429",
+          "HP_0010447",
+          "MONDO_0005083",
+          "MONDO_0005265",
+          "MONDO_0015925",
+          "MONDO_0005011"
+        ],
+        "chembl_url": "https://www.ebi.ac.uk/chembl/explore/compound/CHEMBL3622821"
+      }
+    ]
+  },
+  {
+    "rank": 3,
+    "gene": "TRAF3IP2",
+    "scores": {
+      "contract_version": "2.1.0",
+      "human_genetics": 21.0842,
+      "disease_omics": 0.0,
+      "perturbation": 0.0,
+      "mechanism": 4.0,
+      "druggability": 4.0,
+      "safety_translation": 0.0,
+      "total": 29.0842
+    },
+    "decision": "CONDITIONAL_GO",
+    "evidence_ids": [
+      "ev-807e6dfc8c2b",
+      "ev-f8f409abb52f",
+      "ev-72afd640136d",
+      "ev-384929eae279"
+    ],
+    "supporting_ids": [
+      "ev-807e6dfc8c2b",
+      "ev-72afd640136d",
+      "ev-384929eae279"
+    ],
+    "opposing_ids": [
+      "ev-f8f409abb52f"
+    ],
+    "safety_blockers": [
+      "Opposing or mixed evidence is retained and requires context-specific review.",
+      "Open Targets safety liability: Steven-Johnson Syndrome (SJS) and Toxic Epidermal Necrolysis (TEN)"
+    ],
+    "evidence_gaps": [
+      "No matched-context measured perturbation evidence for this target.",
+      "No known drug was returned in the current Open Targets result."
+    ],
+    "matched_drugs": []
+  },
+  {
+    "rank": 4,
+    "gene": "CARD14",
+    "scores": {
+      "contract_version": "2.1.0",
+      "human_genetics": 20.7459,
+      "disease_omics": 0.0,
+      "perturbation": 0.0,
+      "mechanism": 4.0,
+      "druggability": 4.0,
+      "safety_translation": 0.0,
+      "total": 28.7459
+    },
+    "decision": "GO",
+    "evidence_ids": [
+      "ev-ec8c651f7578",
+      "ev-a2918830b9ff",
+      "ev-be683494c725",
+      "ev-d936cacc14d0",
+      "ev-d4cc203d05b9",
+      "ev-8bd47ca7c7f7"
+    ],
+    "supporting_ids": [
+      "ev-ec8c651f7578",
+      "ev-a2918830b9ff",
+      "ev-be683494c725",
+      "ev-d936cacc14d0",
+      "ev-d4cc203d05b9",
+      "ev-8bd47ca7c7f7"
+    ],
+    "opposing_ids": [],
+    "safety_blockers": [],
+    "evidence_gaps": [
+      "No matched, source-grounded safety evidence was retrieved.",
+      "No matched-context measured perturbation evidence for this target.",
+      "No known drug was returned in the current Open Targets result."
+    ],
+    "matched_drugs": []
+  },
+  {
+    "rank": 5,
+    "gene": "IL23R",
+    "scores": {
+      "contract_version": "2.1.0",
+      "human_genetics": 20.3335,
+      "disease_omics": 0.0,
+      "perturbation": 0.0,
+      "mechanism": 4.0,
+      "druggability": 4.0,
+      "safety_translation": 0.0,
+      "total": 28.3335
+    },
+    "decision": "CONDITIONAL_GO",
+    "evidence_ids": [
+      "ev-483c930848a0",
+      "ev-9405b08d9463",
+      "ev-775ec4d853b9",
+      "ev-18c7ccf94e4c",
+      "ev-97c81d12dc7c",
+      "ev-ef34e6ccaa72"
+    ],
+    "supporting_ids": [
+      "ev-483c930848a0",
+      "ev-18c7ccf94e4c",
+      "ev-97c81d12dc7c",
+      "ev-ef34e6ccaa72"
+    ],
+    "opposing_ids": [
+      "ev-9405b08d9463",
+      "ev-775ec4d853b9"
+    ],
+    "safety_blockers": [
+      "Opposing or mixed evidence is retained and requires context-specific review.",
+      "Open Targets safety liability: Adenoma",
+      "Open Targets safety liability: paradoxical psoriasiform reactions"
+    ],
+    "evidence_gaps": [
+      "No matched-context measured perturbation evidence for this target.",
+      "No known drug was returned in the current Open Targets result."
+    ],
+    "matched_drugs": []
+  },
+  {
+    "rank": 6,
+    "gene": "IL36RN",
+    "scores": {
+      "contract_version": "2.1.0",
+      "human_genetics": 20.1456,
+      "disease_omics": 0.0,
+      "perturbation": 0.0,
+      "mechanism": 4.0,
+      "druggability": 4.0,
+      "safety_translation": 0.0,
+      "total": 28.1456
+    },
+    "decision": "CONDITIONAL_GO",
+    "evidence_ids": [
+      "ev-401202e620c1",
+      "ev-f3575954cbe4",
+      "ev-f02e33f8cc38",
+      "ev-70a46d962ef7",
+      "ev-0958db0cbe6d",
+      "ev-d08b1c95aaf4"
+    ],
+    "supporting_ids": [
+      "ev-401202e620c1",
+      "ev-f3575954cbe4",
+      "ev-f02e33f8cc38",
+      "ev-70a46d962ef7",
+      "ev-d08b1c95aaf4"
+    ],
+    "opposing_ids": [
+      "ev-0958db0cbe6d"
+    ],
+    "safety_blockers": [
+      "Opposing or mixed evidence is retained and requires context-specific review."
+    ],
+    "evidence_gaps": [
+      "No matched, source-grounded safety evidence was retrieved.",
+      "No matched-context measured perturbation evidence for this target.",
+      "No known drug was returned in the current Open Targets result."
+    ],
+    "matched_drugs": []
+  },
+  {
+    "rank": 7,
+    "gene": "TNFAIP3",
+    "scores": {
+      "contract_version": "2.1.0",
+      "human_genetics": 19.9583,
+      "disease_omics": 0.0,
+      "perturbation": 0.0,
+      "mechanism": 4.0,
+      "druggability": 4.0,
+      "safety_translation": 0.0,
+      "total": 27.9583
+    },
+    "decision": "GO",
+    "evidence_ids": [
+      "ev-adb74fc7b979",
+      "ev-746aa1c4f1b9",
+      "ev-3d21c6c7b1b4"
+    ],
+    "supporting_ids": [
+      "ev-adb74fc7b979",
+      "ev-746aa1c4f1b9",
+      "ev-3d21c6c7b1b4"
+    ],
+    "opposing_ids": [],
+    "safety_blockers": [],
+    "evidence_gaps": [
+      "No matched, source-grounded safety evidence was retrieved.",
+      "No matched-context measured perturbation evidence for this target.",
+      "No known drug was returned in the current Open Targets result."
+    ],
+    "matched_drugs": []
+  },
+  {
+    "rank": 8,
+    "gene": "EGFL8",
+    "scores": {
+      "contract_version": "2.1.0",
+      "human_genetics": 21.1943,
+      "disease_omics": 0.0,
+      "perturbation": 0.0,
+      "mechanism": 0.0,
+      "druggability": 4.0,
+      "safety_translation": 0.0,
+      "total": 25.1943
+    },
+    "decision": "INSUFFICIENT_EVIDENCE",
+    "evidence_ids": [
+      "ev-c502ecbbea52"
+    ],
+    "supporting_ids": [
+      "ev-c502ecbbea52"
+    ],
+    "opposing_ids": [],
+    "safety_blockers": [],
+    "evidence_gaps": [
+      "No matched, source-grounded safety evidence was retrieved.",
+      "No matched-context measured perturbation evidence for this target.",
+      "No span-validated literature claim for this target.",
+      "No known drug was returned in the current Open Targets result."
+    ],
+    "matched_drugs": []
+  },
+  {
+    "rank": 9,
+    "gene": "SH2B3",
+    "scores": {
+      "contract_version": "2.1.0",
+      "human_genetics": 20.1158,
+      "disease_omics": 0.0,
+      "perturbation": 0.0,
+      "mechanism": 0.0,
+      "druggability": 4.0,
+      "safety_translation": 0.0,
+      "total": 24.1158
+    },
+    "decision": "INSUFFICIENT_EVIDENCE",
+    "evidence_ids": [
+      "ev-2f7a4d4cac6f"
+    ],
+    "supporting_ids": [
+      "ev-2f7a4d4cac6f"
+    ],
+    "opposing_ids": [],
+    "safety_blockers": [],
+    "evidence_gaps": [
+      "No matched, source-grounded safety evidence was retrieved.",
+      "No matched-context measured perturbation evidence for this target.",
+      "No span-validated literature claim for this target.",
+      "No known drug was returned in the current Open Targets result."
+    ],
+    "matched_drugs": []
+  },
+  {
+    "rank": 10,
+    "gene": "IL13",
+    "scores": {
+      "contract_version": "2.1.0",
+      "human_genetics": 19.5278,
+      "disease_omics": 0.0,
+      "perturbation": 0.0,
+      "mechanism": 0.0,
+      "druggability": 4.0,
+      "safety_translation": 0.0,
+      "total": 23.5278
+    },
+    "decision": "CONDITIONAL_GO",
+    "evidence_ids": [
+      "ev-62cc2681ab69",
+      "ev-5c02a2947753",
+      "ev-6000a7993094",
+      "ev-b94b0e766476"
+    ],
+    "supporting_ids": [
+      "ev-62cc2681ab69",
+      "ev-5c02a2947753",
+      "ev-6000a7993094"
+    ],
+    "opposing_ids": [
+      "ev-b94b0e766476"
+    ],
+    "safety_blockers": [
+      "Opposing or mixed evidence is retained and requires context-specific review.",
+      "Open Targets safety liability: drug toxicity"
+    ],
+    "evidence_gaps": [
+      "No matched-context measured perturbation evidence for this target.",
+      "No span-validated literature claim for this target."
+    ],
+    "matched_drugs": [
+      {
+        "targetId": "ENSG00000169194",
+        "drugId": "CHEMBL1743035",
+        "prefName": "LEBRIKIZUMAB",
+        "phase": "APPROVAL",
+        "status": "Open Targets clinical candidate",
+        "disease_ids": [
+          "HP_0000964",
+          "MONDO_0004980",
+          "MONDO_0004980",
+          "MONDO_0004979",
+          "EFO_1002029",
+          "MONDO_0024332",
+          "MONDO_0005002",
+          "EFO_0000768",
+          "MONDO_0004952",
+          "MONDO_0005083"
+        ],
+        "chembl_url": "https://www.ebi.ac.uk/chembl/explore/compound/CHEMBL1743035"
+      },
+      {
+        "targetId": "ENSG00000169194",
+        "drugId": "CHEMBL1743081",
+        "prefName": "TRALOKINUMAB",
+        "phase": "APPROVAL",
+        "status": "Open Targets clinical candidate",
+        "disease_ids": [
+          "MONDO_0004980",
+          "HP_0000964",
+          "MONDO_0004980",
+          "MONDO_0005101",
+          "MONDO_0004979",
+          "HP_0000964",
+          "EFO_0000768",
+          "MONDO_0005340",
+          "MONDO_0005526",
+          "MONDO_0005373",
+          "MONDO_0005077",
+          "MONDO_0005504",
+          "MONDO_0005083"
+        ],
+        "chembl_url": "https://www.ebi.ac.uk/chembl/explore/compound/CHEMBL1743081"
+      }
+    ]
+  }
+]

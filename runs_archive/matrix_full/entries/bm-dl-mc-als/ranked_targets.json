@@ -1,0 +1,495 @@
+[
+  {
+    "rank": 1,
+    "gene": "FUS",
+    "scores": {
+      "contract_version": "2.1.0",
+      "human_genetics": 21.2831,
+      "disease_omics": 0.0,
+      "perturbation": 0.0,
+      "mechanism": 4.0,
+      "druggability": 4.0,
+      "safety_translation": 0.0,
+      "total": 29.2831
+    },
+    "decision": "GO",
+    "evidence_ids": [
+      "ev-db7d6f57c4f4",
+      "ev-7bca637ffb85",
+      "ev-bb43d9f769ed",
+      "ev-a2c12b11ab21",
+      "ev-6247917e956b",
+      "ev-f17c067c8112",
+      "ev-5f84ef8eea05",
+      "ev-e079b4660998",
+      "ev-3ee42bfbb55a",
+      "ev-ce3747d619a5",
+      "ev-93fcd0aa0c27",
+      "ev-9e532f8831a1"
+    ],
+    "supporting_ids": [
+      "ev-db7d6f57c4f4",
+      "ev-7bca637ffb85",
+      "ev-bb43d9f769ed",
+      "ev-a2c12b11ab21",
+      "ev-6247917e956b",
+      "ev-f17c067c8112",
+      "ev-5f84ef8eea05",
+      "ev-e079b4660998",
+      "ev-3ee42bfbb55a",
+      "ev-ce3747d619a5",
+      "ev-93fcd0aa0c27",
+      "ev-9e532f8831a1"
+    ],
+    "opposing_ids": [],
+    "safety_blockers": [],
+    "evidence_gaps": [
+      "No matched, source-grounded safety evidence was retrieved.",
+      "No matched-context measured perturbation evidence for this target.",
+      "No known drug was returned in the current Open Targets result."
+    ],
+    "matched_drugs": []
+  },
+  {
+    "rank": 2,
+    "gene": "SOD1",
+    "scores": {
+      "contract_version": "2.1.0",
+      "human_genetics": 21.2435,
+      "disease_omics": 0.0,
+      "perturbation": 0.0,
+      "mechanism": 4.0,
+      "druggability": 4.0,
+      "safety_translation": 0.0,
+      "total": 29.2435
+    },
+    "decision": "GO",
+    "evidence_ids": [
+      "ev-c3fd20f29412",
+      "ev-349ce55d24cf",
+      "ev-5b6fec8610f8",
+      "ev-6b34b27d2d09",
+      "ev-2cd8a7060a25",
+      "ev-4e1429d8f05a",
+      "ev-a4da8ddd96e9",
+      "ev-247f9a45dc37",
+      "ev-e24e5ea4fa22",
+      "ev-aedb98d45db4",
+      "ev-1449f62da9fc"
+    ],
+    "supporting_ids": [
+      "ev-c3fd20f29412",
+      "ev-349ce55d24cf",
+      "ev-5b6fec8610f8",
+      "ev-6b34b27d2d09",
+      "ev-2cd8a7060a25",
+      "ev-4e1429d8f05a",
+      "ev-a4da8ddd96e9",
+      "ev-247f9a45dc37",
+      "ev-e24e5ea4fa22",
+      "ev-aedb98d45db4",
+      "ev-1449f62da9fc"
+    ],
+    "opposing_ids": [],
+    "safety_blockers": [],
+    "evidence_gaps": [
+      "No matched, source-grounded safety evidence was retrieved.",
+      "No matched-context measured perturbation evidence for this target."
+    ],
+    "matched_drugs": [
+      {
+        "targetId": "ENSG00000142168",
+        "drugId": "CHEMBL3833346",
+        "prefName": "TOFERSEN",
+        "phase": "APPROVAL",
+        "status": "Open Targets clinical candidate",
+        "disease_ids": [
+          "MONDO_0004976"
+        ],
+        "chembl_url": "https://www.ebi.ac.uk/chembl/explore/compound/CHEMBL3833346"
+      }
+    ]
+  },
+  {
+    "rank": 3,
+    "gene": "TARDBP",
+    "scores": {
+      "contract_version": "2.1.0",
+      "human_genetics": 21.136,
+      "disease_omics": 0.0,
+      "perturbation": 0.0,
+      "mechanism": 4.0,
+      "druggability": 4.0,
+      "safety_translation": 0.0,
+      "total": 29.136
+    },
+    "decision": "GO",
+    "evidence_ids": [
+      "ev-600e52bfe17e",
+      "ev-be20b50ae79c",
+      "ev-247fe128ee50",
+      "ev-ae5bbea8ed03",
+      "ev-8740de5a5ae5",
+      "ev-13a7d6098f20",
+      "ev-c4be61aaee6b"
+    ],
+    "supporting_ids": [
+      "ev-600e52bfe17e",
+      "ev-be20b50ae79c",
+      "ev-247fe128ee50",
+      "ev-ae5bbea8ed03",
+      "ev-8740de5a5ae5",
+      "ev-13a7d6098f20",
+      "ev-c4be61aaee6b"
+    ],
+    "opposing_ids": [],
+    "safety_blockers": [],
+    "evidence_gaps": [
+      "No matched, source-grounded safety evidence was retrieved.",
+      "No matched-context measured perturbation evidence for this target.",
+      "No known drug was returned in the current Open Targets result."
+    ],
+    "matched_drugs": []
+  },
+  {
+    "rank": 4,
+    "gene": "SQSTM1",
+    "scores": {
+      "contract_version": "2.1.0",
+      "human_genetics": 21.0195,
+      "disease_omics": 0.0,
+      "perturbation": 0.0,
+      "mechanism": 4.0,
+      "druggability": 4.0,
+      "safety_translation": 0.0,
+      "total": 29.0195
+    },
+    "decision": "GO",
+    "evidence_ids": [
+      "ev-cd99ad5a2526",
+      "ev-b6c9618079da",
+      "ev-e44b6db223f3",
+      "ev-4f293b992e46",
+      "ev-9cd86901b001",
+      "ev-f1e2e4400d48"
+    ],
+    "supporting_ids": [
+      "ev-cd99ad5a2526",
+      "ev-b6c9618079da",
+      "ev-e44b6db223f3",
+      "ev-4f293b992e46",
+      "ev-9cd86901b001",
+      "ev-f1e2e4400d48"
+    ],
+    "opposing_ids": [],
+    "safety_blockers": [],
+    "evidence_gaps": [
+      "No matched, source-grounded safety evidence was retrieved.",
+      "No matched-context measured perturbation evidence for this target.",
+      "No known drug was returned in the current Open Targets result."
+    ],
+    "matched_drugs": []
+  },
+  {
+    "rank": 5,
+    "gene": "TBK1",
+    "scores": {
+      "contract_version": "2.1.0",
+      "human_genetics": 20.749,
+      "disease_omics": 0.0,
+      "perturbation": 0.0,
+      "mechanism": 4.0,
+      "druggability": 4.0,
+      "safety_translation": 0.0,
+      "total": 28.749
+    },
+    "decision": "CONDITIONAL_GO",
+    "evidence_ids": [
+      "ev-135c3b839fb1",
+      "ev-583333043709",
+      "ev-3c820ba28b3d",
+      "ev-bc1362a83a58",
+      "ev-4363bb5281da",
+      "ev-31936257c30e",
+      "ev-35dcdd2dfb16",
+      "ev-88364a5e24fd"
+    ],
+    "supporting_ids": [
+      "ev-135c3b839fb1",
+      "ev-3c820ba28b3d",
+      "ev-bc1362a83a58",
+      "ev-4363bb5281da",
+      "ev-31936257c30e",
+      "ev-35dcdd2dfb16",
+      "ev-88364a5e24fd"
+    ],
+    "opposing_ids": [
+      "ev-583333043709"
+    ],
+    "safety_blockers": [
+      "Opposing or mixed evidence is retained and requires context-specific review.",
+      "Open Targets safety liability: cardiac arrhythmia"
+    ],
+    "evidence_gaps": [
+      "No matched-context measured perturbation evidence for this target.",
+      "No known drug was returned in the current Open Targets result."
+    ],
+    "matched_drugs": []
+  },
+  {
+    "rank": 6,
+    "gene": "UBQLN2",
+    "scores": {
+      "contract_version": "2.1.0",
+      "human_genetics": 20.2658,
+      "disease_omics": 0.0,
+      "perturbation": 0.0,
+      "mechanism": 4.0,
+      "druggability": 4.0,
+      "safety_translation": 0.0,
+      "total": 28.2658
+    },
+    "decision": "GO",
+    "evidence_ids": [
+      "ev-1e846b331c4c",
+      "ev-22453177e433",
+      "ev-aa420f449ef7"
+    ],
+    "supporting_ids": [
+      "ev-1e846b331c4c",
+      "ev-22453177e433",
+      "ev-aa420f449ef7"
+    ],
+    "opposing_ids": [],
+    "safety_blockers": [],
+    "evidence_gaps": [
+      "No matched, source-grounded safety evidence was retrieved.",
+      "No matched-context measured perturbation evidence for this target.",
+      "No known drug was returned in the current Open Targets result."
+    ],
+    "matched_drugs": []
+  },
+  {
+    "rank": 7,
+    "gene": "SETX",
+    "scores": {
+      "contract_version": "2.1.0",
+      "human_genetics": 19.9301,
+      "disease_omics": 0.0,
+      "perturbation": 0.0,
+      "mechanism": 4.0,
+      "druggability": 4.0,
+      "safety_translation": 0.0,
+      "total": 27.9301
+    },
+    "decision": "GO",
+    "evidence_ids": [
+      "ev-366c2cdbe6fa",
+      "ev-b6a41d10688d"
+    ],
+    "supporting_ids": [
+      "ev-366c2cdbe6fa",
+      "ev-b6a41d10688d"
+    ],
+    "opposing_ids": [],
+    "safety_blockers": [],
+    "evidence_gaps": [
+      "No matched, source-grounded safety evidence was retrieved.",
+      "No matched-context measured perturbation evidence for this target.",
+      "No known drug was returned in the current Open Targets result."
+    ],
+    "matched_drugs": []
+  },
+  {
+    "rank": 8,
+    "gene": "MASP2",
+    "scores": {
+      "contract_version": "2.1.0",
+      "human_genetics": 21.044,
+      "disease_omics": 0.0,
+      "perturbation": 0.0,
+      "mechanism": 0.0,
+      "druggability": 4.0,
+      "safety_translation": 0.0,
+      "total": 25.044
+    },
+    "decision": "INSUFFICIENT_EVIDENCE",
+    "evidence_ids": [
+      "ev-3d9e2e6ff18d"
+    ],
+    "supporting_ids": [
+      "ev-3d9e2e6ff18d"
+    ],
+    "opposing_ids": [],
+    "safety_blockers": [],
+    "evidence_gaps": [
+      "No matched, source-grounded safety evidence was retrieved.",
+      "No matched-context measured perturbation evidence for this target.",
+      "No span-validated literature claim for this target.",
+      "No known drug was returned in the current Open Targets result."
+    ],
+    "matched_drugs": []
+  },
+  {
+    "rank": 9,
+    "gene": "ANG",
+    "scores": {
+      "contract_version": "2.1.0",
+      "human_genetics": 20.6334,
+      "disease_omics": 0.0,
+      "perturbation": 0.0,
+      "mechanism": 0.0,
+      "druggability": 4.0,
+      "safety_translation": 0.0,
+      "total": 24.6334
+    },
+    "decision": "INSUFFICIENT_EVIDENCE",
+    "evidence_ids": [
+      "ev-19ab267cdee0"
+    ],
+    "supporting_ids": [
+      "ev-19ab267cdee0"
+    ],
+    "opposing_ids": [],
+    "safety_blockers": [],
+    "evidence_gaps": [
+      "No matched, source-grounded safety evidence was retrieved.",
+      "No matched-context measured perturbation evidence for this target.",
+      "No span-validated literature claim for this target.",
+      "No known drug was returned in the current Open Targets result."
+    ],
+    "matched_drugs": []
+  },
+  {
+    "rank": 10,
+    "gene": "TUBA4A",
+    "scores": {
+      "contract_version": "2.1.0",
+      "human_genetics": 19.9403,
+      "disease_omics": 0.0,
+      "perturbation": 0.0,
+      "mechanism": 0.0,
+      "druggability": 4.0,
+      "safety_translation": 0.0,
+      "total": 23.9403
+    },
+    "decision": "GO",
+    "evidence_ids": [
+      "ev-1b398625a494",
+      "ev-1e46531456ea"
+    ],
+    "supporting_ids": [
+      "ev-1b398625a494",
+      "ev-1e46531456ea"
+    ],
+    "opposing_ids": [],
+    "safety_blockers": [],
+    "evidence_gaps": [
+      "No matched, source-grounded safety evidence was retrieved.",
+      "No matched-context measured perturbation evidence for this target.",
+      "No span-validated literature claim for this target."
+    ],
+    "matched_drugs": [
+      {
+        "targetId": "ENSG00000127824",
+        "drugId": "CHEMBL107",
+        "prefName": "COLCHICINE",
+        "phase": "APPROVAL",
+        "status": "Open Targets clinical candidate",
+        "disease_ids": [
+          "MONDO_0018088",
+          "MONDO_0005393",
+          "MONDO_0005068",
+          "HP_0001297",
+          "MONDO_0005010",
+          "MONDO_0004979",
+          "MONDO_0005388",
+          "MONDO_0005904",
+          "MONDO_0700115",
+          "MONDO_0004981",
+          "MONDO_0005264",
+          "MONDO_0100096",
+          "MONDO_0021113",
+          "MONDO_0005812",
+          "MONDO_0100163",
+          "MONDO_0100096",
+          "MONDO_0005252",
+          "MONDO_0100096",
+          "MONDO_0042981",
+          "MONDO_0005148",
+          "EFO_0008585",
+          "MONDO_0009693",
+          "MONDO_0004496",
+          "MONDO_0005542",
+          "EFO_1001404",
+          "MONDO_0006502",
+          "HP_0004308",
+          "MONDO_0005098",
+          "MONDO_0005068",
+          "MONDO_0013792",
+          "MONDO_0005267",
+          "MONDO_0005928",
+          "EFO_0003907",
+          "EFO_0009632",
+          "MONDO_0005542",
+          "MONDO_0005416",
+          "MONDO_0005249",
+          "MONDO_0006982",
+          "MONDO_0005623",
+          "MONDO_0007699",
+          "MONDO_0007191",
+          "MONDO_0005318",
+          "MONDO_0005016",
+          "MONDO_0008315",
+          "MONDO_0007256",
+          "MONDO_0005385",
+          "EFO_0009104",
+          "MONDO_0004781",
+          "MONDO_0021661",
+          "MONDO_0018592",
+          "MONDO_0005148",
+          "MONDO_0004976",
+          "MONDO_0001444",
+          "HP_0000155",
+          "MONDO_0008383",
+          "HP_0001907",
+          "MONDO_0005044",
+          "HP_0000855",
+          "MP_0001845",
+          "HP_0001513",
+          "MONDO_1060198",
+          "MONDO_0005147",
+          "MONDO_0002277",
+          "MONDO_0005311",
+          "MONDO_0005252",
+          "MONDO_0001314",
+          "HP_0001369",
+          "MONDO_0009831",
+          "EFO_0000195",
+          "HP_0001394",
+          "MONDO_0018088",
+          "EFO_0003863",
+          "MONDO_0043771",
+          "MONDO_0005300",
+          "HP_0003124",
+          "MONDO_0005347",
+          "MONDO_0100096",
+          "MONDO_0005386",
+          "EFO_0022864",
+          "HP_0012594",
+          "HP_0001395",
+          "MONDO_0005231",
+          "MONDO_0004995",
+          "MONDO_0005068",
+          "HP_0000822",
+          "MONDO_0005350",
+          "MONDO_0002771",
+          "MONDO_0005010",
+          "MONDO_0007191",
+          "HP_0100806"
+        ],
+        "chembl_url": "https://www.ebi.ac.uk/chembl/explore/compound/CHEMBL107"
+      }
+    ]
+  }
+]

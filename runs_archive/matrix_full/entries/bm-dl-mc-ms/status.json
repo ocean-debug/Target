@@ -1,0 +1,13 @@
+{
+  "contract_version": "2.1.0",
+  "run_id": "bm-bm-dl-mc-ms",
+  "task_id": "task-3ec358a487a5",
+  "state": "terminal",
+  "terminal_status": "completed_with_gaps",
+  "detail": {
+    "report": "report.md",
+    "ranked_targets": 10,
+    "target_cards": 5,
+    "tool_calls": 12
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "library_version": "1.0.0",
+  "kind": "normal",
+  "runs": [
+    {
+      "disease_id": "ad",
+      "disease": "Alzheimer disease",
+      "kind": "normal",
+      "run_id": "run-matrix-ad",
+      "terminal_status": "completed_with_gaps",
+      "highlighted_targets": [
+        "PSEN1",
+        "APP",
+        "PSEN2"
+      ],
+      "tool_calls": 12
+    },
+    {
+      "disease_id": "luad",
+      "disease": "lung adenocarcinoma",
+      "kind": "normal",
+      "run_id": "run-matrix-luad",
+      "terminal_status": "completed_with_gaps",
+      "highlighted_targets": [],
+      "tool_calls": 12
+    }
+  ]
+}

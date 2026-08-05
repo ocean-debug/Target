@@ -1,0 +1,966 @@
+[
+  {
+    "rank": 1,
+    "gene": "GCK",
+    "scores": {
+      "contract_version": "2.1.0",
+      "human_genetics": 21.0303,
+      "disease_omics": 0.0,
+      "perturbation": 0.0,
+      "mechanism": 4.0,
+      "druggability": 7.0,
+      "safety_translation": 0.0,
+      "total": 32.0303
+    },
+    "decision": "GO",
+    "evidence_ids": [
+      "ev-d947cecbb313",
+      "ev-766d3080fb24",
+      "ev-dd3acc28d423",
+      "ev-fbcfcdaecdf0",
+      "ev-09c7701ef0a0",
+      "ev-b9f42ba3d333",
+      "ev-3eb020c244a2"
+    ],
+    "supporting_ids": [
+      "ev-d947cecbb313",
+      "ev-766d3080fb24",
+      "ev-dd3acc28d423",
+      "ev-fbcfcdaecdf0",
+      "ev-09c7701ef0a0",
+      "ev-b9f42ba3d333",
+      "ev-3eb020c244a2"
+    ],
+    "opposing_ids": [],
+    "safety_blockers": [],
+    "evidence_gaps": [
+      "No matched, source-grounded safety evidence was retrieved.",
+      "No matched-context measured perturbation evidence for this target."
+    ],
+    "matched_drugs": [
+      {
+        "targetId": "ENSG00000106633",
+        "drugId": "CHEMBL2165620",
+        "prefName": "PF-04991532",
+        "phase": "PHASE_2",
+        "status": "Open Targets clinical candidate",
+        "disease_ids": [
+          "MONDO_0005148"
+        ],
+        "chembl_url": "https://www.ebi.ac.uk/chembl/explore/compound/CHEMBL2165620"
+      },
+      {
+        "targetId": "ENSG00000106633",
+        "drugId": "CHEMBL3219124",
+        "prefName": "AZD-1656",
+        "phase": "PHASE_2",
+        "status": "Open Targets clinical candidate",
+        "disease_ids": [
+          "MONDO_0005148",
+          "MONDO_0005147",
+          "MONDO_0005148",
+          "HP_0001943",
+          "MONDO_0005147"
+        ],
+        "chembl_url": "https://www.ebi.ac.uk/chembl/explore/compound/CHEMBL3219124"
+      },
+      {
+        "targetId": "ENSG00000106633",
+        "drugId": "CHEMBL4297399",
+        "prefName": "LY-2608204",
+        "phase": "PHASE_2",
+        "status": "Open Targets clinical candidate",
+        "disease_ids": [
+          "MONDO_0005148",
+          "MONDO_0005148"
+        ],
+        "chembl_url": "https://www.ebi.ac.uk/chembl/explore/compound/CHEMBL4297399"
+      },
+      {
+        "targetId": "ENSG00000106633",
+        "drugId": "CHEMBL4297302",
+        "prefName": "MK-0941",
+        "phase": "PHASE_2",
+        "status": "Open Targets clinical candidate",
+        "disease_ids": [
+          "MONDO_0005148",
+          "MONDO_0005148"
+        ],
+        "chembl_url": "https://www.ebi.ac.uk/chembl/explore/compound/CHEMBL4297302"
+      },
+      {
+        "targetId": "ENSG00000106633",
+        "drugId": "CHEMBL4297508",
+        "prefName": "DORZAGLIATIN",
+        "phase": "APPROVAL",
+        "status": "Open Targets clinical candidate",
+        "disease_ids": [
+          "MONDO_0005015",
+          "MONDO_0005148",
+          "MONDO_0005148",
+          "MONDO_0015967",
+          "HP_0040270",
+          "MONDO_0005148",
+          "MONDO_0009061"
+        ],
+        "chembl_url": "https://www.ebi.ac.uk/chembl/explore/compound/CHEMBL4297508"
+      },
+      {
+        "targetId": "ENSG00000106633",
+        "drugId": "CHEMBL2165615",
+        "prefName": "NERIGLIATIN",
+        "phase": "PHASE_2",
+        "status": "Open Targets clinical candidate",
+        "disease_ids": [
+          "MONDO_0005148",
+          "MONDO_0005148",
+          "MONDO_0005148"
+        ],
+        "chembl_url": "https://www.ebi.ac.uk/chembl/explore/compound/CHEMBL2165615"
+      }
+    ]
+  },
+  {
+    "rank": 2,
+    "gene": "ABCC8",
+    "scores": {
+      "contract_version": "2.1.0",
+      "human_genetics": 20.9629,
+      "disease_omics": 0.0,
+      "perturbation": 0.0,
+      "mechanism": 4.0,
+      "druggability": 4.0,
+      "safety_translation": 0.0,
+      "total": 28.9629
+    },
+    "decision": "CONDITIONAL_GO",
+    "evidence_ids": [
+      "ev-74a3d7f980ab",
+      "ev-e647d701d31b",
+      "ev-826d73f5e475",
+      "ev-7c8075212166",
+      "ev-7c61398da518",
+      "ev-811773e8d1b6",
+      "ev-de85f3b2d406",
+      "ev-db12a30315c7",
+      "ev-93ac229e1a1d",
+      "ev-95fc258466c1",
+      "ev-bf59c3e01b5e",
+      "ev-2b036c3a722d",
+      "ev-4677755a7297"
+    ],
+    "supporting_ids": [
+      "ev-74a3d7f980ab",
+      "ev-e647d701d31b",
+      "ev-826d73f5e475",
+      "ev-7c8075212166",
+      "ev-7c61398da518",
+      "ev-811773e8d1b6",
+      "ev-95fc258466c1",
+      "ev-bf59c3e01b5e",
+      "ev-2b036c3a722d",
+      "ev-4677755a7297"
+    ],
+    "opposing_ids": [
+      "ev-de85f3b2d406",
+      "ev-db12a30315c7",
+      "ev-93ac229e1a1d"
+    ],
+    "safety_blockers": [
+      "Opposing or mixed evidence is retained and requires context-specific review.",
+      "Open Targets safety liability: abnormal pulse",
+      "Open Targets safety liability: increased/decreased blood glucose",
+      "Open Targets safety liability: increased urinary sodium excretion"
+    ],
+    "evidence_gaps": [
+      "No matched-context measured perturbation evidence for this target."
+    ],
+    "matched_drugs": [
+      {
+        "targetId": "ENSG00000006071",
+        "drugId": "CHEMBL782",
+        "prefName": "TOLBUTAMIDE",
+        "phase": "APPROVAL",
+        "status": "Open Targets clinical candidate",
+        "disease_ids": [
+          "MONDO_0005148",
+          "MONDO_0005015",
+          "MONDO_0005148",
+          "MONDO_0005148"
+        ],
+        "chembl_url": "https://www.ebi.ac.uk/chembl/explore/compound/CHEMBL782"
+      },
+      {
+        "targetId": "ENSG00000006071",
+        "drugId": "CHEMBL1073",
+        "prefName": "GLIPIZIDE",
+        "phase": "APPROVAL",
+        "status": "Open Targets clinical candidate",
+        "disease_ids": [
+          "MONDO_0005148",
+          "MONDO_0005015",
+          "MONDO_0005010",
+          "MONDO_0005300",
+          "MONDO_0004995",
+          "MONDO_0005311",
+          "EFO_0009909",
+          "EFO_0009909",
+          "MONDO_0005184",
+          "MONDO_0005148",
+          "MONDO_0005015",
+          "HP_0003074",
+          "MONDO_0005300",
+          "MONDO_0005328",
+          "HP_0001297",
+          "MONDO_0005240",
+          "MONDO_0005252",
+          "MONDO_0005068",
+          "MONDO_0005154"
+        ],
+        "chembl_url": "https://www.ebi.ac.uk/chembl/explore/compound/CHEMBL1073"
+      },
+      {
+        "targetId": "ENSG00000006071",
+        "drugId": "CHEMBL1481",
+        "prefName": "GLIMEPIRIDE",
+        "phase": "APPROVAL",
+        "status": "Open Targets clinical candidate",
+        "disease_ids": [
+          "MONDO_0005148",
+          "MONDO_0005015",
+          "MONDO_0005148",
+          "MONDO_0005010",
+          "MONDO_0005148",
+          "MONDO_0005148",
+          "MONDO_0002525",
+          "MONDO_0004995",
+          "HP_0001943",
+          "Orphanet_552",
+          "MONDO_0005252",
+          "MONDO_0005015",
+          "HP_0040270",
+          "HP_0003074",
+          "MONDO_0005300",
+          "MONDO_0005328",
+          "HP_0001297",
+          "MONDO_0005240",
+          "MONDO_0005068",
+          "MONDO_0005154",
+          "MONDO_0005003",
+          "HP_0001263",
+          "MONDO_0005027"
+        ],
+        "chembl_url": "https://www.ebi.ac.uk/chembl/explore/compound/CHEMBL1481"
+      },
+      {
+        "targetId": "ENSG00000006071",
+        "drugId": "CHEMBL471498",
+        "prefName": "MITIGLINIDE",
+        "phase": "APPROVAL",
+        "status": "Open Targets clinical candidate",
+        "disease_ids": [
+          "MONDO_0005015",
+          "MONDO_0005148",
+          "MONDO_0005148",
+          "MONDO_0005015"
+        ],
+        "chembl_url": "https://www.ebi.ac.uk/chembl/explore/compound/CHEMBL471498"
+      },
+      {
+        "targetId": "ENSG00000006071",
+        "drugId": "CHEMBL427216",
+        "prefName": "GLICLAZIDE",
+        "phase": "APPROVAL",
+        "status": "Open Targets clinical candidate",
+        "disease_ids": [
+          "MONDO_0005015",
+          "MONDO_0005010",
+          "MONDO_0005148",
+          "MONDO_0005148",
+          "EFO_1001461",
+          "MONDO_0005083",
+          "HP_0003074",
+          "MONDO_0005015",
+          "MONDO_0005300",
+          "MONDO_0004995"
+        ],
+        "chembl_url": "https://www.ebi.ac.uk/chembl/explore/compound/CHEMBL427216"
+      },
+      {
+        "targetId": "ENSG00000006071",
+        "drugId": "CHEMBL817",
+        "prefName": "TOLAZAMIDE",
+        "phase": "APPROVAL",
+        "status": "Open Targets clinical candidate",
+        "disease_ids": [
+          "MONDO_0005148",
+          "MONDO_0005015"
+        ],
+        "chembl_url": "https://www.ebi.ac.uk/chembl/explore/compound/CHEMBL817"
+      },
+      {
+        "targetId": "ENSG00000006071",
+        "drugId": "CHEMBL4298005",
+        "prefName": "MITIGLINIDE CALCIUM DIHYDRATE",
+        "phase": "APPROVAL",
+        "status": "Open Targets clinical candidate",
+        "disease_ids": [
+          "MONDO_0005148",
+          "MONDO_0005148"
+        ],
+        "chembl_url": "https://www.ebi.ac.uk/chembl/explore/compound/CHEMBL4298005"
+      },
+      {
+        "targetId": "ENSG00000006071",
+        "drugId": "CHEMBL498",
+        "prefName": "CHLORPROPAMIDE",
+        "phase": "APPROVAL",
+        "status": "Open Targets clinical candidate",
+        "disease_ids": [
+          "MONDO_0005015",
+          "MONDO_0005148",
+          "MONDO_0005148",
+          "MONDO_0004782"
+        ],
+        "chembl_url": "https://www.ebi.ac.uk/chembl/explore/compound/CHEMBL498"
+      },
+      {
+        "targetId": "ENSG00000006071",
+        "drugId": "CHEMBL783",
+        "prefName": "NATEGLINIDE",
+        "phase": "APPROVAL",
+        "status": "Open Targets clinical candidate",
+        "disease_ids": [
+          "MONDO_0005148",
+          "MONDO_0005015",
+          "MONDO_0005148",
+          "MONDO_0005148"
+        ],
+        "chembl_url": "https://www.ebi.ac.uk/chembl/explore/compound/CHEMBL783"
+      },
+      {
+        "targetId": "ENSG00000006071",
+        "drugId": "CHEMBL472",
+        "prefName": "GLYBURIDE",
+        "phase": "APPROVAL",
+        "status": "Open Targets clinical candidate",
+        "disease_ids": [
+          "MONDO_0005148",
+          "MONDO_0005015",
+          "HP_0001297",
+          "MONDO_0005010",
+          "MONDO_0005148",
+          "MONDO_0005267",
+          "MONDO_0005009",
+          "MONDO_0005406",
+          "MONDO_0005406",
+          "MONDO_0016391",
+          "MONDO_0004995",
+          "MONDO_0005147",
+          "MONDO_0043510",
+          "EFO_0009373",
+          "MONDO_1060198",
+          "MONDO_0005098",
+          "HP_0003074",
+          "MONDO_0043797",
+          "MONDO_0024644",
+          "EFO_0005762",
+          "MONDO_0005015",
+          "MONDO_0005203",
+          "HP_0000822",
+          "MP_0001845",
+          "EFO_0004517",
+          "MONDO_0005044",
+          "HP_0003074",
+          "MONDO_0006684",
+          "MONDO_0005300",
+          "MONDO_0005328",
+          "MONDO_0005240",
+          "MONDO_0005252",
+          "MONDO_0005068",
+          "MONDO_0005154",
+          "HP_0001263",
+          "MONDO_0005027",
+          "EFO_0003913",
+          "HP_0000112"
+        ],
+        "chembl_url": "https://www.ebi.ac.uk/chembl/explore/compound/CHEMBL472"
+      },
+      {
+        "targetId": "ENSG00000006071",
+        "drugId": "CHEMBL1272",
+        "prefName": "REPAGLINIDE",
+        "phase": "APPROVAL",
+        "status": "Open Targets clinical candidate",
+        "disease_ids": [
+          "MONDO_0005148",
+          "MONDO_0005015",
+          "MONDO_0005148",
+          "EFO_0801077",
+          "MONDO_0005148",
+          "MONDO_0009061",
+          "MONDO_0006920",
+          "EFO_0009706"
+        ],
+        "chembl_url": "https://www.ebi.ac.uk/chembl/explore/compound/CHEMBL1272"
+      }
+    ]
+  },
+  {
+    "rank": 3,
+    "gene": "KCNJ11",
+    "scores": {
+      "contract_version": "2.1.0",
+      "human_genetics": 20.9188,
+      "disease_omics": 0.0,
+      "perturbation": 0.0,
+      "mechanism": 4.0,
+      "druggability": 4.0,
+      "safety_translation": 0.0,
+      "total": 28.9188
+    },
+    "decision": "CONDITIONAL_GO",
+    "evidence_ids": [
+      "ev-b50f5f01fdac",
+      "ev-a0d62d5a50dc",
+      "ev-d350e6e72f0e",
+      "ev-7a628c2976e3",
+      "ev-74ba6ba7859b",
+      "ev-0079304029e7",
+      "ev-8bb8f4af0345",
+      "ev-8ced05d37060",
+      "ev-d89e42f01737",
+      "ev-d49da12028d8",
+      "ev-b511908dc681",
+      "ev-dc6fdc9c0c85",
+      "ev-1337443253f0",
+      "ev-5cc91b718502"
+    ],
+    "supporting_ids": [
+      "ev-b50f5f01fdac",
+      "ev-a0d62d5a50dc",
+      "ev-d350e6e72f0e",
+      "ev-7a628c2976e3",
+      "ev-74ba6ba7859b",
+      "ev-0079304029e7",
+      "ev-d49da12028d8",
+      "ev-b511908dc681",
+      "ev-dc6fdc9c0c85",
+      "ev-1337443253f0",
+      "ev-5cc91b718502"
+    ],
+    "opposing_ids": [
+      "ev-8bb8f4af0345",
+      "ev-8ced05d37060",
+      "ev-d89e42f01737"
+    ],
+    "safety_blockers": [
+      "Opposing or mixed evidence is retained and requires context-specific review.",
+      "Open Targets safety liability: abnormal pulse",
+      "Open Targets safety liability: increased/decreased blood glucose",
+      "Open Targets safety liability: increased urinary sodium excretion"
+    ],
+    "evidence_gaps": [
+      "No matched-context measured perturbation evidence for this target."
+    ],
+    "matched_drugs": [
+      {
+        "targetId": "ENSG00000187486",
+        "drugId": "CHEMBL1073",
+        "prefName": "GLIPIZIDE",
+        "phase": "APPROVAL",
+        "status": "Open Targets clinical candidate",
+        "disease_ids": [
+          "MONDO_0005148",
+          "MONDO_0005015",
+          "MONDO_0005010",
+          "MONDO_0005300",
+          "MONDO_0004995",
+          "MONDO_0005311",
+          "EFO_0009909",
+          "EFO_0009909",
+          "MONDO_0005184",
+          "MONDO_0005148",
+          "MONDO_0005015",
+          "HP_0003074",
+          "MONDO_0005300",
+          "MONDO_0005328",
+          "HP_0001297",
+          "MONDO_0005240",
+          "MONDO_0005252",
+          "MONDO_0005068",
+          "MONDO_0005154"
+        ],
+        "chembl_url": "https://www.ebi.ac.uk/chembl/explore/compound/CHEMBL1073"
+      },
+      {
+        "targetId": "ENSG00000187486",
+        "drugId": "CHEMBL498",
+        "prefName": "CHLORPROPAMIDE",
+        "phase": "APPROVAL",
+        "status": "Open Targets clinical candidate",
+        "disease_ids": [
+          "MONDO_0005015",
+          "MONDO_0005148",
+          "MONDO_0005148",
+          "MONDO_0004782"
+        ],
+        "chembl_url": "https://www.ebi.ac.uk/chembl/explore/compound/CHEMBL498"
+      },
+      {
+        "targetId": "ENSG00000187486",
+        "drugId": "CHEMBL1272",
+        "prefName": "REPAGLINIDE",
+        "phase": "APPROVAL",
+        "status": "Open Targets clinical candidate",
+        "disease_ids": [
+          "MONDO_0005148",
+          "MONDO_0005015",
+          "MONDO_0005148",
+          "EFO_0801077",
+          "MONDO_0005148",
+          "MONDO_0009061",
+          "MONDO_0006920",
+          "EFO_0009706"
+        ],
+        "chembl_url": "https://www.ebi.ac.uk/chembl/explore/compound/CHEMBL1272"
+      },
+      {
+        "targetId": "ENSG00000187486",
+        "drugId": "CHEMBL4298005",
+        "prefName": "MITIGLINIDE CALCIUM DIHYDRATE",
+        "phase": "APPROVAL",
+        "status": "Open Targets clinical candidate",
+        "disease_ids": [
+          "MONDO_0005148",
+          "MONDO_0005148"
+        ],
+        "chembl_url": "https://www.ebi.ac.uk/chembl/explore/compound/CHEMBL4298005"
+      },
+      {
+        "targetId": "ENSG00000187486",
+        "drugId": "CHEMBL1481",
+        "prefName": "GLIMEPIRIDE",
+        "phase": "APPROVAL",
+        "status": "Open Targets clinical candidate",
+        "disease_ids": [
+          "MONDO_0005148",
+          "MONDO_0005015",
+          "MONDO_0005148",
+          "MONDO_0005010",
+          "MONDO_0005148",
+          "MONDO_0005148",
+          "MONDO_0002525",
+          "MONDO_0004995",
+          "HP_0001943",
+          "Orphanet_552",
+          "MONDO_0005252",
+          "MONDO_0005015",
+          "HP_0040270",
+          "HP_0003074",
+          "MONDO_0005300",
+          "MONDO_0005328",
+          "HP_0001297",
+          "MONDO_0005240",
+          "MONDO_0005068",
+          "MONDO_0005154",
+          "MONDO_0005003",
+          "HP_0001263",
+          "MONDO_0005027"
+        ],
+        "chembl_url": "https://www.ebi.ac.uk/chembl/explore/compound/CHEMBL1481"
+      },
+      {
+        "targetId": "ENSG00000187486",
+        "drugId": "CHEMBL817",
+        "prefName": "TOLAZAMIDE",
+        "phase": "APPROVAL",
+        "status": "Open Targets clinical candidate",
+        "disease_ids": [
+          "MONDO_0005148",
+          "MONDO_0005015"
+        ],
+        "chembl_url": "https://www.ebi.ac.uk/chembl/explore/compound/CHEMBL817"
+      },
+      {
+        "targetId": "ENSG00000187486",
+        "drugId": "CHEMBL181",
+        "prefName": "DIAZOXIDE",
+        "phase": "APPROVAL",
+        "status": "Open Targets clinical candidate",
+        "disease_ids": [
+          "MONDO_0005803",
+          "MONDO_0024677",
+          "MONDO_0002177",
+          "MONDO_0005044",
+          "HP_0000822",
+          "HP_0001943",
+          "HP_0001513",
+          "HP_0000842",
+          "MONDO_0019010",
+          "MONDO_0011122",
+          "MONDO_0011122",
+          "MONDO_0005148",
+          "MONDO_0005148",
+          "MONDO_0008300",
+          "MONDO_0002009",
+          "MONDO_0013209",
+          "HP_0000855",
+          "MONDO_0013209",
+          "MONDO_0005147",
+          "MONDO_0005203",
+          "MONDO_0008487",
+          "HP_0001943"
+        ],
+        "chembl_url": "https://www.ebi.ac.uk/chembl/explore/compound/CHEMBL181"
+      },
+      {
+        "targetId": "ENSG00000187486",
+        "drugId": "CHEMBL783",
+        "prefName": "NATEGLINIDE",
+        "phase": "APPROVAL",
+        "status": "Open Targets clinical candidate",
+        "disease_ids": [
+          "MONDO_0005148",
+          "MONDO_0005015",
+          "MONDO_0005148",
+          "MONDO_0005148"
+        ],
+        "chembl_url": "https://www.ebi.ac.uk/chembl/explore/compound/CHEMBL783"
+      },
+      {
+        "targetId": "ENSG00000187486",
+        "drugId": "CHEMBL471498",
+        "prefName": "MITIGLINIDE",
+        "phase": "APPROVAL",
+        "status": "Open Targets clinical candidate",
+        "disease_ids": [
+          "MONDO_0005015",
+          "MONDO_0005148",
+          "MONDO_0005148",
+          "MONDO_0005015"
+        ],
+        "chembl_url": "https://www.ebi.ac.uk/chembl/explore/compound/CHEMBL471498"
+      },
+      {
+        "targetId": "ENSG00000187486",
+        "drugId": "CHEMBL782",
+        "prefName": "TOLBUTAMIDE",
+        "phase": "APPROVAL",
+        "status": "Open Targets clinical candidate",
+        "disease_ids": [
+          "MONDO_0005148",
+          "MONDO_0005015",
+          "MONDO_0005148",
+          "MONDO_0005148"
+        ],
+        "chembl_url": "https://www.ebi.ac.uk/chembl/explore/compound/CHEMBL782"
+      },
+      {
+        "targetId": "ENSG00000187486",
+        "drugId": "CHEMBL427216",
+        "prefName": "GLICLAZIDE",
+        "phase": "APPROVAL",
+        "status": "Open Targets clinical candidate",
+        "disease_ids": [
+          "MONDO_0005015",
+          "MONDO_0005010",
+          "MONDO_0005148",
+          "MONDO_0005148",
+          "EFO_1001461",
+          "MONDO_0005083",
+          "HP_0003074",
+          "MONDO_0005015",
+          "MONDO_0005300",
+          "MONDO_0004995"
+        ],
+        "chembl_url": "https://www.ebi.ac.uk/chembl/explore/compound/CHEMBL427216"
+      },
+      {
+        "targetId": "ENSG00000187486",
+        "drugId": "CHEMBL472",
+        "prefName": "GLYBURIDE",
+        "phase": "APPROVAL",
+        "status": "Open Targets clinical candidate",
+        "disease_ids": [
+          "MONDO_0005148",
+          "MONDO_0005015",
+          "HP_0001297",
+          "MONDO_0005010",
+          "MONDO_0005148",
+          "MONDO_0005267",
+          "MONDO_0005009",
+          "MONDO_0005406",
+          "MONDO_0005406",
+          "MONDO_0016391",
+          "MONDO_0004995",
+          "MONDO_0005147",
+          "MONDO_0043510",
+          "EFO_0009373",
+          "MONDO_1060198",
+          "MONDO_0005098",
+          "HP_0003074",
+          "MONDO_0043797",
+          "MONDO_0024644",
+          "EFO_0005762",
+          "MONDO_0005015",
+          "MONDO_0005203",
+          "HP_0000822",
+          "MP_0001845",
+          "EFO_0004517",
+          "MONDO_0005044",
+          "HP_0003074",
+          "MONDO_0006684",
+          "MONDO_0005300",
+          "MONDO_0005328",
+          "MONDO_0005240",
+          "MONDO_0005252",
+          "MONDO_0005068",
+          "MONDO_0005154",
+          "HP_0001263",
+          "MONDO_0005027",
+          "EFO_0003913",
+          "HP_0000112"
+        ],
+        "chembl_url": "https://www.ebi.ac.uk/chembl/explore/compound/CHEMBL472"
+      }
+    ]
+  },
+  {
+    "rank": 4,
+    "gene": "FTO",
+    "scores": {
+      "contract_version": "2.1.0",
+      "human_genetics": 21.8714,
+      "disease_omics": 0.0,
+      "perturbation": 0.0,
+      "mechanism": 0.0,
+      "druggability": 4.0,
+      "safety_translation": 0.0,
+      "total": 25.8714
+    },
+    "decision": "INSUFFICIENT_EVIDENCE",
+    "evidence_ids": [
+      "ev-73c931b5a9cf",
+      "ev-f93051e42492",
+      "ev-f71b254fc88e",
+      "ev-637504a3d1c9"
+    ],
+    "supporting_ids": [
+      "ev-73c931b5a9cf"
+    ],
+    "opposing_ids": [
+      "ev-f93051e42492",
+      "ev-f71b254fc88e",
+      "ev-637504a3d1c9"
+    ],
+    "safety_blockers": [
+      "Opposing or mixed evidence is retained and requires context-specific review.",
+      "Open Targets safety liability: leukopenia or neutropenia",
+      "Open Targets safety liability: reduction in HDL-C",
+      "Open Targets safety liability: drug toxicity"
+    ],
+    "evidence_gaps": [
+      "No matched-context measured perturbation evidence for this target.",
+      "No span-validated literature claim for this target.",
+      "No known drug was returned in the current Open Targets result."
+    ],
+    "matched_drugs": []
+  },
+  {
+    "rank": 5,
+    "gene": "CTRB2",
+    "scores": {
+      "contract_version": "2.1.0",
+      "human_genetics": 21.3874,
+      "disease_omics": 0.0,
+      "perturbation": 0.0,
+      "mechanism": 0.0,
+      "druggability": 4.0,
+      "safety_translation": 0.0,
+      "total": 25.3874
+    },
+    "decision": "INSUFFICIENT_EVIDENCE",
+    "evidence_ids": [
+      "ev-2eb9733d7e3b"
+    ],
+    "supporting_ids": [
+      "ev-2eb9733d7e3b"
+    ],
+    "opposing_ids": [],
+    "safety_blockers": [],
+    "evidence_gaps": [
+      "No matched, source-grounded safety evidence was retrieved.",
+      "No matched-context measured perturbation evidence for this target.",
+      "No span-validated literature claim for this target.",
+      "No known drug was returned in the current Open Targets result."
+    ],
+    "matched_drugs": []
+  },
+  {
+    "rank": 6,
+    "gene": "CTRB1",
+    "scores": {
+      "contract_version": "2.1.0",
+      "human_genetics": 21.3733,
+      "disease_omics": 0.0,
+      "perturbation": 0.0,
+      "mechanism": 0.0,
+      "druggability": 4.0,
+      "safety_translation": 0.0,
+      "total": 25.3733
+    },
+    "decision": "INSUFFICIENT_EVIDENCE",
+    "evidence_ids": [
+      "ev-04ea5dbd56b8"
+    ],
+    "supporting_ids": [
+      "ev-04ea5dbd56b8"
+    ],
+    "opposing_ids": [],
+    "safety_blockers": [],
+    "evidence_gaps": [
+      "No matched, source-grounded safety evidence was retrieved.",
+      "No matched-context measured perturbation evidence for this target.",
+      "No span-validated literature claim for this target.",
+      "No known drug was returned in the current Open Targets result."
+    ],
+    "matched_drugs": []
+  },
+  {
+    "rank": 7,
+    "gene": "KL",
+    "scores": {
+      "contract_version": "2.1.0",
+      "human_genetics": 20.9334,
+      "disease_omics": 0.0,
+      "perturbation": 0.0,
+      "mechanism": 0.0,
+      "druggability": 4.0,
+      "safety_translation": 0.0,
+      "total": 24.9334
+    },
+    "decision": "INSUFFICIENT_EVIDENCE",
+    "evidence_ids": [
+      "ev-dd8ecd5a1fef"
+    ],
+    "supporting_ids": [
+      "ev-dd8ecd5a1fef"
+    ],
+    "opposing_ids": [],
+    "safety_blockers": [],
+    "evidence_gaps": [
+      "No matched, source-grounded safety evidence was retrieved.",
+      "No matched-context measured perturbation evidence for this target.",
+      "No span-validated literature claim for this target.",
+      "No known drug was returned in the current Open Targets result."
+    ],
+    "matched_drugs": []
+  },
+  {
+    "rank": 8,
+    "gene": "WFS1",
+    "scores": {
+      "contract_version": "2.1.0",
+      "human_genetics": 20.8164,
+      "disease_omics": 0.0,
+      "perturbation": 0.0,
+      "mechanism": 0.0,
+      "druggability": 4.0,
+      "safety_translation": 0.0,
+      "total": 24.8164
+    },
+    "decision": "INSUFFICIENT_EVIDENCE",
+    "evidence_ids": [
+      "ev-25a3bbe2b554"
+    ],
+    "supporting_ids": [
+      "ev-25a3bbe2b554"
+    ],
+    "opposing_ids": [],
+    "safety_blockers": [],
+    "evidence_gaps": [
+      "No matched, source-grounded safety evidence was retrieved.",
+      "No matched-context measured perturbation evidence for this target.",
+      "No span-validated literature claim for this target.",
+      "No known drug was returned in the current Open Targets result."
+    ],
+    "matched_drugs": []
+  },
+  {
+    "rank": 9,
+    "gene": "LPL",
+    "scores": {
+      "contract_version": "2.1.0",
+      "human_genetics": 20.7294,
+      "disease_omics": 0.0,
+      "perturbation": 0.0,
+      "mechanism": 0.0,
+      "druggability": 4.0,
+      "safety_translation": 0.0,
+      "total": 24.7294
+    },
+    "decision": "INSUFFICIENT_EVIDENCE",
+    "evidence_ids": [
+      "ev-f1ca42d0c029",
+      "ev-05358a41adc6"
+    ],
+    "supporting_ids": [
+      "ev-f1ca42d0c029"
+    ],
+    "opposing_ids": [
+      "ev-05358a41adc6"
+    ],
+    "safety_blockers": [
+      "Opposing or mixed evidence is retained and requires context-specific review.",
+      "Open Targets safety liability: regulation of transcription factor activity"
+    ],
+    "evidence_gaps": [
+      "No matched-context measured perturbation evidence for this target.",
+      "No span-validated literature claim for this target.",
+      "No known drug was returned in the current Open Targets result."
+    ],
+    "matched_drugs": []
+  },
+  {
+    "rank": 10,
+    "gene": "APOE",
+    "scores": {
+      "contract_version": "2.1.0",
+      "human_genetics": 20.639,
+      "disease_omics": 0.0,
+      "perturbation": 0.0,
+      "mechanism": 0.0,
+      "druggability": 4.0,
+      "safety_translation": 0.0,
+      "total": 24.639
+    },
+    "decision": "INSUFFICIENT_EVIDENCE",
+    "evidence_ids": [
+      "ev-e61c5f34da0a",
+      "ev-c9410ecf8609",
+      "ev-89618bbe2d20",
+      "ev-c6031cd0ca7f"
+    ],
+    "supporting_ids": [
+      "ev-e61c5f34da0a"
+    ],
+    "opposing_ids": [
+      "ev-c9410ecf8609",
+      "ev-89618bbe2d20",
+      "ev-c6031cd0ca7f"
+    ],
+    "safety_blockers": [
+      "Opposing or mixed evidence is retained and requires context-specific review.",
+      "Open Targets safety liability: elevated triglycerides",
+      "Open Targets safety liability: hypertriglyceridemia",
+      "Open Targets safety liability: hemorrhage"
+    ],
+    "evidence_gaps": [
+      "No matched-context measured perturbation evidence for this target.",
+      "No span-validated literature claim for this target.",
+      "No known drug was returned in the current Open Targets result."
+    ],
+    "matched_drugs": []
+  }
+]

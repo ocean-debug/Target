@@ -1,0 +1,19 @@
+{
+  "library_version": "1.0.0",
+  "kind": "trap",
+  "runs": [
+    {
+      "disease_id": "uc",
+      "disease": "ulcerative colitis",
+      "kind": "trap",
+      "run_id": "run-matrix-trap-uc",
+      "terminal_status": "completed_with_gaps",
+      "highlighted_targets": [
+        "IL12B",
+        "IL23R",
+        "IL10"
+      ],
+      "tool_calls": 12
+    }
+  ]
+}

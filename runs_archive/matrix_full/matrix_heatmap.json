@@ -1,0 +1,890 @@
+{
+ "generated_at": "2026-08-04T23:41:54+00:00",
+ "score": 1.0,
+ "summary": {
+  "tasks": 72,
+  "tasks_passed": 72,
+  "assertions": 270,
+  "assertions_passed": 270
+ },
+ "per_bucket": {
+  "disease_library_normal": {
+   "passed": 72,
+   "total": 72,
+   "score": 1.0
+  },
+  "disease_library_missing_context": {
+   "passed": 72,
+   "total": 72,
+   "score": 1.0
+  },
+  "disease_library_conflicting_evidence": {
+   "passed": 54,
+   "total": 54,
+   "score": 1.0
+  },
+  "disease_library_trap": {
+   "passed": 72,
+   "total": 72,
+   "score": 1.0
+  }
+ },
+ "diseases": [
+  {
+   "id": "uc",
+   "name": "ulcerative colitis",
+   "name_zh": "溃疡性结肠炎",
+   "category": "autoimmune"
+  },
+  {
+   "id": "crohn",
+   "name": "Crohn disease",
+   "name_zh": "克罗恩病",
+   "category": "autoimmune"
+  },
+  {
+   "id": "ra",
+   "name": "rheumatoid arthritis",
+   "name_zh": "类风湿关节炎",
+   "category": "autoimmune"
+  },
+  {
+   "id": "sle",
+   "name": "systemic lupus erythematosus",
+   "name_zh": "系统性红斑狼疮",
+   "category": "autoimmune"
+  },
+  {
+   "id": "ms",
+   "name": "multiple sclerosis",
+   "name_zh": "多发性硬化",
+   "category": "autoimmune"
+  },
+  {
+   "id": "t1d",
+   "name": "type 1 diabetes mellitus",
+   "name_zh": "1 型糖尿病",
+   "category": "autoimmune"
+  },
+  {
+   "id": "psoriasis",
+   "name": "psoriasis",
+   "name_zh": "银屑病",
+   "category": "autoimmune"
+  },
+  {
+   "id": "ad",
+   "name": "Alzheimer disease",
+   "name_zh": "阿尔茨海默病",
+   "category": "neurodegenerative"
+  },
+  {
+   "id": "pd",
+   "name": "Parkinson disease",
+   "name_zh": "帕金森病",
+   "category": "neurodegenerative"
+  },
+  {
+   "id": "als",
+   "name": "amyotrophic lateral sclerosis",
+   "name_zh": "肌萎缩侧索硬化",
+   "category": "neurodegenerative"
+  },
+  {
+   "id": "luad",
+   "name": "lung adenocarcinoma",
+   "name_zh": "肺腺癌",
+   "category": "cancer"
+  },
+  {
+   "id": "brca",
+   "name": "breast carcinoma",
+   "name_zh": "乳腺癌",
+   "category": "cancer"
+  },
+  {
+   "id": "crc",
+   "name": "colorectal cancer",
+   "name_zh": "结直肠癌",
+   "category": "cancer"
+  },
+  {
+   "id": "melanoma",
+   "name": "melanoma",
+   "name_zh": "黑色素瘤",
+   "category": "cancer"
+  },
+  {
+   "id": "t2d",
+   "name": "type 2 diabetes mellitus",
+   "name_zh": "2 型糖尿病",
+   "category": "metabolic"
+  },
+  {
+   "id": "nash",
+   "name": "non-alcoholic steatohepatitis",
+   "name_zh": "代谢功能障碍相关脂肪性肝炎",
+   "category": "metabolic"
+  },
+  {
+   "id": "asthma",
+   "name": "asthma",
+   "name_zh": "哮喘",
+   "category": "respiratory"
+  },
+  {
+   "id": "copd",
+   "name": "chronic obstructive pulmonary disease",
+   "name_zh": "慢性阻塞性肺疾病",
+   "category": "respiratory"
+  }
+ ],
+ "buckets": [
+  "normal",
+  "missing_context",
+  "conflicting_evidence",
+  "trap"
+ ],
+ "cells": {
+  "uc:normal": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "IL12B",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "uc:missing_context": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "IL12B",
+   "lora_confirmed": [
+    "missing_context",
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "uc:conflicting_evidence": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "IL12B",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "uc:trap": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "IL12B",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "crohn:normal": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "IL12B",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "crohn:missing_context": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "IL12B",
+   "lora_confirmed": [
+    "missing_context",
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "crohn:conflicting_evidence": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "IL12B",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "crohn:trap": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "IL12B",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "ra:normal": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "CD40",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "ra:missing_context": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "CD40",
+   "lora_confirmed": [
+    "missing_context",
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "ra:conflicting_evidence": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "CD40",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "ra:trap": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "CD40",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "sle:normal": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "TYK2",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "sle:missing_context": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "TYK2",
+   "lora_confirmed": [
+    "missing_context",
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "sle:conflicting_evidence": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "TYK2",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "sle:trap": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "TYK2",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "ms:normal": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "CD58",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "ms:missing_context": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "CD58",
+   "lora_confirmed": [
+    "missing_context",
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "ms:conflicting_evidence": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "CD58",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "ms:trap": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "CD58",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "t1d:normal": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "SH2B3",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "t1d:missing_context": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "SH2B3",
+   "lora_confirmed": [
+    "missing_context",
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "t1d:conflicting_evidence": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "SH2B3",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "t1d:trap": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "SH2B3",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "psoriasis:normal": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "IL12B",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "psoriasis:missing_context": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "IL12B",
+   "lora_confirmed": [
+    "missing_context",
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "psoriasis:conflicting_evidence": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "IL12B",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "psoriasis:trap": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "IL12B",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "ad:normal": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "PSEN1",
+   "lora_confirmed": [
+    "causal_overreach",
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "ad:missing_context": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "PSEN1",
+   "lora_confirmed": [
+    "missing_context",
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "ad:conflicting_evidence": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "PSEN1",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "ad:trap": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "PSEN1",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "pd:normal": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "PRKN",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "pd:missing_context": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "PRKN",
+   "lora_confirmed": [
+    "missing_context",
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "pd:conflicting_evidence": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "PRKN",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "pd:trap": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "PRKN",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "als:normal": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "FUS",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "als:missing_context": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "FUS",
+   "lora_confirmed": [
+    "missing_context",
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "als:conflicting_evidence": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "FUS",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "als:trap": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "FUS",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "luad:normal": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "EGFR",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "luad:missing_context": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "EGFR",
+   "lora_confirmed": [
+    "missing_context",
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "luad:conflicting_evidence": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "EGFR",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "luad:trap": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "EGFR",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "brca:normal": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "BRIP1",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "brca:missing_context": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "BRIP1",
+   "lora_confirmed": [
+    "missing_context",
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "brca:conflicting_evidence": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "BRIP1",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "brca:trap": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "BRIP1",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "crc:normal": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "TP53",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "crc:missing_context": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "TP53",
+   "lora_confirmed": [
+    "missing_context",
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "crc:conflicting_evidence": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "TP53",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "crc:trap": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "TP53",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "melanoma:normal": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "BRAF",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "melanoma:missing_context": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "BRAF",
+   "lora_confirmed": [
+    "missing_context",
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "melanoma:conflicting_evidence": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "BRAF",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "melanoma:trap": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "BRAF",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "t2d:normal": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "GCK",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "t2d:missing_context": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "GCK",
+   "lora_confirmed": [
+    "missing_context",
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "t2d:conflicting_evidence": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "GCK",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "t2d:trap": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "GCK",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "nash:normal": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "PNPLA3",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "nash:missing_context": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "PNPLA3",
+   "lora_confirmed": [
+    "missing_context",
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "nash:conflicting_evidence": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "PNPLA3",
+   "lora_confirmed": [
+    "causal_overreach",
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "nash:trap": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "PNPLA3",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "asthma:normal": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "IL13",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "asthma:missing_context": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "IL13",
+   "lora_confirmed": [
+    "missing_context",
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "asthma:conflicting_evidence": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "IL13",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "asthma:trap": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "IL13",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "copd:normal": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "CHRNA3",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "copd:missing_context": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "CFTR",
+   "lora_confirmed": [
+    "missing_context",
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "copd:conflicting_evidence": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "CHRNA3",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  },
+  "copd:trap": {
+   "status": "done",
+   "terminal_status": "completed_with_gaps",
+   "top_gene": "CHRNA3",
+   "lora_confirmed": [
+    "out_of_distribution"
+   ],
+   "tool_calls": 12,
+   "passed": true
+  }
+ }
+}
