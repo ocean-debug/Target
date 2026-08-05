@@ -6,12 +6,15 @@ from importlib.metadata import version
 import pytest
 import target_agent
 
+from target_agent.contracts import ToolDescriptor, TraceEvent
 from target_agent.research_contracts import ProjectStatus
+from target_agent.research_projection import project_trace_event
 from target_agent.research_service import (
     ResearchDecisionError,
     ResearchProjectNotFound,
     ResearchProjectService,
 )
+from target_agent.research_store import ResearchProjectStore
 
 from .test_research_runtime import fake_research_runtime
 
@@ -22,7 +25,7 @@ def _service(tmp_path):
 
 
 def test_public_package_version_matches_distribution_metadata():
-    assert target_agent.__version__ == version("target-discovery-agent") == "0.6.0"
+    assert target_agent.__version__ == version("target-discovery-agent") == "0.7.0"
 
 
 def test_service_advances_one_disease_question_to_durable_deliverables(tmp_path):
@@ -138,6 +141,65 @@ def test_service_rejects_unknown_projects_and_unfrozen_decisions(tmp_path):
         )
 
 
+def test_service_pages_source_linked_domain_activities(tmp_path):
+    service, _ = _service(tmp_path)
+    project = service.build_disease_project(
+        project_id="project-domain-page",
+        question="Which targets should be prioritized?",
+        disease="lung adenocarcinoma",
+        autonomy_mode="autonomous",
+    )
+    service.reserve(project)
+    service.run(project.project_id)
+    store = ResearchProjectStore(service.projects_dir, project.project_id)
+    descriptor = ToolDescriptor(
+        tool_id="open_targets",
+        evidence_dimension="multi_evidence",
+        description="Open Targets connector.",
+    )
+    events = [
+        TraceEvent(
+            run_id=f"target-{project.project_id}", task_id="task-test",
+            event_type="tool_call", state="tool_execution",
+            detail={"tool": "open_targets", "step_id": "target_evidence"},
+        ),
+        TraceEvent(
+            run_id=f"target-{project.project_id}", task_id="task-test",
+            event_type="tool_result", state="tool_execution",
+            detail={
+                "tool": "open_targets", "status": "partial",
+                "coverage_status": "partial", "context_match_score": 0.8,
+            },
+        ),
+    ]
+    trace_path = store.project_dir / "work_items" / "target_discovery" / "activity-trace.jsonl"
+    trace_path.parent.mkdir(parents=True, exist_ok=True)
+    trace_path.write_text("".join(event.model_dump_json() + "\n" for event in events), encoding="utf-8")
+    store.register_artifact(
+        trace_path, "target_discovery", "target_discovery_trace", "application/x-ndjson",
+    )
+    for event in events:
+        store.append_domain_activity(project_trace_event(
+            project_id=project.project_id,
+            work_item_id="target_discovery",
+            child_run_id=event.run_id,
+            event=event,
+            descriptors=[descriptor],
+        ))
+
+    first = service.domain_activities(project.project_id, limit=1)
+    second = service.domain_activities(
+        project.project_id, after_sequence=first["next_cursor"], limit=1,
+    )
+    snapshot = service.snapshot(project.project_id)
+
+    assert len(first["activities"]) == 1 and first["has_more"] is True
+    assert len(second["activities"]) == 1 and second["has_more"] is False
+    assert second["activities"][0]["sequence"] == 2
+    assert snapshot["domain_activity_cursor"] == 2
+    assert snapshot["domain_stage_summary"][0]["stage"] == "evidence_integration"
+
+
 def test_official_mcp_sdk_exposes_the_same_durable_service(tmp_path):
     mcp = pytest.importorskip("mcp")
     from target_agent.mcp_server import create_mcp_server
@@ -156,6 +218,7 @@ def test_official_mcp_sdk_exposes_the_same_durable_service(tmp_path):
                 "target_get_project",
                 "target_list_projects",
                 "target_get_events",
+                "target_get_domain_activities",
                 "target_accept_checkpoint",
                 "target_read_text_artifact",
             } <= names

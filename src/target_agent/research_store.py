@@ -24,12 +24,14 @@ from .research_contracts import (
     ArtifactRecord,
     AssessmentRecord,
     DecisionEvent,
+    DomainActivityRecord,
     ProjectEvent,
     ProjectState,
     ResearchPlan,
     ResearchProjectSpec,
     WorkItemResult,
 )
+from .research_projection import DomainActivityProjection, trace_event_digest
 
 
 T = TypeVar("T", bound=BaseModel)
@@ -219,6 +221,54 @@ class ResearchProjectStore:
     def read_events(self) -> list[ProjectEvent]:
         return self._read_jsonl("events.jsonl", ProjectEvent)
 
+    def append_domain_activity(self, projection: DomainActivityProjection) -> DomainActivityRecord:
+        """Assign sequence and append one child-trace projection idempotently."""
+        project_id = str(projection.values.get("project_id") or "")
+        work_item_id = str(projection.values.get("work_item_id") or "")
+        child_run_id = str(projection.values.get("child_run_id") or "")
+        source_trace_id = str(projection.values.get("source_trace_id") or "")
+        if project_id != self.project_id:
+            raise ValueError("domain activity project id does not match store project id")
+        self._safe_component(work_item_id, "work item id")
+        self._safe_component(child_run_id, "child run id")
+        with self._lock:
+            existing = next(
+                (
+                    row for row in self.read_domain_activities()
+                    if row.child_run_id == child_run_id and row.source_trace_id == source_trace_id
+                ),
+                None,
+            )
+            if existing is not None:
+                if existing != projection.to_record(existing.sequence):
+                    raise ValueError("source trace id has a conflicting domain activity projection")
+                return existing
+            record = projection.to_record(len(self.read_domain_activities()) + 1)
+            self._append_jsonl("domain_activities.jsonl", record)
+            return record
+
+    def read_domain_activities(
+        self,
+        after_sequence: int = 0,
+        limit: int | None = None,
+        work_item_id: str | None = None,
+    ) -> list[DomainActivityRecord]:
+        if after_sequence < 0:
+            raise ValueError("after_sequence must be non-negative")
+        if limit is not None and not 1 <= limit <= 500:
+            raise ValueError("limit must be between 1 and 500")
+        if work_item_id is not None:
+            work_item_id = self._safe_component(work_item_id, "work item id")
+        records = [
+            row for row in self._read_jsonl("domain_activities.jsonl", DomainActivityRecord)
+            if row.sequence > after_sequence and (work_item_id is None or row.work_item_id == work_item_id)
+        ]
+        return records[:limit] if limit is not None else records
+
+    def domain_activity_cursor(self) -> int:
+        records = self._read_jsonl("domain_activities.jsonl", DomainActivityRecord)
+        return records[-1].sequence if records else 0
+
     def append_assessment(self, record: AssessmentRecord) -> None:
         if record.project_id != self.project_id:
             raise ValueError("assessment project id does not match store project id")
@@ -399,9 +449,49 @@ class ResearchProjectStore:
             if known_items and event.work_item_id and event.work_item_id not in known_items:
                 raise ValueError(f"event references unknown work item: {event.work_item_id}")
 
+        artifacts = self.read_artifacts()
+        activities = self.read_domain_activities()
+        expected_activity_sequences = list(range(1, len(activities) + 1))
+        if [activity.sequence for activity in activities] != expected_activity_sequences:
+            raise ValueError("domain activity sequence is not contiguous and monotonic")
+        self._unique(activities, "activity_id", "domain activity")
+        self._unique(activities, "source_trace_id", "domain activity source trace")
+        trace_events_by_run: dict[str, dict[str, str]] = {}
+        for artifact in artifacts:
+            if artifact.logical_name != "target_discovery_trace":
+                continue
+            path = self.artifact_path(artifact)
+            if not path.is_file():
+                continue
+            with path.open("r", encoding="utf-8") as handle:
+                for line in handle:
+                    if not line.strip():
+                        continue
+                    payload = json.loads(line)
+                    run_id = str(payload.get("run_id") or "")
+                    event_id = str(payload.get("event_id") or "")
+                    if run_id and event_id:
+                        trace_events_by_run.setdefault(run_id, {})[event_id] = trace_event_digest(payload)
+        for activity in activities:
+            if activity.project_id != self.project_id:
+                raise ValueError("domain activity project id mismatch")
+            if known_items and activity.work_item_id not in known_items:
+                raise ValueError(f"domain activity references unknown work item: {activity.work_item_id}")
+            run_id = self._safe_component(activity.child_run_id, "child run id")
+            if run_id not in trace_events_by_run:
+                raise ValueError(f"domain activity source trace artifact is missing: {run_id}")
+            source_digest = trace_events_by_run[run_id].get(activity.source_trace_id)
+            if source_digest is None:
+                raise ValueError(
+                    f"domain activity references missing source trace: {activity.source_trace_id}"
+                )
+            if source_digest != activity.source_event_sha256:
+                raise ValueError(
+                    f"domain activity source digest mismatch: {activity.source_trace_id}"
+                )
+
         assessments = self.read_assessments()
         decisions = self.read_decisions()
-        artifacts = self.read_artifacts()
         self._unique(assessments, "assessment_id", "assessment")
         self._unique(decisions, "decision_id", "decision")
         self._unique(artifacts, "artifact_id", "artifact")

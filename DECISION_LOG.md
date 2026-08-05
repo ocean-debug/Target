@@ -83,3 +83,13 @@ Cross-module contracts, workflow choices, model boundaries and scientific-safety
 - The phase-one MCP surface uses the official Python SDK over local stdio and exposes project creation, bounded execution, status, event replay, checkpoint acceptance and verified text artifacts.
 - MCP does not expose arbitrary shell or model-generated code execution and cannot waive frozen plans, evidence gates, artifact integrity or missing-context outcomes.
 - Streamable HTTP MCP, registry publication, remote authentication policy and host-specific installation remain explicit roadmap work.
+
+## 2026-08-05 - Child workflow activity is a projection, not a second evidence store
+
+- **Status:** accepted
+- The authoritative disease-target Trace, ToolResult, EvidenceItem, ReviewerFinding and Claim records remain in the child Evidence Store.
+- The project store indexes a strict, append-only activity projection with its own cursor and an exact `child_run_id + source_trace_id` backlink.
+- This is an additive `3.0.0` record and optional ledger: existing projects with no activity file remain readable as an empty activity stream; no persisted 3.0 object changes meaning.
+- Only operational fields are projected: domain stage, tool name, status, coverage, context-match metadata and source IDs. Candidate genes, ranking values, evidence text and Reviewer prose are not copied.
+- Projection is reconciled before resume and after execution. Projection failure may degrade the project work item but cannot alter the child scientific terminal status.
+- Child `reviewer_repair` records a real bounded connector retry. It is not a project `DecisionEvent.REPLAN`; project-level evidence supplementation still requires a future immutable plan-revision contract.

@@ -10,11 +10,12 @@ from .contracts import utc_now
 from .llm import StepClient
 from .research_contracts import (
     AssessmentDimension, AssessmentLevel, AssessmentRecord, AssessmentResult, AutonomyMode, DataContract,
-    DecisionAction, DecisionEvent, ProjectState, ProjectStatus, ResearchPlan, ResearchProjectSpec,
-    TERMINAL_WORK_ITEM_STATUSES, WorkItemResult, WorkItemStatus,
+    DecisionAction, DecisionEvent, ProjectState, ProjectStatus, ResearchPlan,
+    ResearchProjectSpec, TERMINAL_WORK_ITEM_STATUSES, WorkItemResult, WorkItemStatus,
 )
 from .research_modules import ModuleContext, ResearchModuleRegistry, default_research_registry
 from .research_planner import ResearchPlanner
+from .research_projection import DomainActivityProjection
 from .research_store import ProjectBusyError, ResearchProjectStore
 from .settings import Settings, load_settings
 
@@ -248,6 +249,7 @@ class ResearchProjectRuntime:
         context = ModuleContext(
             project=project, item=item, project_dir=store.project_dir, cache_dir=self.cache_dir,
             settings=self.settings, prior_results=results, artifacts=store.read_artifacts(),
+            activity_sink=lambda projection: self._record_domain_activity(store, projection),
         )
         try:
             input_payload = {
@@ -331,6 +333,14 @@ class ResearchProjectRuntime:
         })
         return {"results": results, "execution_done": len(results) == len(plan.items),
                 "execution_paused": False}
+
+    @staticmethod
+    def _record_domain_activity(
+        store: ResearchProjectStore,
+        projection: DomainActivityProjection,
+    ) -> None:
+        """Persist one idempotent project projection of a child TraceEvent."""
+        store.append_domain_activity(projection)
 
     def _finalize(self, state: ResearchRuntimeState) -> dict[str, Any]:
         store, project, plan, results = state["store"], state["project"], state["plan"], state["results"]

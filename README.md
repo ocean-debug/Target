@@ -87,8 +87,11 @@ target-agent serve --host 127.0.0.1 --port "$TARGET_AGENT_PORT"
 
 `serve` uses Waitress. Add `--dev` only when the Flask development server is intentionally required.
 The V3 HTTP surface adds `POST /api/projects`, `GET /api/projects/{project_id}`,
-`GET /api/projects/{project_id}/events`, `POST /api/projects/{project_id}/decisions` and
-content-addressed artifact downloads. `checkpointed` projects require plan and release acceptance;
+`GET /api/projects/{project_id}/events`, `GET /api/projects/{project_id}/activities`,
+`POST /api/projects/{project_id}/decisions` and content-addressed artifact downloads. The activity
+endpoint pages through a safe projection of the authoritative child Trace: domain stage, tool status,
+coverage and source IDs are visible while candidates, evidence text and ranking values remain in the
+checksum-bound scientific artifacts. `checkpointed` projects require plan and release acceptance;
 `supervised` projects additionally require each work-item acceptance.
 
 The optional stdio MCP server exposes the same durable project service to Codex, SciForge,
@@ -101,7 +104,7 @@ target-agent-mcp
 ```
 
 It provides typed operations to create a disease project, advance it to the next checkpoint,
-inspect state/events, accept a frozen checkpoint and read checksum-verified text artifacts.
+inspect state/events/domain activities, accept a frozen checkpoint and read checksum-verified text artifacts.
 It does not expose arbitrary shell or model-generated code execution. Streamable HTTP MCP,
 remote registry publication and host-specific installation bundles remain future integration work.
 

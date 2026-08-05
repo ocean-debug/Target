@@ -14,11 +14,14 @@ from .research_contracts import (
     AutonomyMode,
     DecisionAction,
     DecisionEvent,
+    DomainActivityPage,
     ProjectStatus,
     ResearchGoal,
+    ResearchProjectSnapshot,
     ResearchProjectSpec,
 )
 from .research_runtime import ResearchProjectRuntime
+from .research_projection import summarize_domain_activities
 from .research_store import ResearchProjectStore
 
 
@@ -219,18 +222,20 @@ class ResearchProjectService:
         plan = store.load_plan()
         results = store.load_work_item_results()
         events = store.read_events()
-        return {
-            "contract_version": RESEARCH_CONTRACT_VERSION,
-            "spec": spec.model_dump(mode="json"),
-            "state": state.model_dump(mode="json") if state else None,
-            "plan": plan.model_dump(mode="json") if plan else None,
-            "work_item_results": [results[key].model_dump(mode="json") for key in sorted(results)],
-            "artifacts": [row.model_dump(mode="json") for row in store.read_artifacts()],
-            "assessments": [row.model_dump(mode="json") for row in store.read_assessments()],
-            "decisions": [row.model_dump(mode="json") for row in store.read_decisions()],
-            "event_cursor": events[-1].sequence if events else 0,
-            "next_actions": self._next_actions(store),
-        }
+        activities = store.read_domain_activities()
+        return ResearchProjectSnapshot(
+            spec=spec,
+            state=state,
+            plan=plan,
+            work_item_results=[results[key] for key in sorted(results)],
+            artifacts=store.read_artifacts(),
+            assessments=store.read_assessments(),
+            decisions=store.read_decisions(),
+            event_cursor=events[-1].sequence if events else 0,
+            domain_activity_cursor=activities[-1].sequence if activities else 0,
+            domain_stage_summary=summarize_domain_activities(activities),
+            next_actions=self._next_actions(store),
+        ).model_dump(mode="json")
 
     def events(self, project_id: str, after_sequence: int = 0) -> list[dict[str, Any]]:
         """Read replayable ordered events after a client cursor."""
@@ -242,6 +247,32 @@ class ResearchProjectService:
             for row in store.read_events()
             if row.sequence > after_sequence
         ]
+
+    def domain_activities(
+        self,
+        project_id: str,
+        *,
+        after_sequence: int = 0,
+        limit: int = 200,
+        work_item_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Page through the safe, source-linked child workflow activity index."""
+        if after_sequence < 0:
+            raise ValueError("after_sequence must be non-negative")
+        if not 1 <= limit <= 500:
+            raise ValueError("limit must be between 1 and 500")
+        store = self._existing_store(project_id)
+        available = store.read_domain_activities(
+            after_sequence=after_sequence,
+            work_item_id=work_item_id,
+        )
+        page = available[:limit]
+        return DomainActivityPage(
+            project_id=project_id,
+            activities=page,
+            next_cursor=page[-1].sequence if page else after_sequence,
+            has_more=len(available) > len(page),
+        ).model_dump(mode="json")
 
     def read_text_artifact(
         self, project_id: str, artifact_id: str, max_characters: int = 100_000,
@@ -279,6 +310,7 @@ class ResearchProjectService:
                 "get_project",
                 "list_projects",
                 "get_events",
+                "get_domain_activities",
                 "accept_checkpoint",
                 "read_text_artifact",
             ],

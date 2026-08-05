@@ -2,6 +2,7 @@ import json
 
 import pytest
 
+from target_agent.contracts import ToolDescriptor, TraceEvent
 from target_agent.research_contracts import (
     AssessmentDimension,
     AssessmentLevel,
@@ -19,6 +20,7 @@ from target_agent.research_contracts import (
     WorkItemStatus,
 )
 from target_agent.research_store import ProjectBusyError, ResearchProjectStore
+from target_agent.research_projection import project_trace_event
 
 
 def project_spec(project_id="project-test"):
@@ -206,3 +208,81 @@ def test_execution_lock_prevents_concurrent_state_machines(tmp_path):
         with pytest.raises(ProjectBusyError, match="already executing"):
             with second_instance.execution_lock():
                 raise AssertionError("second execution lock must not be acquired")
+
+
+def test_domain_activity_ledger_is_sequenced_idempotent_and_source_linked(tmp_path):
+    store = initialized_store(tmp_path)
+    trace = TraceEvent(
+        run_id="target-project-test",
+        task_id="task-test",
+        event_type="tool_result",
+        state="tool_execution",
+        detail={
+            "tool": "europe_pmc_rag",
+            "status": "partial",
+            "coverage_status": "partial",
+            "context_match_score": 0.8,
+        },
+        related_ids=["tool-test"],
+    )
+    trace_path = store.project_dir / "work_items" / "literature" / "trace.jsonl"
+    trace_path.parent.mkdir(parents=True, exist_ok=True)
+    trace_path.write_text(trace.model_dump_json() + "\n", encoding="utf-8")
+    store.register_artifact(
+        trace_path, "literature", "target_discovery_trace", "application/x-ndjson",
+    )
+    projection = project_trace_event(
+        project_id=store.project_id,
+        work_item_id="literature",
+        child_run_id=trace.run_id,
+        event=trace,
+        descriptors=[ToolDescriptor(
+            tool_id="europe_pmc_rag",
+            evidence_dimension="literature",
+            description="Literature retrieval and grounded extraction.",
+        )],
+    )
+
+    first = store.append_domain_activity(projection)
+    duplicate = store.append_domain_activity(projection)
+
+    assert first == duplicate
+    assert first.sequence == 1
+    assert store.domain_activity_cursor() == 1
+    assert store.read_domain_activities(after_sequence=1) == []
+    assert store.read_domain_activities(limit=1) == [first]
+    store.assert_integrity()
+
+    ledger = store.project_dir / "domain_activities.jsonl"
+    tampered = json.loads(ledger.read_text(encoding="utf-8"))
+    tampered["source_event_sha256"] = "0" * 64
+    ledger.write_text(json.dumps(tampered) + "\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="source digest mismatch"):
+        store.assert_integrity()
+
+
+def test_domain_activity_integrity_rejects_sequence_and_source_tampering(tmp_path):
+    store = initialized_store(tmp_path)
+    path = store.project_dir / "domain_activities.jsonl"
+    path.write_text(json.dumps({
+        "contract_version": "3.0.0",
+        "sequence": 2,
+        "activity_id": "trace-one",
+        "project_id": store.project_id,
+        "work_item_id": "literature",
+        "child_run_id": "target-project-test",
+        "source_contract_version": "2.2.0",
+        "source_trace_id": "trace-one",
+        "source_event_sha256": "0" * 64,
+        "stage": "literature",
+        "activity_type": "tool_call",
+        "status": "running",
+        "source_state": "tool_execution",
+        "related_ids": [],
+        "summary": "Started a literature tool.",
+        "detail": {},
+        "created_at": "2026-08-05T00:00:00Z",
+    }) + "\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="sequence"):
+        store.assert_integrity()

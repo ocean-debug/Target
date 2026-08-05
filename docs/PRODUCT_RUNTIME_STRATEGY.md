@@ -56,11 +56,13 @@ the project id plus event cursor to continue later.
 
 The optional official-SDK stdio server exposes:
 
+- `target_capabilities`
 - `target_create_disease_project`
 - `target_run_project`
 - `target_get_project`
 - `target_list_projects`
 - `target_get_events`
+- `target_get_domain_activities`
 - `target_accept_checkpoint`
 - `target_read_text_artifact`
 
@@ -74,8 +76,9 @@ read-back and bounded before entering a model context.
 The MCP adapter makes Target embeddable, but it does not by itself complete the full product moat.
 The next runtime increments are:
 
-1. Replace the project-level `target_discovery` black box with observable domain-stage activities
-   and genuine project-level replan/repair semantics.
+1. Add append-only, digest-bound project plan revisions for explicitly authorized evidence
+   supplementation. The current child Reviewer retry is real and observable, but it must not be
+   misrepresented as project-level replan semantics.
 2. Add evaluator-owned hidden target-ranking cases and independent expert adjudication.
 3. Build real cross-disease alignment cases from reviewed project decisions instead of template
    expansion.

@@ -311,10 +311,32 @@ def create_app(
     def project_events(project_id: str):
         project_id = _safe_project_id(project_id)
         try:
-            events = research_service.events(project_id)
+            after_sequence = int(request.args.get("after_sequence", "0"))
+            events = research_service.events(project_id, after_sequence=after_sequence)
         except ResearchProjectNotFound:
             return jsonify({"error": "project not found"}), 404
-        return jsonify({"events": events})
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+        return jsonify({
+            "events": events,
+            "next_cursor": events[-1]["sequence"] if events else after_sequence,
+        })
+
+    @app.get("/api/projects/<project_id>/activities")
+    def project_domain_activities(project_id: str):
+        project_id = _safe_project_id(project_id)
+        try:
+            page = research_service.domain_activities(
+                project_id,
+                after_sequence=int(request.args.get("after_sequence", "0")),
+                limit=int(request.args.get("limit", "200")),
+                work_item_id=request.args.get("work_item_id"),
+            )
+        except ResearchProjectNotFound:
+            return jsonify({"error": "project not found"}), 404
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+        return jsonify(page)
 
     @app.post("/api/projects/<project_id>/decisions")
     def accept_project_checkpoint(project_id: str):

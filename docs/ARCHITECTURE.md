@@ -44,6 +44,9 @@ The Agent never runs arbitrary generated code. LLM output can propose only tools
 - **Target evidence contracts:** each work item declares typed inputs, outputs and acceptance criteria; every material target claim must retain its disease, tissue, cell, stage, assay and perturbation context.
 - **Evidence and artifacts:** deliverables point to immutable, hashed artifact versions. Replacing a file creates a new version rather than rewriting history.
 - **Auditability:** project events, assessments and decisions are append-only. A snapshot is a materialized view, not the audit source.
+- **Domain observability:** the child Trace remains the scientific execution truth. A separate,
+  append-only activity ledger exposes only stage, tool status, coverage and source IDs through its
+  own cursor. It never copies candidate genes, evidence statements, scores or Reviewer prose.
 - **Recovery:** work-item completion is checkpointed. Resume uses persisted terminal results and never guesses whether an interrupted side effect succeeded.
 - **Review and repair:** structural checks are separate from scientific judgment. Reviewer findings are bound to a target digest and may recommend a dataset switch, evidence supplementation or replan; current automatic execution is limited to bounded retries of failed allowlisted read-only connectors. Deterministic gates remain authoritative.
 - **Transient repair boundary:** only failed allowlisted read-only connectors are automatically retried. The Reviewer runs again on each tool's latest attempt; all earlier attempts remain auditable. Scientific ineligibility, context mismatch and unsupported causal scope cannot be cleared by retry.
@@ -63,7 +66,7 @@ Target owns the disease-target contract, typed project lifecycle, allowlisted sc
 evidence gates, Reviewer decisions, immutable artifacts and release semantics. HTTP, CLI and MCP
 are adapters over those records rather than independent Agent implementations.
 
-The MCP adapter exposes create/run/status/event/checkpoint/artifact operations through
+The MCP adapter exposes create/run/status/event/domain-activity/checkpoint/artifact operations through
 `ResearchProjectService`. A host may stop after any human checkpoint and resume later without
 reconstructing state from conversation history. It cannot use MCP to bypass a frozen plan,
 artifact digest, biological-context gate or terminal evidence gap.

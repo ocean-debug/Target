@@ -12,17 +12,19 @@ import os
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Callable, Protocol
 
 import requests
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from .contracts import TaskSpec
+from .contracts import TaskSpec, ToolDescriptor, TraceEvent
 from .llm import LLMUnavailable, StepClient
 from .research_contracts import (
     ArtifactRecord, AssessmentDimension, AssessmentLevel, AssessmentRecord,
-    AssessmentResult, ResearchProjectSpec, WorkItemResult, WorkItemSpec, WorkItemStatus,
+    AssessmentResult, ResearchProjectSpec, WorkItemResult, WorkItemSpec,
+    WorkItemStatus,
 )
+from .research_projection import DomainActivityProjection, project_trace_event
 from .settings import Settings
 
 
@@ -56,6 +58,7 @@ class ModuleContext:
     settings: Settings
     prior_results: dict[str, WorkItemResult] = field(default_factory=dict)
     artifacts: list[ArtifactRecord] = field(default_factory=list)
+    activity_sink: Callable[[DomainActivityProjection], None] | None = None
 
     @property
     def output_dir(self) -> Path:
@@ -349,10 +352,28 @@ class TargetDiscoveryModule:
         from .runtime_langgraph import LangGraphRuntime
 
         child_run_id = f"target-{context.project.project_id}"
+        run_dir = context.project_dir / "domain_runs" / child_run_id
         runtime = LangGraphRuntime(
             runs_dir=context.project_dir / "domain_runs", cache_dir=context.cache_dir, settings=context.settings,
+            trace_observer=lambda event: self._record_trace(
+                context, child_run_id, runtime.registry.descriptors, event,
+            ),
         )
-        status = runtime.run(task, run_id=child_run_id, resume=(context.project_dir / "domain_runs" / child_run_id).exists())
+        if context.activity_sink is not None and run_dir.exists():
+            from .store import EvidenceStore
+            for event in EvidenceStore(run_dir).traces():
+                try:
+                    self._record_trace(context, child_run_id, runtime.registry.descriptors, event)
+                except Exception:
+                    # A full post-run reconciliation determines projection completeness.
+                    pass
+        child_error: str | None = None
+        try:
+            status = runtime.run(task, run_id=child_run_id, resume=run_dir.exists())
+        except Exception as exc:
+            # Preserve any already-durable child Trace and degrade the project item.
+            child_error = exc.__class__.__name__
+            status = {"terminal_status": "failed"}
         terminal = status.get("terminal_status")
         mapped = {
             "completed": WorkItemStatus.COMPLETED,
@@ -361,7 +382,14 @@ class TargetDiscoveryModule:
             "failed": WorkItemStatus.FAILED,
             "refused": WorkItemStatus.FAILED,
         }.get(terminal, WorkItemStatus.FAILED)
-        run_dir = context.project_dir / "domain_runs" / child_run_id
+        projection_errors: list[str] = []
+        if context.activity_sink is not None:
+            from .store import EvidenceStore
+            for event in EvidenceStore(run_dir).traces():
+                try:
+                    self._record_trace(context, child_run_id, runtime.registry.descriptors, event)
+                except Exception as exc:
+                    projection_errors.append(exc.__class__.__name__)
         ranked_path = run_dir / "ranked_targets.json"
         cards_path = run_dir / "target_cards.json"
         report_path = run_dir / "report.md"
@@ -378,6 +406,10 @@ class TargetDiscoveryModule:
             report_path.is_file() and ranked_count > 0 and card_count > 0 and experiment_count == card_count
         )
         if mapped == WorkItemStatus.COMPLETED and not deliverables_complete:
+            mapped = WorkItemStatus.COMPLETED_WITH_GAPS
+        scientific_complete = mapped == WorkItemStatus.COMPLETED
+        projection_complete = not projection_errors
+        if mapped == WorkItemStatus.COMPLETED and not projection_complete:
             mapped = WorkItemStatus.COMPLETED_WITH_GAPS
         pending: list[PendingArtifact] = []
         for filename, logical, media in (
@@ -396,12 +428,35 @@ class TargetDiscoveryModule:
                                "ranked_target_count": ranked_count, "target_card_count": card_count,
                                "experiment_plan_count": experiment_count,
                                "deliverables_complete": deliverables_complete,
+                               "domain_activity_projection_complete": projection_complete,
                            },
-                           limitations=[] if mapped == WorkItemStatus.COMPLETED else [
+                           error=child_error,
+                           limitations=([] if scientific_complete else [
                                "The domain workflow has evidence gaps or is missing ranking, TargetCard, experiment, or report artifacts."
-                           ]),
+                           ]) + ([] if projection_complete else [
+                               "One or more child TraceEvents could not be indexed in the project activity ledger; the child trace remains authoritative."
+                           ]) + ([] if child_error is None else [
+                               "The child runtime raised an unexpected error after preserving its durable trace."
+                           ])),
             artifacts=pending,
         )
+
+    @staticmethod
+    def _record_trace(
+        context: ModuleContext,
+        child_run_id: str,
+        descriptors: list[ToolDescriptor],
+        event: TraceEvent,
+    ) -> None:
+        if context.activity_sink is None:
+            return
+        context.activity_sink(project_trace_event(
+            project_id=context.project.project_id,
+            work_item_id=context.item.item_id,
+            child_run_id=child_run_id,
+            event=event,
+            descriptors=descriptors,
+        ))
 
 
 class IndependentReviewModule:

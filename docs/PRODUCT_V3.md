@@ -70,7 +70,7 @@ Current status: structured experiment plans and deterministic recommendation gat
 
 The Agent should be usable inside an existing scientist workbench: submit a target question, stream plan/run events, inspect evidence and Reviewer findings, download artifacts and resume a project. The same typed operations should be exposed through HTTP and MCP rather than forcing users into a standalone chat UI.
 
-Current status: the HTTP workbench provides run creation, status, SSE, reports and artifacts for the V2.2 workflow. V3 phase one adds project creation, project status, event-ledger and content-addressed artifact endpoints. An optional official-SDK stdio MCP server exposes the same durable project service, ordered event cursors, checkpoint acceptance and checksum-verified text artifacts. Streamable HTTP MCP, registry publication, authentication policy for remote MCP and host-specific installation bundles remain roadmap work.
+Current status: the HTTP workbench provides run creation, status, SSE, reports and artifacts for the V2.2 workflow. V3 phase one adds project creation, project status, event-ledger, domain-activity and content-addressed artifact endpoints. An optional official-SDK stdio MCP server exposes the same durable project service, ordered event and activity cursors, checkpoint acceptance and checksum-verified text artifacts. Domain activities are source-linked operational projections and never copy target rankings or evidence content. Streamable HTTP MCP, registry publication, authentication policy for remote MCP and host-specific installation bundles remain roadmap work.
 
 ## V3 reliability control plane
 
@@ -88,7 +88,7 @@ These mechanisms serve one product outcome: a more reliable disease-target decis
 
 ## Current V3 phase-one scope
 
-The first increment introduces typed project/goal/work-item/plan/result/artifact/assessment/decision records, a filesystem project store, allowlisted module registry, constrained planner, work-item recovery, structural assessments and a target-discovery adapter. The V2.2 workflow remains the scientific engine and deepest product path.
+The first increment introduces typed project/goal/work-item/plan/result/artifact/assessment/decision records, a filesystem project store, allowlisted module registry, constrained planner, work-item recovery, structural assessments and a target-discovery adapter. The project now reconciles a paged domain-activity index before and after child execution so tool coverage and bounded Reviewer repair are observable without duplicating the child Evidence Store. The V2.2 workflow remains the scientific engine and deepest product path.
 
 Phase one does not provide arbitrary LLM-generated Python/R/shell execution, universal life-science workflow coverage, automatic wet-lab control, self-modifying code, automatic training, clinical decision support or scientific independence when one model produces and reviews the same claim.
 

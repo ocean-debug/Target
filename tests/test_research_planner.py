@@ -95,6 +95,8 @@ def test_deterministic_plan_uses_bounded_target_workflow_when_requested():
     ]
     review = next(item for item in plan.items if item.module == "independent_review")
     assert "target_discovery" in review.dependencies
+    target = next(item for item in plan.items if item.module == "target_discovery")
+    assert target.max_attempts == 2
 
 
 def test_vertical_product_always_plans_target_discovery_even_when_input_is_missing():

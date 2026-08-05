@@ -94,3 +94,12 @@ The checkboxes above record the historical V2.1 remote-node baseline, not curren
 - The focused research-service/runtime/Web suite passed. The complete suite passed 207 tests with two optional model-backed Reviewer tests skipped and three existing synthetic omics warnings.
 - `pip check` reported no broken requirements, canonical Schema export remained successful and the repository policy returned `REPO_POLICY=OK`.
 - This acceptance proves the local stdio product adapter and shared durable semantics. It does not prove Streamable HTTP MCP, registry publication, multi-user authorization, external-host compatibility matrices, external blind target-ranking quality or independent expert review.
+
+## Observable child workflow and domain-activity acceptance (2026-08-05)
+
+- Package `0.7.0` adds a separate project domain-activity ledger and paged HTTP/MCP access. Each activity links to the exact child TraceEvent and the content-addressed `target_discovery_trace` artifact.
+- The projection whitelist exposes stage, tool status, coverage and source IDs; tests verify that candidate genes, highlighted targets, provider request metadata and other scientific payloads are absent.
+- `reviewer_repair` tool calls and replans are classified as reliability-review activities. Pre-run and post-run reconciliation is idempotent, and observer failure does not change the authoritative child terminal status.
+- The focused projection/store/runtime/service/Web recovery suite passed 36 tests. The complete suite passed 218 tests with two optional model-backed Reviewer tests skipped and three existing synthetic omics warnings.
+- Canonical export produced 41 JSON Schemas, including typed project snapshot and activity-page responses. The stdio protocol smoke discovered nine Target tools and returned `TARGET_MCP_STDIO=OK`; `pip check` and repository policy both passed.
+- This increment makes the existing bounded child Reviewer repair observable. It does not implement mutable project plans, general project-level replan, arbitrary evidence supplementation or external biological validation.

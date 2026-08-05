@@ -55,6 +55,21 @@ def test_project_post_get_events_and_artifact_download_use_durable_state(tmp_pat
     event_rows = events.get_json()["events"]
     assert [row["sequence"] for row in event_rows] == list(range(1, len(event_rows) + 1))
     assert event_rows[-1]["event_type"] == "project_terminal"
+    tail = client.get(
+        f"/api/projects/{project.project_id}/events?after_sequence={event_rows[-2]['sequence']}"
+    ).get_json()
+    assert tail["events"] == [event_rows[-1]]
+    assert tail["next_cursor"] == event_rows[-1]["sequence"]
+
+    activities = client.get(f"/api/projects/{project.project_id}/activities")
+    assert activities.status_code == 200
+    assert activities.get_json() == {
+        "contract_version": "3.0.0",
+        "project_id": project.project_id,
+        "activities": [],
+        "next_cursor": 0,
+        "has_more": False,
+    }
 
     report = next(row for row in payload["artifacts"] if row["logical_name"] == "research_report")
     downloaded = client.get(
@@ -93,6 +108,8 @@ def test_project_api_missing_resources_are_explicit(tmp_path):
 
     assert client.get("/api/projects/project-does-not-exist").status_code == 404
     assert client.get("/api/projects/project-does-not-exist/events").status_code == 404
+    assert client.get("/api/projects/project-does-not-exist/activities").status_code == 404
+    assert client.get("/api/projects/project-does-not-exist/events?after_sequence=bad").status_code == 400
     assert (
         client.get("/api/projects/project-does-not-exist/artifacts/artifact-missing").status_code
         == 404

@@ -1,0 +1,263 @@
+{
+  "$defs": {
+    "DomainActivityRecord": {
+      "additionalProperties": false,
+      "description": "Read-only projection of one authoritative child-workflow TraceEvent.\n\nThis record is an observability index. Scientific facts, numeric results and\nprovenance remain authoritative in the child EvidenceStore referenced by\n``child_run_id`` and ``source_trace_id``.",
+      "properties": {
+        "contract_version": {
+          "const": "3.0.0",
+          "default": "3.0.0",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "sequence": {
+          "minimum": 1,
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "activity_id": {
+          "pattern": "^trace-[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "title": "Activity Id",
+          "type": "string"
+        },
+        "project_id": {
+          "title": "Project Id",
+          "type": "string"
+        },
+        "work_item_id": {
+          "title": "Work Item Id",
+          "type": "string"
+        },
+        "child_run_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "title": "Child Run Id",
+          "type": "string"
+        },
+        "source_contract_version": {
+          "title": "Source Contract Version",
+          "type": "string"
+        },
+        "source_trace_id": {
+          "pattern": "^trace-[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "title": "Source Trace Id",
+          "type": "string"
+        },
+        "source_event_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Source Event Sha256",
+          "type": "string"
+        },
+        "stage": {
+          "$ref": "#/$defs/DomainStage"
+        },
+        "activity_type": {
+          "enum": [
+            "state_transition",
+            "plan",
+            "tool_call",
+            "tool_result",
+            "review",
+            "replan",
+            "checkpoint",
+            "ranking",
+            "report",
+            "degradation",
+            "refusal"
+          ],
+          "title": "Activity Type",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/DomainActivityStatus"
+        },
+        "source_state": {
+          "title": "Source State",
+          "type": "string"
+        },
+        "evidence_dimension": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evidence Dimension"
+        },
+        "tool_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tool Name"
+        },
+        "plan_step_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Plan Step Id"
+        },
+        "coverage_status": {
+          "anyOf": [
+            {
+              "enum": [
+                "covered",
+                "partial",
+                "not_covered",
+                "unknown"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Coverage Status"
+        },
+        "context_match_score": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Context Match Score"
+        },
+        "related_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Related Ids",
+          "type": "array"
+        },
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        },
+        "detail": {
+          "additionalProperties": true,
+          "title": "Detail",
+          "type": "object"
+        },
+        "created_at": {
+          "title": "Created At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sequence",
+        "activity_id",
+        "project_id",
+        "work_item_id",
+        "child_run_id",
+        "source_contract_version",
+        "source_trace_id",
+        "source_event_sha256",
+        "stage",
+        "activity_type",
+        "status",
+        "source_state",
+        "summary"
+      ],
+      "title": "DomainActivityRecord",
+      "type": "object"
+    },
+    "DomainActivityStatus": {
+      "enum": [
+        "recorded",
+        "planned",
+        "running",
+        "success",
+        "partial",
+        "failed",
+        "out_of_scope",
+        "reviewed",
+        "replanned",
+        "checkpointed",
+        "completed",
+        "completed_with_gaps",
+        "needs_input",
+        "degraded",
+        "refused"
+      ],
+      "title": "DomainActivityStatus",
+      "type": "string"
+    },
+    "DomainStage": {
+      "description": "Stable product-facing stages projected from the vertical child run.",
+      "enum": [
+        "intake",
+        "planning",
+        "dataset_discovery",
+        "genetics",
+        "omics",
+        "literature",
+        "perturbation",
+        "drug_safety",
+        "evidence_integration",
+        "reliability_review",
+        "ranking_and_experiment_design",
+        "reporting",
+        "reliability_boundary"
+      ],
+      "title": "DomainStage",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "contract_version": {
+      "const": "3.0.0",
+      "default": "3.0.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "project_id": {
+      "title": "Project Id",
+      "type": "string"
+    },
+    "activities": {
+      "items": {
+        "$ref": "#/$defs/DomainActivityRecord"
+      },
+      "title": "Activities",
+      "type": "array"
+    },
+    "next_cursor": {
+      "minimum": 0,
+      "title": "Next Cursor",
+      "type": "integer"
+    },
+    "has_more": {
+      "title": "Has More",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "project_id",
+    "activities",
+    "next_cursor",
+    "has_more"
+  ],
+  "title": "DomainActivityPage",
+  "type": "object"
+}

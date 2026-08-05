@@ -96,6 +96,21 @@ def create_mcp_server(
         }
 
     @server.tool()
+    def target_get_domain_activities(
+        project_id: str,
+        after_sequence: int = 0,
+        limit: int = 200,
+        work_item_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Read source-linked domain stages without copying scientific results."""
+        return product.domain_activities(
+            project_id,
+            after_sequence=after_sequence,
+            limit=limit,
+            work_item_id=work_item_id,
+        )
+
+    @server.tool()
     def target_accept_checkpoint(
         project_id: str,
         target_id: str,

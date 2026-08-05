@@ -169,10 +169,12 @@ class ResearchPlanner:
                     "The child workflow records its terminal status and durable outputs.",
                     "Evidence gaps and out-of-scope contexts remain explicit.",
                 ],
+                max_attempts=2,
                 output_contract=_output_contract(
                     "TargetDiscoveryResult", child_run_id="string", terminal_status="string",
                     ranked_target_count="integer", target_card_count="integer",
                     experiment_plan_count="integer", deliverables_complete="boolean",
+                    domain_activity_projection_complete="boolean",
                 ),
             )]
         review = WorkItemSpec(
@@ -259,7 +261,9 @@ class ResearchPlanner:
             actual_by_module = {item.module: item for item in plan.items}
             for expected in canonical_template.items:
                 actual = actual_by_module[expected.module]
-                protected = ("item_id", "required", "output_contract", "acceptance_criteria")
+                protected = (
+                    "item_id", "required", "output_contract", "acceptance_criteria", "max_attempts",
+                )
                 changed = [name for name in protected if getattr(actual, name) != getattr(expected, name)]
                 dependencies_valid = (
                     set(expected.dependencies).issubset(actual.dependencies)

@@ -95,6 +95,43 @@ def test_langgraph_resume_terminal_run_is_idempotent(tmp_path):
     assert before == after
 
 
+def test_trace_observer_runs_only_after_authoritative_trace_is_durable(tmp_path):
+    run_dir = tmp_path / "runs" / "run-observer"
+    observed = []
+
+    def observer(event):
+        durable_ids = {row["event_id"] for row in _jsonl(run_dir / "trace.jsonl")}
+        assert event.event_id in durable_ids
+        observed.append(event.event_id)
+
+    runtime = LangGraphRuntime(
+        runs_dir=tmp_path / "runs",
+        cache_dir=tmp_path / "cache",
+        planner=Planner(None),
+        registry=ToolRegistry([FakeGenericOmics(), FakeOpenTargets(), FakeLiterature()]),
+        trace_observer=observer,
+    )
+    runtime.run(uc_task(), run_id="run-observer")
+
+    assert observed == [row["event_id"] for row in _jsonl(run_dir / "trace.jsonl")]
+    assert runtime.trace_observer_errors == []
+
+
+def test_trace_observer_failure_does_not_change_scientific_terminal_status(tmp_path):
+    runtime = LangGraphRuntime(
+        runs_dir=tmp_path / "runs",
+        cache_dir=tmp_path / "cache",
+        planner=Planner(None),
+        registry=ToolRegistry([FakeGenericOmics(), FakeOpenTargets(), FakeLiterature()]),
+        trace_observer=lambda event: (_ for _ in ()).throw(RuntimeError("projection unavailable")),
+    )
+
+    status = runtime.run(uc_task(), run_id="run-observer-failure")
+
+    assert status["terminal_status"] == "completed"
+    assert runtime.trace_observer_errors
+
+
 def test_langgraph_resume_mid_pipeline_matches_legacy_fresh_run(tmp_path):
     """A crashed mid-pipeline LangGraph run, resumed, must match a fresh legacy run."""
     legacy = make_runtime(TargetDiscoveryRuntime, tmp_path / "legacy")

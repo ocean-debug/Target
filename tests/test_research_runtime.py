@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import json
 from collections import Counter
+from types import SimpleNamespace
 
+from target_agent.contracts import TaskContext, TaskSpec, ToolDescriptor, TraceEvent
 from target_agent.research_contracts import (
-    AutonomyMode, DecisionAction, DecisionEvent, ProjectStatus,
+    AutonomyMode, DecisionAction, DecisionEvent, ProjectState, ProjectStatus,
     ResearchGoal,
     ResearchProjectSpec,
     WorkItemResult,
@@ -15,10 +17,12 @@ from target_agent.research_modules import (
     ModuleExecution,
     PendingArtifact,
     ResearchModuleRegistry,
+    default_research_registry,
 )
 from target_agent.research_planner import ResearchPlanner
 from target_agent.research_runtime import ResearchProjectRuntime
 from target_agent.research_store import ResearchProjectStore
+from target_agent.store import EvidenceStore
 from target_agent.settings import Settings
 
 
@@ -118,6 +122,7 @@ class FakeResearchModule:
                 "child_run_id": "run-fake-target", "terminal_status": "completed",
                 "ranked_target_count": 10, "target_card_count": 5,
                 "experiment_plan_count": 5, "deliverables_complete": True,
+                "domain_activity_projection_complete": True,
             }
             status = WorkItemStatus.COMPLETED
         elif name == "independent_review":
@@ -310,3 +315,130 @@ def test_checkpointed_project_requires_plan_and_release_acceptance(tmp_path):
     ))
     third = runtime.run(project, resume=True)
     assert third["status"] == ProjectStatus.COMPLETED.value
+
+
+def _target_project(project_id: str) -> ResearchProjectSpec:
+    task = TaskSpec(
+        task_type="disease_to_target",
+        question="Which targets should be prioritized?",
+        context=TaskContext(disease="lung adenocarcinoma", tissue="lung"),
+    )
+    return research_project(
+        project_id,
+        domain="disease_target_discovery",
+        context={"target_task_spec": task.model_dump(mode="json")},
+    )
+
+
+def _real_target_project_runtime(tmp_path):
+    settings = Settings(
+        _env_file=None,
+        STEP_API_KEY=None,
+        TARGET_AGENT_RUN_DIR=tmp_path / "runs",
+        RESEARCH_AGENT_PROJECT_DIR=tmp_path / "projects",
+        TARGET_AGENT_CACHE_DIR=tmp_path / "cache",
+        TARGET_AGENT_CACHE_ONLY=True,
+    )
+    registry = default_research_registry(settings)
+    runtime = ResearchProjectRuntime(
+        projects_dir=settings.projects_dir,
+        cache_dir=settings.cache_dir,
+        registry=registry,
+        planner=ResearchPlanner(registry, client=None),
+        settings=settings,
+    )
+    return runtime
+
+
+def test_child_runtime_exception_preserves_trace_artifact_and_gap_report(tmp_path, monkeypatch):
+    class CrashingChildRuntime:
+        def __init__(self, *, runs_dir, cache_dir, settings, trace_observer):
+            self.runs_dir = runs_dir
+            self.trace_observer = trace_observer
+            self.trace_observer_errors = []
+            self.registry = SimpleNamespace(descriptors=[ToolDescriptor(
+                tool_id="geo_search", evidence_dimension="dataset_discovery",
+                description="GEO search connector.",
+            )])
+
+        def run(self, task, run_id, resume=False):
+            store = EvidenceStore(self.runs_dir / run_id)
+            event = TraceEvent(
+                run_id=run_id, task_id=task.task_id, event_type="tool_call",
+                state="tool_execution", detail={"tool": "geo_search", "step_id": "geo"},
+            )
+            store.add_trace(event)
+            self.trace_observer(event)
+            raise RuntimeError("synthetic child interruption")
+
+    monkeypatch.setattr("target_agent.runtime_langgraph.LangGraphRuntime", CrashingChildRuntime)
+    runtime = _real_target_project_runtime(tmp_path)
+    project = _target_project("project-child-error")
+
+    terminal = runtime.run(project)
+
+    store = ResearchProjectStore(runtime.projects_dir, project.project_id)
+    assert terminal["status"] == ProjectStatus.COMPLETED_WITH_GAPS.value
+    assert store.load_work_item_results()["target_discovery"].error == "RuntimeError"
+    assert len(store.read_domain_activities()) == 1
+    assert any(row.logical_name == "target_discovery_trace" for row in store.read_artifacts())
+    assert any(row.logical_name == "research_report" for row in store.read_artifacts())
+    store.assert_integrity()
+
+
+def test_interrupted_first_attempt_resumes_once_and_backfills_without_duplicates(tmp_path, monkeypatch):
+    class TerminalChildRuntime:
+        def __init__(self, *, runs_dir, cache_dir, settings, trace_observer):
+            self.runs_dir = runs_dir
+            self.trace_observer = trace_observer
+            self.trace_observer_errors = []
+            self.registry = SimpleNamespace(descriptors=[ToolDescriptor(
+                tool_id="open_targets", evidence_dimension="multi_evidence",
+                description="Open Targets connector.",
+            )])
+
+        def run(self, task, run_id, resume=False):
+            assert resume is True
+            return {"terminal_status": "completed"}
+
+    monkeypatch.setattr("target_agent.runtime_langgraph.LangGraphRuntime", TerminalChildRuntime)
+    runtime = _real_target_project_runtime(tmp_path)
+    project = _target_project("project-child-resume")
+    store = ResearchProjectStore(runtime.projects_dir, project.project_id)
+    store.create(project)
+    plan = runtime.planner.deterministic(project)
+    store.save_plan(plan)
+    store.save_state(ProjectState(
+        project_id=project.project_id,
+        status=ProjectStatus.RUNNING,
+        attempts={"target_discovery": 1},
+    ))
+    child_run_id = f"target-{project.project_id}"
+    child_dir = store.project_dir / "domain_runs" / child_run_id
+    child_store = EvidenceStore(child_dir)
+    event = TraceEvent(
+        run_id=child_run_id,
+        task_id=project.context["target_task_spec"]["task_id"],
+        event_type="tool_result",
+        state="tool_execution",
+        detail={
+            "tool": "open_targets", "status": "success",
+            "coverage_status": "covered", "context_match_score": 0.8,
+        },
+    )
+    child_store.add_trace(event)
+    (child_dir / "report.md").write_text("# Child report\n", encoding="utf-8")
+    (child_dir / "ranked_targets.json").write_text('[{"gene":"GENE1"}]\n', encoding="utf-8")
+    (child_dir / "target_cards.json").write_text(
+        '[{"gene_symbol":"GENE1","experiment_plan":{"hypothesis":"test"}}]\n',
+        encoding="utf-8",
+    )
+
+    terminal = runtime.run(project, resume=True)
+
+    assert terminal["status"] == ProjectStatus.COMPLETED.value
+    state = store.load_state()
+    assert state.attempts["target_discovery"] == 2
+    assert [row.source_trace_id for row in store.read_domain_activities()] == [event.event_id]
+    assert len([row for row in store.read_artifacts() if row.logical_name == "target_discovery_trace"]) == 1
+    store.assert_integrity()

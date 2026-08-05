@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import Any, Callable, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
@@ -91,12 +91,15 @@ class LangGraphRuntime:
         registry: ToolRegistry | None = None,
         planner: Planner | None = None,
         settings: Settings | None = None,
+        trace_observer: Callable[[TraceEvent], None] | None = None,
     ):
         self.settings = settings or load_settings()
         self.runs_dir = runs_dir or self.settings.runs_dir
         self.cache_dir = cache_dir or self.settings.cache_dir
         self.registry = registry or default_registry(self.settings)
         self.planner = planner or Planner(StepClient.from_settings(self.settings), self.registry)
+        self.trace_observer = trace_observer
+        self.trace_observer_errors: list[str] = []
         if self.planner.registry is None:
             self.planner.registry = self.registry
         self.reviewer = Reviewer(getattr(self.planner, "client", None), settings=self.settings)
@@ -105,10 +108,17 @@ class LangGraphRuntime:
     # ------------------------------------------------------------------ tracing
     def _trace(self, store: EvidenceStore, run_id: str, task: TaskSpec, event_type: str, state: str,
                detail: dict[str, Any] | None = None, related_ids: list[str] | None = None) -> None:
-        store.add_trace(TraceEvent(
+        event = TraceEvent(
             run_id=run_id, task_id=task.task_id, event_type=event_type, state=state,
             detail=detail or {}, related_ids=related_ids or [],
-        ))
+        )
+        store.add_trace(event)
+        if self.trace_observer is not None:
+            try:
+                self.trace_observer(event)
+            except Exception as exc:
+                # Observability cannot change the authoritative scientific run.
+                self.trace_observer_errors.append(exc.__class__.__name__)
 
     @staticmethod
     def _status(store: EvidenceStore, run_id: str, task: TaskSpec, state: str,
