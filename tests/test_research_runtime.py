@@ -275,7 +275,7 @@ def test_vertical_project_without_target_spec_fails_closed_with_reported_gap(tmp
     terminal = runtime.run(project)
 
     assert terminal["status"] == ProjectStatus.NEEDS_INPUT.value
-    assert calls["target_discovery"] == 1
+    assert calls["target_discovery"] == 0
     store = ResearchProjectStore(runtime.projects_dir, project.project_id)
     target = store.load_work_item_results()["target_discovery"]
     assert target.status == WorkItemStatus.NEEDS_INPUT

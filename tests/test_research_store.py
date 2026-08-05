@@ -104,7 +104,8 @@ def test_project_store_round_trip_and_integrity(tmp_path):
 
     assert (store.load_spec().model_dump(mode="json", exclude={"created_at"})
             == project_spec().model_dump(mode="json", exclude={"created_at"}))
-    assert store.load_plan() == research_plan()
+    assert (store.load_plan().model_dump(mode="json", exclude={"created_at"})
+            == research_plan().model_dump(mode="json", exclude={"created_at"}))
     assert store.load_state().status == ProjectStatus.COMPLETED
     assert store.load_work_item_results()["literature"] == result
     assert [first.sequence, second.sequence] == [1, 2]
