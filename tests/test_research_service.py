@@ -46,9 +46,9 @@ def test_service_advances_one_disease_question_to_durable_deliverables(tmp_path)
     ]
     assert calls["target_discovery"] == 1
     assert {row["logical_name"] for row in terminal["artifacts"]} >= {
-        "project_brief",
+        "project_brief_output",
         "target_discovery_output",
-        "review_summary",
+        "independent_review_output",
         "research_report",
     }
     assert terminal["decisions"][-1]["action"] == "release"
