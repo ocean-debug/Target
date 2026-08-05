@@ -73,3 +73,13 @@ Cross-module contracts, workflow choices, model boundaries and scientific-safety
 - Non-terminal runs created under an older contract cannot resume in place under `2.2.0`; callers must start a derived current-contract run. Terminal legacy runs remain readable without mutation.
 - Public bundles expose the stored run's source contract as `contract_version`/`source_contract_version` and the current renderer separately as `rendered_contract_version`.
 - Genetics report provenance is additive across retries. Each selected stage records its exact ToolRun plus artifact checksums; earlier attempts remain available for audit.
+
+## 2026-08-05 - Target is a vertical domain service, not a replacement workbench
+
+- **Status:** accepted; supersedes only the MCP-roadmap portion of the earlier V3 phase-one decision.
+- Architecture review of SciForge, OpenScience, OpenAI4S and Wisp showed that chat, general code execution, persistent kernels, remote compute and desktop workspace concerns belong to a mature host runtime.
+- Target continues to own disease-target task contracts, evidence semantics, project state, allowlisted scientific execution, Reviewer gates, immutable artifacts and release decisions.
+- `ResearchProjectService` is the product-facing application boundary. CLI, HTTP and MCP adapters must operate on the same durable store and may not create a parallel conversation-only state.
+- The phase-one MCP surface uses the official Python SDK over local stdio and exposes project creation, bounded execution, status, event replay, checkpoint acceptance and verified text artifacts.
+- MCP does not expose arbitrary shell or model-generated code execution and cannot waive frozen plans, evidence gates, artifact integrity or missing-context outcomes.
+- Streamable HTTP MCP, registry publication, remote authentication policy and host-specific installation remain explicit roadmap work.

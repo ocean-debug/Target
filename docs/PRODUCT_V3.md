@@ -70,7 +70,7 @@ Current status: structured experiment plans and deterministic recommendation gat
 
 The Agent should be usable inside an existing scientist workbench: submit a target question, stream plan/run events, inspect evidence and Reviewer findings, download artifacts and resume a project. The same typed operations should be exposed through HTTP and MCP rather than forcing users into a standalone chat UI.
 
-Current status: the HTTP workbench provides run creation, status, SSE, reports and artifacts for the V2.2 workflow. V3 phase one adds project creation, project status, event-ledger and content-addressed artifact endpoints. API versioning/hardening and MCP exposure remain roadmap work; no current document should claim MCP as shipped.
+Current status: the HTTP workbench provides run creation, status, SSE, reports and artifacts for the V2.2 workflow. V3 phase one adds project creation, project status, event-ledger and content-addressed artifact endpoints. An optional official-SDK stdio MCP server exposes the same durable project service, ordered event cursors, checkpoint acceptance and checksum-verified text artifacts. Streamable HTTP MCP, registry publication, authentication policy for remote MCP and host-specific installation bundles remain roadmap work.
 
 ## V3 reliability control plane
 

@@ -13,9 +13,10 @@ from pydantic import ValidationError
 from .contracts import CONTRACT_VERSION, TaskSpec, new_id
 from .legacy import parse_task_spec
 from .research_contracts import (
-    RESEARCH_CONTRACT_VERSION, DecisionAction, DecisionEvent, ProjectStatus, ResearchProjectSpec,
+    RESEARCH_CONTRACT_VERSION, ProjectStatus, ResearchProjectSpec,
 )
 from .research_runtime import ResearchProjectRuntime
+from .research_service import ResearchDecisionError, ResearchProjectNotFound, ResearchProjectService
 from .research_store import ResearchProjectStore
 from .runtime import TargetDiscoveryRuntime
 
@@ -62,6 +63,7 @@ def create_app(
         from .runtime_langgraph import LangGraphRuntime
         runtime = LangGraphRuntime()
     research_runtime = research_runtime or ResearchProjectRuntime(settings=runtime.settings)
+    research_service = ResearchProjectService(research_runtime)
     static_dir = Path(__file__).with_name("web") / "static"
     app = Flask(__name__, static_folder=str(static_dir), static_url_path="/static")
     pool = BoundedExecutor(runtime.settings.web_workers, runtime.settings.web_queue_size)
@@ -262,9 +264,8 @@ def create_app(
             project = ResearchProjectSpec.model_validate(payload)
         except ValidationError as exc:
             return jsonify({"error": "invalid ResearchProjectSpec", "detail": exc.errors(include_url=False)}), 400
-        store = ResearchProjectStore(research_runtime.projects_dir, project.project_id)
         try:
-            reserved = store.create(project)
+            reserved = research_service.reserve(project)["created"]
         except ValueError as exc:
             return jsonify({"error": "project id conflicts with an immutable project", "detail": str(exc)}), 409
         if not reserved:
@@ -300,27 +301,20 @@ def create_app(
     @app.get("/api/projects/<project_id>")
     def get_project(project_id: str):
         project_id = _safe_project_id(project_id)
-        store = ResearchProjectStore(research_runtime.projects_dir, project_id)
-        spec = store.load_spec()
-        state = store.load_state()
-        if spec is None:
+        try:
+            payload = research_service.snapshot(project_id)
+        except ResearchProjectNotFound:
             return jsonify({"error": "project not found"}), 404
-        return jsonify({
-            "contract_version": RESEARCH_CONTRACT_VERSION,
-            "spec": spec.model_dump(mode="json"),
-            "state": state.model_dump(mode="json") if state else None,
-            "plan": store.load_plan().model_dump(mode="json") if store.load_plan() else None,
-            "work_item_results": [row.model_dump(mode="json") for row in store.load_work_item_results().values()],
-            "artifacts": [row.model_dump(mode="json") for row in store.read_artifacts()],
-        })
+        return jsonify(payload)
 
     @app.get("/api/projects/<project_id>/events")
     def project_events(project_id: str):
         project_id = _safe_project_id(project_id)
-        store = ResearchProjectStore(research_runtime.projects_dir, project_id)
-        if store.load_spec() is None:
+        try:
+            events = research_service.events(project_id)
+        except ResearchProjectNotFound:
             return jsonify({"error": "project not found"}), 404
-        return jsonify({"events": [row.model_dump(mode="json") for row in store.read_events()]})
+        return jsonify({"events": events})
 
     @app.post("/api/projects/<project_id>/decisions")
     def accept_project_checkpoint(project_id: str):
@@ -333,23 +327,22 @@ def create_app(
         rationale = str(payload.get("rationale") or "").strip()
         if not target_id or not actor or not rationale:
             return jsonify({"error": "target_id, actor and rationale are required"}), 400
-        store = ResearchProjectStore(research_runtime.projects_dir, project_id)
-        spec, plan = store.load_spec(), store.load_plan()
-        if spec is None or plan is None:
-            return jsonify({"error": "project or plan not found"}), 404
-        allowed_targets = {plan.plan_id, *(item.item_id for item in plan.items), f"release:{plan.plan_id}"}
-        if target_id not in allowed_targets:
-            return jsonify({"error": "decision target is not part of the frozen project plan"}), 400
-        existing = next((row for row in store.read_decisions()
-                         if row.action == DecisionAction.ACCEPT and target_id in row.target_ids), None)
-        if existing is None:
-            decision = DecisionEvent(
-                project_id=project_id, action=DecisionAction.ACCEPT, target_ids=[target_id],
-                rationale=rationale, actor=actor, reversible=False,
+        try:
+            accepted = research_service.accept_checkpoint(
+                project_id=project_id,
+                target_id=target_id,
+                actor=actor,
+                rationale=rationale,
+                resume=False,
             )
-            store.append_decision(decision)
-        else:
-            decision = existing
+        except ResearchProjectNotFound:
+            return jsonify({"error": "project not found"}), 404
+        except ResearchDecisionError as exc:
+            return jsonify({"error": str(exc)}), 400
+        decision = accepted["decision"]
+        store = ResearchProjectStore(research_runtime.projects_dir, project_id)
+        spec = store.load_spec()
+        assert spec is not None
 
         def resume_worker() -> None:
             try:
@@ -359,7 +352,7 @@ def create_app(
 
         queued = pool.submit(resume_worker)
         return jsonify({
-            "decision": decision.model_dump(mode="json"),
+            "decision": decision,
             "resume_queued": queued,
             "status_url": f"/api/projects/{project_id}",
         }), 202 if queued else 429

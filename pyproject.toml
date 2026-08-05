@@ -34,6 +34,7 @@ omics-single-cell = [
   "scanpy[leiden]==1.11.5",
 ]
 omics-census = ["cellxgene-census==1.17.*"]
+mcp = ["mcp>=2.0,<3"]
 train = [
   "accelerate>=0.33",
   "datasets>=2.20",
@@ -44,6 +45,7 @@ train = [
 
 [project.scripts]
 target-agent = "target_agent.cli:main"
+target-agent-mcp = "target_agent.mcp_server:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

@@ -65,6 +65,8 @@ Python 3.11 is the acceptance runtime.
 
 ```bash
 python -m pip install -e ".[test,omics-bulk,omics-single-cell]"
+# Optional workbench integration through the official MCP Python SDK:
+python -m pip install -e ".[mcp]"
 # Optional only when the deployment platform supports its TileDB-SOMA wheel:
 python -m pip install -e ".[omics-census]"
 target-agent doctor
@@ -87,7 +89,21 @@ target-agent serve --host 127.0.0.1 --port "$TARGET_AGENT_PORT"
 The V3 HTTP surface adds `POST /api/projects`, `GET /api/projects/{project_id}`,
 `GET /api/projects/{project_id}/events`, `POST /api/projects/{project_id}/decisions` and
 content-addressed artifact downloads. `checkpointed` projects require plan and release acceptance;
-`supervised` projects additionally require each work-item acceptance. MCP publication remains a roadmap integration.
+`supervised` projects additionally require each work-item acceptance.
+
+The optional stdio MCP server exposes the same durable project service to Codex, SciForge,
+OpenScience, Wisp and other MCP hosts:
+
+```bash
+target-agent mcp-serve
+# equivalent dedicated entry point:
+target-agent-mcp
+```
+
+It provides typed operations to create a disease project, advance it to the next checkpoint,
+inspect state/events, accept a frozen checkpoint and read checksum-verified text artifacts.
+It does not expose arbitrary shell or model-generated code execution. Streamable HTTP MCP,
+remote registry publication and host-specific installation bundles remain future integration work.
 
 ## Demo workbench
 

@@ -38,7 +38,7 @@ def load_research_project(path: Path) -> ResearchProjectSpec:
 
 def _doctor(settings: Settings) -> dict:
     required = ["flask", "pydantic", "pydantic_settings", "requests", "waitress", "yaml"]
-    optional = ["pydeseq2", "gseapy", "scanpy", "anndata", "cellxgene_census"]
+    optional = ["pydeseq2", "gseapy", "scanpy", "anndata", "cellxgene_census", "mcp"]
     registry = default_registry(settings)
     rscript = shutil.which("Rscript")
     limma_package = False
@@ -148,6 +148,11 @@ def main() -> None:
     serve.add_argument("--cache-dir", type=Path)
     serve.add_argument("--runtime", choices=["legacy", "langgraph"], default="langgraph")
     serve.add_argument("--dev", action="store_true", help="Use Flask's development server")
+
+    sub.add_parser(
+        "mcp-serve",
+        help="Expose durable Target project operations through the official stdio MCP transport",
+    )
 
     args = parser.parse_args()
     settings = load_settings(args.env_file)
@@ -275,6 +280,13 @@ def main() -> None:
         else:
             from waitress import serve as waitress_serve
             waitress_serve(app, host=args.host, port=args.port, threads=settings.web_workers)
+    elif args.command == "mcp-serve":
+        try:
+            from .mcp_server import create_mcp_server
+
+            create_mcp_server(runtime=ResearchProjectRuntime(settings=settings)).run(transport="stdio")
+        except RuntimeError as exc:
+            raise SystemExit(str(exc)) from exc
 
 
 __all__ = ["main", "load_task", "load_research_project", "_doctor", "_smoke_test"]

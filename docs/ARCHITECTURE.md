@@ -53,6 +53,19 @@ The Agent never runs arbitrary generated code. LLM output can propose only tools
 
 V2.2 provides the deepest implemented disease-to-target chain: dynamic public-data discovery, controlled omics analysis, a checksum-bound precomputed GWAS/SuSiE/coloc audit lane, Open Targets aggregate context, literature/trials evidence, ranking, TargetCards, review and traceable reporting. V3 phase one adds the durable project store, module registry, typed planning and recovery layer around that chain.
 
-Allowlisted statistical recomputation of fine-mapping/colocalization, broadly matched perturbation Oracles, external blind ranking evaluation, scaled expert approval operations and MCP publication are still roadmap items. Unsupported evidence lanes remain `needs_input`, `not_covered` or `completed_with_gaps`; they are never represented as complete.
+Allowlisted statistical recomputation of fine-mapping/colocalization, broadly matched perturbation Oracles, external blind ranking evaluation and scaled expert approval operations are still roadmap items. A phase-one stdio MCP adapter now exposes the durable project service and verified text artifacts to external Agent hosts; Streamable HTTP MCP, registry publication and host-specific installation bundles remain roadmap work. Unsupported evidence lanes remain `needs_input`, `not_covered` or `completed_with_gaps`; they are never represented as complete.
+
+## Runtime and domain-service boundary
+
+Target does not attempt to replace a mature scientific workbench. Codex, SciForge, OpenScience,
+OpenAI4S or Wisp may own chat, files, general code execution, remote compute and user interaction.
+Target owns the disease-target contract, typed project lifecycle, allowlisted scientific modules,
+evidence gates, Reviewer decisions, immutable artifacts and release semantics. HTTP, CLI and MCP
+are adapters over those records rather than independent Agent implementations.
+
+The MCP adapter exposes create/run/status/event/checkpoint/artifact operations through
+`ResearchProjectService`. A host may stop after any human checkpoint and resume later without
+reconstructing state from conversation history. It cannot use MCP to bypass a frozen plan,
+artifact digest, biological-context gate or terminal evidence gap.
 
 See [PRODUCT_V3.md](PRODUCT_V3.md) and [research_project.yaml](../workflows/research_project.yaml) for the product boundary and internal target-project workflow.
