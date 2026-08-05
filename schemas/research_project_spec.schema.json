@@ -1,0 +1,123 @@
+{
+  "$defs": {
+    "AutonomyMode": {
+      "enum": [
+        "autonomous",
+        "checkpointed",
+        "supervised"
+      ],
+      "title": "AutonomyMode",
+      "type": "string"
+    },
+    "ResearchGoal": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_version": {
+          "const": "3.0.0",
+          "default": "3.0.0",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "question": {
+          "minLength": 3,
+          "title": "Question",
+          "type": "string"
+        },
+        "success_criteria": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Success Criteria",
+          "type": "array"
+        },
+        "deliverables": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Deliverables",
+          "type": "array"
+        },
+        "constraints": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Constraints",
+          "type": "array"
+        }
+      },
+      "required": [
+        "question",
+        "success_criteria",
+        "deliverables"
+      ],
+      "title": "ResearchGoal",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "contract_version": {
+      "const": "3.0.0",
+      "default": "3.0.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "project_id": {
+      "pattern": "^project-[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "title": "Project Id",
+      "type": "string"
+    },
+    "title": {
+      "minLength": 3,
+      "title": "Title",
+      "type": "string"
+    },
+    "domain": {
+      "default": "disease_target_discovery",
+      "enum": [
+        "disease_target_discovery",
+        "life_science"
+      ],
+      "title": "Domain",
+      "type": "string"
+    },
+    "goal": {
+      "$ref": "#/$defs/ResearchGoal"
+    },
+    "context": {
+      "additionalProperties": true,
+      "title": "Context",
+      "type": "object"
+    },
+    "autonomy_mode": {
+      "$ref": "#/$defs/AutonomyMode",
+      "default": "checkpointed"
+    },
+    "max_work_items": {
+      "default": 12,
+      "maximum": 30,
+      "minimum": 1,
+      "title": "Max Work Items",
+      "type": "integer"
+    },
+    "max_replans": {
+      "default": 2,
+      "maximum": 2,
+      "minimum": 0,
+      "title": "Max Replans",
+      "type": "integer"
+    },
+    "created_at": {
+      "title": "Created At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "title",
+    "goal"
+  ],
+  "title": "ResearchProjectSpec",
+  "type": "object"
+}

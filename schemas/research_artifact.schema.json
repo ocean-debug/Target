@@ -1,0 +1,68 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "contract_version": {
+      "const": "3.0.0",
+      "default": "3.0.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "artifact_id": {
+      "title": "Artifact Id",
+      "type": "string"
+    },
+    "project_id": {
+      "title": "Project Id",
+      "type": "string"
+    },
+    "work_item_id": {
+      "title": "Work Item Id",
+      "type": "string"
+    },
+    "logical_name": {
+      "minLength": 1,
+      "title": "Logical Name",
+      "type": "string"
+    },
+    "uri": {
+      "pattern": "^project://",
+      "title": "Uri",
+      "type": "string"
+    },
+    "media_type": {
+      "default": "application/octet-stream",
+      "title": "Media Type",
+      "type": "string"
+    },
+    "sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Sha256",
+      "type": "string"
+    },
+    "size_bytes": {
+      "minimum": 0,
+      "title": "Size Bytes",
+      "type": "integer"
+    },
+    "version": {
+      "default": 1,
+      "minimum": 1,
+      "title": "Version",
+      "type": "integer"
+    },
+    "created_at": {
+      "title": "Created At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "project_id",
+    "work_item_id",
+    "logical_name",
+    "uri",
+    "sha256",
+    "size_bytes"
+  ],
+  "title": "ArtifactRecord",
+  "type": "object"
+}
