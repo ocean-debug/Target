@@ -121,7 +121,7 @@ class Planner:
             steps = [step for step in steps if step.step_id not in excluded_steps]
         available = self.allowed_tools
         if task.genetics_inputs or task.task_type == "gwas_locus_to_target":
-            missing = {tool for _, tool, _ in GENETICS_CHAIN} - available
+            missing = {"disease_resolver", *(tool for _, tool, _ in GENETICS_CHAIN)} - available
             if missing:
                 raise ValueError(f"required genetics workflow tools are unavailable: {sorted(missing)}")
         selected = [step.model_copy(deep=True) for step in steps if not step.tool or step.tool in available]
@@ -133,14 +133,24 @@ class Planner:
         selected_ids = {step.step_id for step in selected}
         for step in selected:
             step.dependencies = [item for item in step.dependencies if item in selected_ids]
-        return ExecutionPlan(
+        plan = ExecutionPlan(
             task_id=task.task_id,
             planner_backend="deterministic:v2.2" if not reason else f"deterministic:v2.2 ({reason})",
             steps=selected, fallback_used=bool(reason),
         )
+        self._validate(task, plan, enforce_tool_budget=False)
+        return plan
 
-    def _validate(self, task: TaskSpec, plan: ExecutionPlan) -> None:
-        if len([step for step in plan.steps if step.tool]) > task.constraints.max_tool_calls:
+    def _validate(
+        self,
+        task: TaskSpec,
+        plan: ExecutionPlan,
+        *,
+        enforce_tool_budget: bool = True,
+    ) -> None:
+        if plan.task_id != task.task_id:
+            raise ValueError("planner task_id does not match the task specification")
+        if enforce_tool_budget and len([step for step in plan.steps if step.tool]) > task.constraints.max_tool_calls:
             raise ValueError("planner exceeded tool-call budget")
         ids = [step.step_id for step in plan.steps]
         if len(ids) != len(set(ids)):
@@ -171,6 +181,9 @@ class Planner:
         genetics_required = bool(task.genetics_inputs) or task.task_type == "gwas_locus_to_target"
         genetics_tools = {tool for _, tool, _ in GENETICS_CHAIN}
         if genetics_required:
+            missing = {"disease_resolver", *genetics_tools} - self.allowed_tools
+            if missing:
+                raise ValueError(f"required genetics workflow tools are unavailable: {sorted(missing)}")
             for step_id, tool, dependency in GENETICS_CHAIN:
                 step = by_id.get(step_id)
                 if step is None or step.tool != tool or dependency not in step.dependencies:

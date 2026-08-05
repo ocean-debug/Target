@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from target_agent.contracts import GwasColumnMap, GwasSummaryStatsInput, TaskContext, TaskSpec
 from target_agent.planner import Planner
 from target_agent.tools.base import ScientificTool, ToolContext, ToolExecution, ToolRegistry
@@ -116,6 +118,18 @@ def test_disease_to_target_with_genetics_forces_the_fixed_chain():
         "eqtl_colocalization_audit",
         "genetics_candidate_extraction",
     ]
+
+
+@pytest.mark.parametrize("task_type", ["disease_to_target", "gwas_locus_to_target"])
+def test_genetics_workflow_refuses_registry_without_disease_resolver(task_type):
+    registry = ToolRegistry([
+        StubTool(tool) for _, tool, _ in GENETICS_CHAIN
+    ])
+
+    with pytest.raises(ValueError, match="disease_resolver"):
+        Planner(None, registry).deterministic(
+            _task(task_type, with_genetics=True)
+        )
 
 
 def test_llm_cannot_rewire_the_required_genetics_chain():

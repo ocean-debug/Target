@@ -1,6 +1,6 @@
 {
   "summary": {
-    "goldset": "G:\\deepcamp\\target_v2\\benchmark\\goldset_v2.jsonl",
+    "goldset": "benchmark/goldset_v2.jsonl",
     "live": false,
     "tasks": 11,
     "tasks_passed": 11,

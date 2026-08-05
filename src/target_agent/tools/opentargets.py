@@ -46,7 +46,7 @@ class OpenTargetsTool(ScientificTool):
     name = "open_targets"
     version = "2.2.0"
     descriptor = ToolDescriptor(
-        tool_id=name, evidence_dimension="genetics",
+        tool_id=name, evidence_dimension="multi_evidence",
         description=(
             "Resolve diseases and retrieve Open Targets aggregate associations, tractability, safety and known drugs; "
             "aggregate scores are not locus-level genetic evidence."
@@ -319,11 +319,19 @@ class OpenTargetsTool(ScientificTool):
                     uncertainty="A recorded liability is a risk signal; relevance depends on modality, exposure and tissue.",
                     quality_flags=["safety_blocker_retained"], context_match_score=0.8,
                 ))
+        aggregate_covered = bool(associations)
+        inherited_covered = any(row["genetic_association_score"] > 0 for row in associations)
         result = ToolResult(
             tool_run_id=run_id, tool_name=self.name, tool_version=self.version,
-            status=ToolStatus.SUCCESS, coverage_status=CoverageStatus.COVERED, context_match_score=0.9,
+            status=ToolStatus.SUCCESS if aggregate_covered else ToolStatus.PARTIAL,
+            coverage_status=CoverageStatus.COVERED if aggregate_covered else CoverageStatus.NOT_COVERED,
+            context_match_score=0.9 if aggregate_covered else 0.0,
             inputs={"disease_id": disease_id, "genes": context.candidate_genes},
-            outputs={"covered": True, "disease": {"id": disease["id"], "name": disease["name"]},
+            outputs={"covered": aggregate_covered,
+                     "aggregate_association_covered": aggregate_covered,
+                     "inherited_genetic_association_covered": inherited_covered,
+                     "locus_level_genetics_covered": False,
+                     "disease": {"id": disease["id"], "name": disease["name"]},
                      "requested_disease_id": disease_id, "resolved_disease_id": resolved_disease_id,
                      "associations": associations,
                      "top_genetic_candidates": [
@@ -332,18 +340,23 @@ class OpenTargetsTool(ScientificTool):
                           "genetic_score": row["genetic_association_score"]}
                          for row in sorted(
                              associations, key=lambda row: row["genetic_association_score"], reverse=True,
-                         )[:10]
-                     ]},
+                         ) if row["genetic_association_score"] > 0
+                     ][:10]
+                     },
             candidate_genes=[
                 row["gene"] for row in sorted(
                     associations, key=lambda row: row["genetic_association_score"], reverse=True,
-                )[:10] if row["genetic_association_score"] > 0
-            ],
+                ) if row["genetic_association_score"] > 0
+            ][:10],
             capability=capability, data_version="OpenTargets:live-or-cache", code_version="2.2.0",
             parameters={"graphql_endpoint": ENDPOINT}, evidence_ids=[item.evidence_id for item in evidence],
             warnings=([payload["clinical_warning"]] if payload.get("clinical_warning") else [])
-                     + ([] if associations else ["candidate_genes_not_in_top_100_associations"]),
-            limitations=["Only the first 100 disease associations and selected candidate target profiles are retrieved for the MVP."],
+                     + ([] if associations else ["candidate_genes_not_in_top_100_associations"])
+                     + ([] if inherited_covered else ["no_inherited_genetic_association_for_selected_targets"]),
+            limitations=[
+                "Only the first 100 disease associations and selected candidate target profiles are retrieved for the MVP.",
+                "Open Targets coverage is aggregate multi-evidence coverage, never locus-level genetics coverage.",
+            ],
             cached=cached, elapsed_ms=int((time.perf_counter() - started) * 1000),
         )
         return ToolExecution(result=result, evidence=evidence)

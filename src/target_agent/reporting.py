@@ -12,6 +12,20 @@ def _fmt(value: float) -> str:
     return f"{value:.2f}"
 
 
+def _append_stage_provenance(trace: dict[str, Any], result: ToolResult) -> None:
+    artifacts = [artifact.model_dump(mode="json") for artifact in result.artifacts]
+    trace["selected_tool_runs"][result.tool_name] = result.tool_run_id
+    trace["provenance"].setdefault(result.tool_name, []).append({
+        "tool_run_id": result.tool_run_id,
+        "artifacts": artifacts,
+        "artifact_checksums": {
+            artifact.name: artifact.sha256
+            for artifact in result.artifacts
+            if artifact.sha256
+        },
+    })
+
+
 def build_disease_report(
     task: TaskSpec,
     status: TerminalStatus,
@@ -23,6 +37,7 @@ def build_disease_report(
     datasets = []
     genetics_trace: dict[str, Any] = {
         "input_audit": [], "credible_sets": [], "colocalizations": [], "locus_to_gene_links": [],
+        "selected_tool_runs": {}, "provenance": {},
     }
     for result in results:
         if result.tool_name == "geo_metadata_audit":
@@ -30,13 +45,17 @@ def build_disease_report(
         elif result.tool_name == "genetics_input_audit":
             genetics_trace["input_audit"] = result.outputs.get("assets", [])
             genetics_trace["failed_assets"] = result.outputs.get("failed_assets", [])
+            _append_stage_provenance(genetics_trace, result)
         elif result.tool_name == "fine_mapping_audit":
             genetics_trace["credible_sets"] = result.outputs.get("credible_sets", [])
+            _append_stage_provenance(genetics_trace, result)
         elif result.tool_name == "eqtl_colocalization_audit":
             genetics_trace["colocalizations"] = result.outputs.get("colocalizations", [])
+            _append_stage_provenance(genetics_trace, result)
         elif result.tool_name == "genetics_candidate_extraction":
             genetics_trace["locus_to_gene_links"] = result.outputs.get("locus_to_gene_links", [])
             genetics_trace["unresolved_gwas_loci"] = result.outputs.get("unresolved_gwas_loci", [])
+            _append_stage_provenance(genetics_trace, result)
     report = {
         "contract_version": CONTRACT_VERSION,
         "task_id": task.task_id,

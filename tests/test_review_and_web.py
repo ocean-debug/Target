@@ -2,10 +2,12 @@ import json
 from pathlib import Path
 
 from target_agent.contracts import (
-    CoverageStatus, TaskContext, TaskSpec, ToolCapability, ToolResult, ToolStatus,
+    ArtifactRef, CoverageStatus, TaskContext, TaskSpec, TerminalStatus, ToolCapability,
+    ToolResult, ToolStatus,
 )
+from target_agent.reporting import build_disease_report
 from target_agent.reviewer import Reviewer
-from target_agent.webapp import create_app
+from target_agent.webapp import _build_public_bundle, create_app
 
 from .test_runtime import fake_runtime, uc_task
 
@@ -66,6 +68,58 @@ def test_demo_catalog_and_bundle_are_frontend_ready(tmp_path):
     assert bundle["tools"]
     assert bundle["trace"]
     assert "tool_run_id" not in json.dumps(bundle["tools"])
+
+
+def test_public_bundle_preserves_legacy_source_contract_version():
+    bundle = _build_public_bundle(
+        "run-legacy", {"contract_version": "2.1.0"},
+        {"contract_version": "2.1.0"}, {}, [], [], [], [],
+    )
+    assert bundle["contract_version"] == "2.1.0"
+    assert bundle["source_contract_version"] == "2.1.0"
+    assert bundle["rendered_contract_version"] == "2.2.0"
+
+
+def test_genetics_report_preserves_stage_artifact_provenance():
+    stage_outputs = {
+        "genetics_input_audit": {"assets": [{"asset_id": "gwas-1"}]},
+        "fine_mapping_audit": {"credible_sets": [{"signal_id": "signal-1"}]},
+        "eqtl_colocalization_audit": {"colocalizations": [{"gene_symbol": "GENE1"}]},
+        "genetics_candidate_extraction": {"locus_to_gene_links": [{"gene_symbol": "GENE1"}]},
+    }
+    results = [
+        ToolResult(
+            tool_run_id=f"tool-{index}", tool_name=tool_name, tool_version="1",
+            status=ToolStatus.SUCCESS, coverage_status=CoverageStatus.COVERED,
+            context_match_score=1.0, outputs=outputs, capability=ToolCapability(),
+            artifacts=[ArtifactRef(
+                name=f"{tool_name}.json", uri=f"artifact://{tool_name}.json",
+                sha256=str(index) * 64, media_type="application/json",
+            )],
+        )
+        for index, (tool_name, outputs) in enumerate(stage_outputs.items(), start=1)
+    ]
+
+    report, _ = build_disease_report(
+        TaskSpec(
+            task_type="disease_to_target", question="Find targets",
+            context=TaskContext(disease="example disease"),
+        ),
+        TerminalStatus.COMPLETED, [], [], [], results,
+    )
+
+    trace = report["genetics_selection_trace"]
+    assert trace["input_audit"] == [{"asset_id": "gwas-1"}]
+    assert trace["credible_sets"] == [{"signal_id": "signal-1"}]
+    assert trace["colocalizations"] == [{"gene_symbol": "GENE1"}]
+    assert trace["locus_to_gene_links"] == [{"gene_symbol": "GENE1"}]
+    for index, tool_name in enumerate(stage_outputs, start=1):
+        provenance = trace["provenance"][tool_name][0]
+        artifact_name = f"{tool_name}.json"
+        assert trace["selected_tool_runs"][tool_name] == f"tool-{index}"
+        assert provenance["tool_run_id"] == f"tool-{index}"
+        assert provenance["artifacts"][0]["name"] == artifact_name
+        assert provenance["artifact_checksums"][artifact_name] == str(index) * 64
 
 
 def test_missing_run_event_stream_and_invalid_json_fail_fast(tmp_path):

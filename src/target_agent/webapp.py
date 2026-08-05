@@ -442,6 +442,12 @@ def _build_public_bundle(
     run_id: str, status: dict, report: dict, plan: dict,
     cards: list[dict], tools: list[dict], evidence: list[dict], trace: list[dict],
 ) -> dict:
+    source_contract_version = (
+        status.get("contract_version")
+        or report.get("contract_version")
+        or plan.get("contract_version")
+        or CONTRACT_VERSION
+    )
     claim_classes: dict[str, int] = {}
     genes: dict[str, int] = {}
     for item in evidence:
@@ -456,7 +462,9 @@ def _build_public_bundle(
         selected_evidence = evidence[:24]
 
     return _public_value({
-        "contract_version": CONTRACT_VERSION,
+        "contract_version": source_contract_version,
+        "source_contract_version": source_contract_version,
+        "rendered_contract_version": CONTRACT_VERSION,
         "run": {
             "run_id": run_id,
             "terminal_status": status.get("terminal_status"),

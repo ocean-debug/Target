@@ -60,3 +60,16 @@ Cross-module contracts, workflow choices, model boundaries and scientific-safety
 - The append-only ToolResult ledger retains failed attempts. Review and terminal status use the latest effective attempt for each tool after repair.
 - Matrix eligibility, replication, biological context, model scope, causal boundaries and safety blockers cannot be cleared by retry.
 - If repair is unavailable or still fails, the system preserves the corresponding evidence gap and degraded terminal status.
+
+## 2026-08-05 - V2.2 controlled human-genetics evidence boundary
+
+- **Status:** accepted; narrows the V3 phase-one statement that no controlled human-genetics input existed. General eQTL ingestion and statistical fine-mapping/colocalization recomputation remain roadmap work.
+- The target-discovery contract advances to `2.2.0`; homogeneous `2.0.0` and `2.1.0` payloads use explicit one-way adapters, while mixed contract trees are rejected.
+- The current genetics lane audits pre-staged, checksum-bound GWAS summary statistics, SuSiE per-signal posterior credible sets and coloc results. It does not recompute fine-mapping or colocalization and does not execute arbitrary analysis code.
+- A locus-to-gene result enters the strict human-genetics score only after study, phenotype, build, ancestry, LD, signal, regional variant manifest, allele harmonization, overlap, posterior, sensitivity and biological-context gates pass. GWAS-only loci remain unresolved; nearest-gene assignment is forbidden.
+- Colocalization supports a shared association signal under the supplied model and priors. It remains `INFERRED`, does not establish the causal gene or variant and does not determine therapeutic direction.
+- Open Targets aggregate genetic association is retained as non-formal database context; somatic-mutation evidence is represented separately. Neither can independently satisfy the strict genetics `GO` gate.
+- For `gwas_locus_to_target`, the rankable candidate universe is restricted to checksum- and provenance-validated formal candidates emitted by the genetics extraction chain. Disease-level aggregate sources may annotate those candidates but may not expand the locus-specific universe.
+- Non-terminal runs created under an older contract cannot resume in place under `2.2.0`; callers must start a derived current-contract run. Terminal legacy runs remain readable without mutation.
+- Public bundles expose the stored run's source contract as `contract_version`/`source_contract_version` and the current renderer separately as `rendered_contract_version`.
+- Genetics report provenance is additive across retries. Each selected stage records its exact ToolRun plus artifact checksums; earlier attempts remain available for audit.

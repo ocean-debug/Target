@@ -475,6 +475,8 @@ class GeneticEvidencePayload(ContractModel):
             raise ValueError("association-only and database-aggregate evidence cannot enter formal genetics scoring")
         if self.formal_score_eligible and self.evidence_type not in {"colocalization", "locus_to_gene"}:
             raise ValueError("only audited colocalization or locus-to-gene evidence is formally score eligible")
+        if self.formal_score_eligible and self.strength <= 0:
+            raise ValueError("formal genetic evidence requires positive statistical support")
         if self.formal_score_eligible and (
             not self.gene_symbol or not self.locus_id or not self.signal_id
             or not self.molecular_study_id or not self.method or not self.method_version
@@ -516,6 +518,8 @@ class EvidenceItem(ContractModel):
             raise ValueError("formal genetic payload study/locus/signal must match EvidenceContext")
         if not self.context.genome_build or not self.context.ancestry:
             raise ValueError("formal genetic evidence requires genome build and ancestry context")
+        if self.stance != Stance.SUPPORTS:
+            raise ValueError("formal locus-to-gene evidence must have a supporting stance")
         if self.context_match_score < 0.5:
             raise ValueError("low-context genetic evidence cannot be marked formal score eligible")
         return self
@@ -547,7 +551,7 @@ class ToolDescriptor(ContractModel):
     tool_id: str
     evidence_dimension: Literal[
         "scope", "dataset_discovery", "omics", "genetics", "literature",
-        "perturbation", "pathway", "drug", "causal_gold",
+        "perturbation", "pathway", "drug", "multi_evidence", "causal_gold",
     ]
     description: str
     input_types: list[str] = Field(default_factory=list)

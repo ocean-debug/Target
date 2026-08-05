@@ -24,20 +24,20 @@ For a disease, subtype, tissue, cell type, stage and desired phenotype, the prod
 
 Alignment data should come from actual target-research decisions and failure modes, not only synthetic question-answer pairs. The dataset must cover multiple disease classes, evidence availability levels, negative and conflicting evidence, context mismatch, tool failure, causal overreach and correct refusal. Planner, evidence extraction and Reviewer examples should preserve source spans and tool-run lineage. Only expert-approved cases can be promoted into training or workflow templates.
 
-Current status: the repository has structured Planner/Reviewer training assets, disease-library cases and fake/unit/live benchmark modes. It does not yet constitute a large, externally audited cross-disease alignment corpus.
+Current status: the repository has structured Planner/Reviewer training assets, disease-library cases and fake/unit/live benchmark modes. The externally stored Reviewer adapter used in prior acceptance covers the earlier generic V2.1 failure taxonomy; its weights are not tracked in Git. V2.2 genetics-specific examples still require separate scientific and engineering review and retraining. The current assets do not yet constitute a large, externally audited cross-disease alignment corpus.
 
 ### 2. Target-specific evidence contracts
 
 The public contract is more valuable than a fluent report. `TaskSpec`, `ToolResult`, `EvidenceItem`, `Claim`, `ReviewerFinding`, ranking components, blockers, `TargetCard` and `ExperimentPlan` encode the scientific distinctions needed for target decisions. Biological context, coverage, provenance and uncertainty are required fields rather than optional prose.
 
-Current status: contract `2.1.0`, generated schemas, append-only Evidence Store and trace/report linkage are implemented for the existing target-discovery runtime. V3 project contracts add durable work-item, artifact, assessment and decision records around that runtime.
+Current status: contract `2.2.0`, generated schemas, append-only Evidence Store and trace/report linkage are implemented for the existing target-discovery runtime. V3 project contracts add durable work-item, artifact, assessment and decision records around that runtime.
 
 ### 3. Unified multi-evidence target graph
 
 The target view should join six evidence lanes without erasing their differences:
 
 ```text
-human genetics / GWAS / eQTL
+controlled GWAS inputs + supplied precomputed eQTL/coloc outputs
               + disease-context bulk and single-cell omics
               + observed and predicted perturbation
               + literature and mechanism convergence
@@ -46,13 +46,13 @@ human genetics / GWAS / eQTL
               -> target evidence graph -> ranking + blockers
 ```
 
-Current status: Open Targets genetics/association/drug evidence, dynamic GEO/CELLxGENE discovery, controlled bulk/single-cell workflows, Europe PMC RAG, ClinicalTrials.gov and scoped perturbation plugins exist. Dedicated ingestion of user GWAS summary statistics, fine-mapping, eQTL colocalization and broadly applicable perturbation Oracles remain to be implemented. Context-mismatched DeltaFactor/K562 results must not enter formal disease ranking.
+Current status: dynamic GEO/CELLxGENE discovery, controlled bulk/single-cell workflows, Europe PMC RAG, ClinicalTrials.gov and scoped perturbation plugins exist. Contract 2.2 adds controlled GWAS summary-statistics ingestion plus audits of precomputed SuSiE signal credible sets and precomputed coloc results with checksum-bound variant-level harmonization manifests. These statistical posteriors remain `INFERRED`; Open Targets aggregates are non-formal context and somatic mutation is not conflated with inherited genetics. Statistical fine-mapping/coloc recomputation and broadly applicable perturbation Oracles remain roadmap work. Context-mismatched DeltaFactor/K562 results must not enter formal disease ranking.
 
 ### 4. Reviewer that repairs, not only scores
 
-The Reviewer should detect missing provenance, invalid sample grouping, context mismatch, contradictory evidence, unsupported causal language, numeric inconsistency and incomplete outputs. An actionable finding can trigger a bounded alternate-dataset selection, evidence supplementation or replan. A deterministic scientific gate cannot be waived by the LLM.
+The Reviewer should detect missing provenance, invalid sample grouping, context mismatch, contradictory evidence, unsupported causal language, numeric inconsistency and incomplete outputs. An actionable finding can recommend alternate-dataset selection, evidence supplementation or replan. A deterministic scientific gate cannot be waived by the LLM.
 
-Current status: deterministic review, optional structured LLM/LoRA confirmation and bounded repair exist. A failed allowlisted read-only connector (GEO search, CELLxGENE discovery, Open Targets, Europe PMC or ClinicalTrials.gov) can be retried within the declared tool/review budget and is then independently re-reviewed. Historical failed attempts remain in the ledger, while release uses the latest effective attempt. Invalid matrices, context mismatch, OOD models and scientific coverage gaps are never “repaired” by retry. General repair across every evidence lane remains a roadmap capability.
+Current status: deterministic review, optional structured LLM/LoRA confirmation and bounded connector repair exist. A failed allowlisted read-only connector (GEO search, CELLxGENE discovery, Open Targets, Europe PMC or ClinicalTrials.gov) can be retried within the declared tool/review budget and is then reviewed again by the configured Reviewer backend. Historical failed attempts remain in the ledger, while release uses the latest effective attempt. Invalid matrices, context mismatch, OOD models and scientific coverage gaps are never “repaired” by retry. Dataset switching and general repair across evidence lanes remain roadmap capabilities.
 
 ### 5. Blind ranking benchmark and expert audit
 
@@ -70,7 +70,7 @@ Current status: structured experiment plans and deterministic recommendation gat
 
 The Agent should be usable inside an existing scientist workbench: submit a target question, stream plan/run events, inspect evidence and Reviewer findings, download artifacts and resume a project. The same typed operations should be exposed through HTTP and MCP rather than forcing users into a standalone chat UI.
 
-Current status: the HTTP workbench provides run creation, status, SSE, reports and artifacts for the V2.1 workflow. V3 phase one adds project creation, project status, event-ledger and content-addressed artifact endpoints. API versioning/hardening and MCP exposure remain roadmap work; no current document should claim MCP as shipped.
+Current status: the HTTP workbench provides run creation, status, SSE, reports and artifacts for the V2.2 workflow. V3 phase one adds project creation, project status, event-ledger and content-addressed artifact endpoints. API versioning/hardening and MCP exposure remain roadmap work; no current document should claim MCP as shipped.
 
 ## V3 reliability control plane
 
@@ -81,14 +81,14 @@ The internal V3 control plane adapts proven ideas from SciForge, OpenScience, Op
 - events, assessments and decisions are append-only;
 - work items have typed inputs, outputs, dependencies, success criteria and stopping conditions;
 - execution checkpoints after bounded work so restart does not guess what happened;
-- independent review is bound to an exact artifact digest;
+- a separate assessment/review stage is bound to an exact artifact digest;
 - autonomous, checkpointed and supervised modes place explicit human approval points.
 
 These mechanisms serve one product outcome: a more reliable disease-target decision package.
 
 ## Current V3 phase-one scope
 
-The first increment introduces typed project/goal/work-item/plan/result/artifact/assessment/decision records, a filesystem project store, allowlisted module registry, constrained planner, work-item recovery, structural assessments and a target-discovery adapter. The existing V2.1 workflow remains the scientific engine and the deepest validated path.
+The first increment introduces typed project/goal/work-item/plan/result/artifact/assessment/decision records, a filesystem project store, allowlisted module registry, constrained planner, work-item recovery, structural assessments and a target-discovery adapter. The V2.2 workflow remains the scientific engine and deepest product path.
 
 Phase one does not provide arbitrary LLM-generated Python/R/shell execution, universal life-science workflow coverage, automatic wet-lab control, self-modifying code, automatic training, clinical decision support or scientific independence when one model produces and reviews the same claim.
 

@@ -43,7 +43,7 @@ def _jsonl(path):
 def observable(run_dir):
     """Extract everything a downstream consumer can observe from a run directory."""
     evidence = _jsonl(run_dir / "evidence_items.jsonl")
-    findings = _jsonl(run_dir / "findings.jsonl")
+    findings = _jsonl(run_dir / "reviewer_findings.jsonl")
     trace = _jsonl(run_dir / "trace.jsonl")
     tool_results = _jsonl(run_dir / "tool_results.jsonl")
     ranking = json.loads((run_dir / "ranked_targets.json").read_text())
@@ -58,7 +58,7 @@ def observable(run_dir):
         "trace_topology": [(event["event_type"], event["state"]) for event in trace],
         "checkpoint_stage": json.loads((run_dir / "checkpoint.json").read_text())["stage"],
         "report_exists": (run_dir / "report.md").exists(),
-        "case_exists": (run_dir / "case.json").exists(),
+        "case_exists": (run_dir / "case_record.json").exists(),
     }
 
 
@@ -80,6 +80,8 @@ def test_langgraph_matches_legacy_under_tool_call_budget(tmp_path):
     left = observable(tmp_path / "legacy" / "runs" / "run-budget")
     right = observable(tmp_path / "graph" / "runs" / "run-budget")
     assert left == right
+    assert left["terminal_status"] == "completed_with_gaps"
+    assert ("coverage_gap", "major") in left["findings"]
     assert ("degradation", "tool_execution") in left["trace_topology"]
 
 

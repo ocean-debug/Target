@@ -634,7 +634,7 @@ def _context_match(context: ToolContext, asset: EqtlColocalizationResultInput) -
     requested_tissue = (context.task.context.tissue or "").casefold()
     observed_tissue = asset.tissue.casefold()
     if not requested_tissue:
-        score = 0.6
+        score = 0.3
     elif requested_tissue == observed_tissue or requested_tissue in observed_tissue or observed_tissue in requested_tissue:
         score = 1.0
     else:
@@ -792,9 +792,9 @@ class EqtlColocalizationAuditTool(ScientificTool):
             if asset.eqtl_ancestry.casefold() != asset.ancestry.casefold():
                 reasons.append("gwas_eqtl_ancestry_mismatch")
             fine_key = (asset.gwas_study_id, row["locus_id"], row["signal_id"])
-            if fine_by_signal and fine_key not in fine_by_signal:
+            if fine_key not in fine_by_signal:
                 reasons.append("signal_missing_valid_credible_set")
-            elif fine_by_signal and row["position_key"] not in fine_by_signal[fine_key]:
+            elif fine_key in fine_by_signal and row["position_key"] not in fine_by_signal[fine_key]:
                 reasons.append("coloc_variant_outside_valid_credible_set")
             audited.append({
                 **row, "method": asset.method, "method_version": asset.method_version,

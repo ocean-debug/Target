@@ -2,25 +2,30 @@
 
 A traceable, recoverable vertical Agent for disease-driven drug-target discovery. It connects genetics, disease-context omics, perturbation, mechanism, druggability and safety evidence into ranked candidates, TargetCards and falsifiable experiments. Internal rubrics and benchmarks are quality gates, not the product itself.
 
-V3 adds an internal project-level reliability layer above the validated V2.1 target-discovery runtime: typed work items, immutable artifacts, resumable execution, append-only decisions and independent review. This infrastructure does not turn Target into a general-purpose scientific workbench. See [PRODUCT_V3.md](docs/PRODUCT_V3.md) for the product boundary, current capability and roadmap.
+V3 adds an internal project-level reliability layer above the target-discovery runtime: typed work items, immutable artifacts, resumable execution, append-only decisions and a separate digest-bound assessment stage. This infrastructure does not turn Target into a general-purpose scientific workbench. See [PRODUCT_V3.md](docs/PRODUCT_V3.md) for the product boundary, current capability and roadmap.
 
-## Validated target-discovery workflow (V2.1)
+## Target-discovery workflow (V2.2)
 
-## What V2.1 does
+## What V2.2 does
 
 ```text
 Disease -> GEO/CELLxGENE discovery -> metadata audit -> reviewed analysis recipe
-        -> bulk/single-cell evidence -> pathways -> genetics/literature/drugs/trials
+        -> bulk/single-cell evidence -> pathways
+        -> optional checksum-bound GWAS/SuSiE/coloc audit
+        -> aggregate associations/literature/drugs/trials
         -> Reviewer -> ranking -> TargetCards -> traceable report
 ```
 
-- Public contract `2.1.0` is defined by [contracts.py](src/target_agent/contracts.py); JSON Schemas are generated from Pydantic.
+- Public contract `2.2.0` is defined by [contracts.py](src/target_agent/contracts.py); JSON Schemas are generated from Pydantic.
+- The strict human-genetics lane accepts controlled GWAS summary statistics, precomputed SuSiE signal credible sets and precomputed coloc results only when checksums, study/build/ancestry links and a variant-level harmonization manifest pass deterministic gates. GWAS-only loci remain unresolved; nearest-gene mapping is forbidden.
+- Open Targets genetic-association and somatic-mutation aggregates are kept distinct. Aggregate scores can add database context but cannot enter the 25-point strict human-genetics dimension or satisfy the `GO` gate.
 - GEO discovery uses NCBI E-Utils and official GEO HTTPS/FTP resources.
 - ClinicalTrials.gov API v2 adds gene-named trial-registry evidence (`clinical_trials_gov`); claims are emitted only when the intervention or title text explicitly names the gene, and stopped trials are downgraded to uncertain.
 - The literature tool upgrades to full-text-aware RAG: open-access PMC full texts are section-parsed into a persistent shared FTS5 corpus with optional LLM reranking and bm25 fallback.
-- Two execution engines ship and are parity-tested: the legacy hand-rolled state machine and the LangGraph `StateGraph` runtime (default; `--runtime legacy` opts out). Both write byte-compatible run artifacts and share the same checkpoint/resume contract.
-- A systematic benchmark lives in [benchmark/](benchmark/): 14 gold tasks (fake/unit/live modes) covering the main chain, robustness, determinism, recovery, contract gates and engine parity; `python benchmark/runner.py` must score 100% in fake+unit mode.
+- Two execution engines ship and are parity-tested: the legacy hand-rolled state machine and the LangGraph `StateGraph` runtime (default; `--runtime legacy` opts out). Both write contract-compatible, parity-tested observable artifacts and share the same checkpoint/resume contract.
+- A systematic benchmark lives in [benchmark/](benchmark/): 14 internal contract/regression tasks (fake/unit/live modes) covering the main chain, robustness, determinism, recovery, contract gates and engine parity; `python benchmark/runner.py` must score 100% in fake+unit mode. This is not an external blind biological result.
 - The Reviewer LoRA pipeline (data + training + heldout evaluation + remote GPU runbook) is under [training/](training/); local CPU smoke is verified, full training runs on the external GPU profile only. At runtime the trained adapter acts as an optional probe-based confirmation layer inside the Reviewer (configure `TARGET_AGENT_REVIEWER_LORA_BASE`/`TARGET_AGENT_REVIEWER_LORA_ADAPTER`): deterministic gates stay authoritative, adapter answers are category-cross-checked and silently discarded on any parse/category failure, and SFT categories are mapped onto the canonical finding taxonomy before a ReviewerFinding is emitted.
+- The externally stored Reviewer adapter used in prior acceptance was trained on the earlier generic V2.1 failure taxonomy; model weights are not tracked in Git. V2.2 genetics gates are deterministic and authoritative; genetics-specific alignment examples require fresh scientific and engineering review and retraining before any model-alignment claim is upgraded.
 - PyDESeq2 accepts non-negative integer counts only. Continuous expression requires the explicitly enabled fixed limma backend.
 - Standard H5AD and 10x formal DE requires donor, cell type and condition metadata and runs donor-by-cell-type-by-condition pseudobulk.
 - CELLxGENE Census is a separately diagnosed optional backend fixed to version `2025-11-08`; an unavailable platform wheel is reported as a capability gap.
@@ -88,10 +93,10 @@ content-addressed artifact downloads. `checkpointed` projects require plan and r
 
 The workbench supports two paths without changing the scientific runtime:
 
-- **Validated replay:** `/api/demo/cases` lists available curated runs, and `/api/runs/{run_id}/bundle` returns a frontend-ready, secret-safe view of the stored Plan, Trace, tools, evidence, ranking, TargetCards and Reviewer findings.
-- **Live run:** the same page submits a new `TaskSpec 2.1.0`, streams Trace events over SSE and renders the resulting backend artifacts when the run reaches a terminal state.
+- **Acceptance-checked stored replay:** `/api/demo/cases` lists available curated runs, and `/api/runs/{run_id}/bundle` returns a frontend-ready, secret-safe view of the stored Plan, Trace, tools, evidence, ranking, TargetCards and Reviewer findings.
+- **Live run:** the same page submits a new `TaskSpec 2.2.0`, streams Trace events over SSE and renders the resulting backend artifacts when the run reaches a terminal state.
 
-Replay is explicitly labelled as a validated stored run. It does not call Step or public databases and is the recommended five-minute presentation path. Live execution remains available when network time permits.
+Replay is explicitly labelled as an acceptance-checked stored run. The acceptance covers Trace and artifact integrity, not biological truth. Replay does not call Step or public databases and is the recommended five-minute presentation path. Live execution remains available when network time permits.
 
 See [DEMO_GUIDE.md](docs/DEMO_GUIDE.md) for the five-minute narration, verification checklist and recovery path.
 
@@ -106,8 +111,8 @@ The repository contains no SSH target, remote path, Conda environment, scheduler
 - Low-context predictions are excluded from formal ranking.
 - Missing public omics data degrades to `completed_with_gaps`; genetics, literature and drug evidence continue.
 - Reports and the UI render structured Evidence Store values only.
-- Every analyzed source is bound to a checksum; analysis caches also bind the recipe, tool version, biological context and contract version.
-- Raw FASTQ/SRA, arbitrary GEO layouts, spatial analysis, patents and automatic code/training mutation are outside V2.1.
+- File-based analysis inputs and generated artifacts are checksum-bound. API evidence instead carries source locators, retrieval/tool-run provenance and available source-version metadata; analysis caches also bind the recipe, tool version, biological context and contract version.
+- Raw FASTQ/SRA, arbitrary GEO layouts, statistical fine-mapping/coloc recomputation, spatial analysis, patents and automatic code/training mutation are outside V2.2.
 
 ## Repository policy
 
