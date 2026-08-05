@@ -6,7 +6,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "benchmark"))
 
-from runner import run_task  # noqa: E402
+from runner import public_path_label, run_task  # noqa: E402
 
 
 def goldset_entry(task_id):
@@ -32,6 +32,12 @@ def test_non_unit_benchmark_tasks_declare_current_contract():
         for entry in entries
         if entry["mode"] != "unit"
     )
+
+
+def test_benchmark_report_path_labels_do_not_expose_absolute_paths(tmp_path):
+    assert public_path_label(ROOT / "benchmark" / "goldset_v2.jsonl") == \
+        "benchmark/goldset_v2.jsonl"
+    assert public_path_label(tmp_path / "private" / "goldset.jsonl") == "goldset.jsonl"
 
 
 def test_benchmark_unit_tasks_pass(tmp_path):

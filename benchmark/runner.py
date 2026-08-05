@@ -229,6 +229,14 @@ def check_assertion(assertion: dict, ctx: dict) -> str | None:
 
 
 # --------------------------------------------------------------------------- runner
+def public_path_label(path: Path) -> str:
+    """Keep benchmark reports portable and free of deployment-specific paths."""
+    try:
+        return path.resolve().relative_to(ROOT.resolve()).as_posix()
+    except ValueError:
+        return path.name
+
+
 def run_task(entry: dict, work: Path, cache_dir: Path | None = None) -> dict:
     started = time.perf_counter()
     results = []
@@ -318,7 +326,7 @@ def main() -> int:
         bucket["assertions"] += len(report["results"])
         bucket["passed"] += sum(1 for a in report["results"] if a["passed"])
     summary = {
-        "goldset": str(args.goldset), "live": args.live,
+        "goldset": public_path_label(args.goldset), "live": args.live,
         "tasks": len(executed), "tasks_passed": sum(1 for r in executed if r["passed"]),
         "assertions": total, "assertions_passed": passed,
         "score": round(passed / total, 4) if total else None,
