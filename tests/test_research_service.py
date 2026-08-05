@@ -142,7 +142,7 @@ def test_official_mcp_sdk_exposes_the_same_durable_service(tmp_path):
     async def exercise():
         async with mcp.Client(server) as client:
             tools = await client.list_tools()
-            names = {tool.name for tool in tools}
+            names = {tool.name for tool in tools.tools}
             assert {
                 "target_capabilities",
                 "target_create_disease_project",
