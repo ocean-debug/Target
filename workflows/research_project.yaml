@@ -1,0 +1,126 @@
+contract_version: "3.0.0"
+workflow: target_discovery_research_project
+product: disease_driven_drug_target_discovery_agent
+purpose: "Produce a traceable target ranking, TargetCards and falsifiable experiments for a disease question."
+
+product_boundary:
+  supported: disease_to_target
+  internal_infrastructure: project_run_artifact_control_plane
+  not_claimed: general_purpose_scientific_workbench
+
+required_input:
+  contract: TaskSpec@2.1.0
+  fields:
+    - disease
+    - biological_context
+    - desired_phenotype
+    - evidence_constraints
+
+required_outputs:
+  - ranked_target_candidates
+  - priority_target_cards
+  - falsifiable_experiment_plans
+  - evidence_gap_and_risk_report
+  - machine_readable_provenance
+
+evidence_lanes:
+  human_genetics:
+    weight: 0.25
+    current: open_targets_association_and_genetics
+    roadmap: [gwas_summary_statistics, fine_mapping, eqtl_colocalization]
+  disease_context_omics:
+    weight: 0.20
+    current: [geo_bulk, cellxgene_or_standard_single_cell]
+  perturbation:
+    weight: 0.20
+    current: scoped_optional_plugins
+    rule: context_mismatch_below_0.5_is_excluded
+    roadmap: matched_observed_and_predictive_oracles
+  mechanism_convergence:
+    weight: 0.15
+    current: [pathway_enrichment, literature_rag, evidence_graph]
+  druggability:
+    weight: 0.10
+    current: [open_targets_drugs, clinical_trials]
+  safety_translation:
+    weight: 0.10
+    current: open_targets_safety_and_independent_blockers
+
+internal_states:
+  - Intake
+  - TargetPlan
+  - HumanPlanCheckpoint
+  - ExecuteEvidenceWorkItem
+  - ValidateTargetContract
+  - RegisterImmutableArtifacts
+  - Reviewer
+  - RepairOrRequestEvidence
+  - RankAndBuildTargetCards
+  - ReleaseGate
+  - Finalize
+
+terminal_states: [completed, completed_with_gaps, needs_input, failed, cancelled]
+
+limits:
+  max_work_items: 12
+  max_attempts_per_item: 2
+  max_reviewer_repair_rounds: 2
+
+internal_modules:
+  - module: project_brief
+    required: true
+    dependencies: []
+  - module: literature_search
+    required: false
+    dependencies: [project_brief]
+  - module: hypothesis_generation
+    required: false
+    dependencies: [literature_search]
+  - module: target_discovery
+    required: true
+    input_contract: TaskSpec@2.1.0
+    dependencies: [project_brief]
+  - module: independent_review
+    required: true
+    dependencies: [literature_search, hypothesis_generation, target_discovery]
+  - module: research_report
+    required: true
+    dependencies: [independent_review]
+
+alignment_and_quality:
+  training_sources:
+    - expert_approved_real_target_cases
+    - context_mismatch_and_tool_failure_cases
+    - conflicting_and_negative_evidence_cases
+    - causal_overreach_and_correct_refusal_cases
+  promotion_rule: scientific_and_engineering_review_required
+  benchmark:
+    current: internal_contract_robustness_determinism_and_recovery_suite
+    roadmap: externally_blinded_target_ranking_and_blocker_benchmark
+
+human_checkpoints:
+  checkpointed: [plan_acceptance, material_replan, high_risk_target_recommendation, release]
+  supervised: [consequential_evidence_work_item, recommendation, release]
+
+release_gate:
+  required:
+    - target_task_contract_valid
+    - all_required_work_items_contract_valid
+    - all_required_artifacts_hash_valid
+    - ranked_candidates_exist
+    - required_target_cards_exist
+    - falsifiable_experiment_plans_exist
+    - no_blocking_reviewer_finding
+  otherwise: completed_with_gaps
+
+integration:
+  current: http_run_api_sse_and_phase_one_project_api
+  roadmap: versioned_external_project_api_and_mcp_server
+
+rules:
+  - the generic project layer is internal reliability infrastructure, not the product boundary
+  - every material target claim retains source tool run and biological context
+  - FACT OBSERVED PREDICTED and INFERRED remain distinct
+  - opposing evidence and safety blockers are never averaged away
+  - reviewer repair is bounded and deterministic scientific gates remain authoritative
+  - unsupported evidence lanes become explicit gaps rather than fabricated completion

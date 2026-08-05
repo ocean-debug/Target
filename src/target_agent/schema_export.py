@@ -10,6 +10,10 @@ from .contracts import (
     OmicsResult, ReviewerFinding, TargetCard, TaskSpec, ToolDescriptor, ToolResult,
     TraceEvent,
 )
+from .research_contracts import (
+    ArtifactRecord, AssessmentRecord, DataContract, DecisionEvent, ProjectEvent,
+    ProjectState, ResearchGoal, ResearchPlan, ResearchProjectSpec, WorkItemResult, WorkItemSpec,
+)
 
 
 MODELS = {
@@ -29,6 +33,17 @@ MODELS = {
     "analysis_recipe": AnalysisRecipe,
     "omics_result": OmicsResult,
     "tool_descriptor": ToolDescriptor,
+    "research_project_spec": ResearchProjectSpec,
+    "research_goal": ResearchGoal,
+    "research_plan": ResearchPlan,
+    "research_work_item": WorkItemSpec,
+    "research_work_item_result": WorkItemResult,
+    "research_data_contract": DataContract,
+    "research_artifact": ArtifactRecord,
+    "research_assessment": AssessmentRecord,
+    "research_decision": DecisionEvent,
+    "research_project_event": ProjectEvent,
+    "research_project_state": ProjectState,
 }
 
 

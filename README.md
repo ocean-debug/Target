@@ -1,6 +1,10 @@
 # TargetDiscovery Agent
 
-A traceable life-science research Agent for disease-driven drug-target discovery. The product is an Agent; internal rubrics and tests are quality gates, not a standalone evaluation platform.
+A traceable, recoverable vertical Agent for disease-driven drug-target discovery. It connects genetics, disease-context omics, perturbation, mechanism, druggability and safety evidence into ranked candidates, TargetCards and falsifiable experiments. Internal rubrics and benchmarks are quality gates, not the product itself.
+
+V3 adds an internal project-level reliability layer above the validated V2.1 target-discovery runtime: typed work items, immutable artifacts, resumable execution, append-only decisions and independent review. This infrastructure does not turn Target into a general-purpose scientific workbench. See [PRODUCT_V3.md](docs/PRODUCT_V3.md) for the product boundary, current capability and roadmap.
+
+## Validated target-discovery workflow (V2.1)
 
 ## What V2.1 does
 
@@ -58,10 +62,19 @@ Copy `.env.example` to an untracked `.env`, or inject variables through the proc
 ```bash
 target-agent --env-file .env llm-smoke-test
 target-agent run --input cases/main_demo/input.uc_demo.yaml
+target-agent project-run --input cases/research_project.example.yaml
+target-agent project-status --project-id project-alzheimer-example
+# For the example's checkpointed mode, accept the printed plan id and resume:
+target-agent project-approve --project-id project-alzheimer-example --target-id PLAN_ID \
+  --actor reviewer --rationale "Plan scope and evidence budget accepted" --resume
 target-agent serve --host 127.0.0.1 --port "$TARGET_AGENT_PORT"
 ```
 
 `serve` uses Waitress. Add `--dev` only when the Flask development server is intentionally required.
+The V3 HTTP surface adds `POST /api/projects`, `GET /api/projects/{project_id}`,
+`GET /api/projects/{project_id}/events`, `POST /api/projects/{project_id}/decisions` and
+content-addressed artifact downloads. `checkpointed` projects require plan and release acceptance;
+`supervised` projects additionally require each work-item acceptance. MCP publication remains a roadmap integration.
 
 ## Demo workbench
 

@@ -2,7 +2,7 @@
 
 ## Project objective
 
-Build a traceable life-science research Agent for disease-driven drug target discovery. The product is an Agent, not a standalone evaluation platform.
+Build a traceable, recoverable vertical Agent for disease-driven drug-target discovery. Its internal project/run/artifact layer exists to make long-horizon target research reliable; it is not a general-purpose research product. The product is an Agent, not a standalone evaluation platform.
 
 ## Non-negotiable scientific rules
 

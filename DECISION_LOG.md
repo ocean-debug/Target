@@ -43,3 +43,12 @@ Cross-module contracts, workflow choices, model boundaries and scientific-safety
 - The replay bundle is derived only from persisted status, Plan, Trace, ToolResult, EvidenceItem, ranking and TargetCard artifacts.
 - Internal tool/event identifiers, absolute server paths and secrets are excluded from the public bundle.
 - Frontend code performs presentation only and does not create new scientific scores, claims or database results.
+
+## 2026-08-05 - V3 project control plane serves the vertical Target product
+
+- **Status:** accepted
+- Target remains a disease-driven drug-target-discovery Agent; the project/run/artifact model is internal reliability infrastructure, not a general-purpose scientific-workbench claim.
+- The project contract is `3.0.0` and wraps, rather than replaces, the target-specific `TaskSpec 2.1.0`, evidence contracts, ranking rules, Reviewer gates and TargetCards.
+- Accepted plans use allowlisted typed modules. Artifact snapshots are content-addressed; project events, assessments and decisions are append-only.
+- The vertical project plan invokes the existing disease-target workflow as one bounded module instead of duplicating its literature, omics and evidence-fusion stages at project level.
+- Phase-one HTTP project endpoints are shipped for embedding. MCP, external blind target-ranking evaluation, GWAS/eQTL ingestion and broad perturbation Oracles remain roadmap work and must not be represented as completed.

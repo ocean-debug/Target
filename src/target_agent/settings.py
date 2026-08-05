@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     ncbi_api_key: SecretStr | None = Field(default=None, alias="NCBI_API_KEY", repr=False)
     ncbi_email: str | None = Field(default=None, alias="NCBI_EMAIL")
     runs_dir: Path = Field(default=PROJECT_ROOT / "runs", alias="TARGET_AGENT_RUN_DIR")
+    projects_dir: Path = Field(default=PROJECT_ROOT / "projects", alias="RESEARCH_AGENT_PROJECT_DIR")
     cache_dir: Path = Field(default=PROJECT_ROOT / "cache", alias="TARGET_AGENT_CACHE_DIR")
     tool_registry_path: Path = Field(
         default=PROJECT_ROOT / "configs" / "tool_registry.yaml",
@@ -59,6 +60,7 @@ class Settings(BaseSettings):
             "census_expression_enabled": self.enable_census_expression,
             "reviewer_lora_configured": bool(self.reviewer_lora_base and self.reviewer_lora_adapter),
             "runs_dir_writable": _writable_parent(self.runs_dir),
+            "projects_dir_writable": _writable_parent(self.projects_dir),
             "cache_dir_writable": _writable_parent(self.cache_dir),
         }
 

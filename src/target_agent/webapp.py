@@ -11,6 +11,11 @@ from flask import Flask, Response, jsonify, request, send_file, send_from_direct
 from pydantic import ValidationError
 
 from .contracts import CONTRACT_VERSION, TaskSpec, new_id
+from .research_contracts import (
+    RESEARCH_CONTRACT_VERSION, DecisionAction, DecisionEvent, ProjectStatus, ResearchProjectSpec,
+)
+from .research_runtime import ResearchProjectRuntime
+from .research_store import ResearchProjectStore
 from .runtime import TargetDiscoveryRuntime
 
 
@@ -48,10 +53,14 @@ class BoundedExecutor:
         return True
 
 
-def create_app(runtime: TargetDiscoveryRuntime | None = None) -> Flask:
+def create_app(
+    runtime: TargetDiscoveryRuntime | None = None,
+    research_runtime: ResearchProjectRuntime | None = None,
+) -> Flask:
     if runtime is None:
         from .runtime_langgraph import LangGraphRuntime
         runtime = LangGraphRuntime()
+    research_runtime = research_runtime or ResearchProjectRuntime(settings=runtime.settings)
     static_dir = Path(__file__).with_name("web") / "static"
     app = Flask(__name__, static_folder=str(static_dir), static_url_path="/static")
     pool = BoundedExecutor(runtime.settings.web_workers, runtime.settings.web_queue_size)
@@ -69,12 +78,14 @@ def create_app(runtime: TargetDiscoveryRuntime | None = None) -> Flask:
         public = runtime.settings.public_summary()
         return jsonify({
             "status": "ok", "contract_version": CONTRACT_VERSION,
+            "research_contract_version": RESEARCH_CONTRACT_VERSION,
             "service": {"status": "ok"},
             "database": {
                 "kind": "filesystem_evidence_store",
                 "status": "ok" if public["runs_dir_writable"] else "unavailable",
             },
             "cache": {"status": "ok" if public["cache_dir_writable"] else "unavailable"},
+            "projects": {"status": "ok" if public["projects_dir_writable"] else "unavailable"},
             "executor": {"status": "ok", "workers": pool.workers, "queue_size": pool.queue_size},
         })
 
@@ -84,8 +95,10 @@ def create_app(runtime: TargetDiscoveryRuntime | None = None) -> Flask:
 
         return jsonify({
             "contract_version": CONTRACT_VERSION,
+            "research_contract_version": RESEARCH_CONTRACT_VERSION,
             "settings": runtime.settings.public_summary(),
             "tools": runtime.registry.public_capabilities(),
+            "research_modules": research_runtime.registry.public_capabilities(),
             "analysis_backends": {
                 "pydeseq2": bool(importlib.util.find_spec("pydeseq2")),
                 "gseapy": bool(importlib.util.find_spec("gseapy")),
@@ -237,6 +250,136 @@ def create_app(runtime: TargetDiscoveryRuntime | None = None) -> Flask:
             return jsonify({"error": "artifact not found"}), 404
         return send_file(path, as_attachment=name.endswith((".md", ".json", ".jsonl", ".csv")))
 
+    @app.post("/api/projects")
+    def create_project():
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            return jsonify({"error": "request body must be a JSON object"}), 400
+        try:
+            project = ResearchProjectSpec.model_validate(payload)
+        except ValidationError as exc:
+            return jsonify({"error": "invalid ResearchProjectSpec", "detail": exc.errors(include_url=False)}), 400
+        store = ResearchProjectStore(research_runtime.projects_dir, project.project_id)
+        try:
+            reserved = store.create(project)
+        except ValueError as exc:
+            return jsonify({"error": "project id conflicts with an immutable project", "detail": str(exc)}), 409
+        if not reserved:
+            return jsonify({"error": "project id already exists"}), 409
+
+        def project_worker() -> None:
+            try:
+                research_runtime.run(project)
+            except Exception as exc:
+                failed_store = ResearchProjectStore(research_runtime.projects_dir, project.project_id)
+                from .research_contracts import ProjectState, ProjectStatus
+                current = failed_store.load_state()
+                terminal = current and current.status in {
+                    ProjectStatus.COMPLETED, ProjectStatus.COMPLETED_WITH_GAPS,
+                    ProjectStatus.FAILED, ProjectStatus.CANCELLED,
+                }
+                if not terminal:
+                    failed_store.save_state(ProjectState(
+                        project_id=project.project_id, status=ProjectStatus.FAILED,
+                        attempts=current.attempts if current else {},
+                        terminal_reason=f"Unhandled project runtime error: {exc.__class__.__name__}",
+                    ))
+                    failed_store.append_event("project_terminal", "failed", detail={"error": exc.__class__.__name__})
+
+        if not pool.submit(project_worker):
+            return jsonify({"error": "project queue is full", "retryable": True}), 429
+        return jsonify({
+            "project_id": project.project_id,
+            "status_url": f"/api/projects/{project.project_id}",
+            "events_url": f"/api/projects/{project.project_id}/events",
+        }), 202
+
+    @app.get("/api/projects/<project_id>")
+    def get_project(project_id: str):
+        project_id = _safe_project_id(project_id)
+        store = ResearchProjectStore(research_runtime.projects_dir, project_id)
+        spec = store.load_spec()
+        state = store.load_state()
+        if spec is None:
+            return jsonify({"error": "project not found"}), 404
+        return jsonify({
+            "contract_version": RESEARCH_CONTRACT_VERSION,
+            "spec": spec.model_dump(mode="json"),
+            "state": state.model_dump(mode="json") if state else None,
+            "plan": store.load_plan().model_dump(mode="json") if store.load_plan() else None,
+            "work_item_results": [row.model_dump(mode="json") for row in store.load_work_item_results().values()],
+            "artifacts": [row.model_dump(mode="json") for row in store.read_artifacts()],
+        })
+
+    @app.get("/api/projects/<project_id>/events")
+    def project_events(project_id: str):
+        project_id = _safe_project_id(project_id)
+        store = ResearchProjectStore(research_runtime.projects_dir, project_id)
+        if store.load_spec() is None:
+            return jsonify({"error": "project not found"}), 404
+        return jsonify({"events": [row.model_dump(mode="json") for row in store.read_events()]})
+
+    @app.post("/api/projects/<project_id>/decisions")
+    def accept_project_checkpoint(project_id: str):
+        project_id = _safe_project_id(project_id)
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            return jsonify({"error": "request body must be a JSON object"}), 400
+        target_id = str(payload.get("target_id") or "").strip()
+        actor = str(payload.get("actor") or "").strip()
+        rationale = str(payload.get("rationale") or "").strip()
+        if not target_id or not actor or not rationale:
+            return jsonify({"error": "target_id, actor and rationale are required"}), 400
+        store = ResearchProjectStore(research_runtime.projects_dir, project_id)
+        spec, plan = store.load_spec(), store.load_plan()
+        if spec is None or plan is None:
+            return jsonify({"error": "project or plan not found"}), 404
+        allowed_targets = {plan.plan_id, *(item.item_id for item in plan.items), f"release:{plan.plan_id}"}
+        if target_id not in allowed_targets:
+            return jsonify({"error": "decision target is not part of the frozen project plan"}), 400
+        existing = next((row for row in store.read_decisions()
+                         if row.action == DecisionAction.ACCEPT and target_id in row.target_ids), None)
+        if existing is None:
+            decision = DecisionEvent(
+                project_id=project_id, action=DecisionAction.ACCEPT, target_ids=[target_id],
+                rationale=rationale, actor=actor, reversible=False,
+            )
+            store.append_decision(decision)
+        else:
+            decision = existing
+
+        def resume_worker() -> None:
+            try:
+                research_runtime.run(spec, resume=True)
+            except Exception:
+                return
+
+        queued = pool.submit(resume_worker)
+        return jsonify({
+            "decision": decision.model_dump(mode="json"),
+            "resume_queued": queued,
+            "status_url": f"/api/projects/{project_id}",
+        }), 202 if queued else 429
+
+    @app.get("/api/projects/<project_id>/artifacts/<artifact_id>")
+    def project_artifact(project_id: str, artifact_id: str):
+        project_id = _safe_project_id(project_id)
+        if not artifact_id or Path(artifact_id).name != artifact_id:
+            return jsonify({"error": "invalid artifact id"}), 400
+        store = ResearchProjectStore(research_runtime.projects_dir, project_id)
+        record = next((row for row in store.read_artifacts() if row.artifact_id == artifact_id), None)
+        if record is None:
+            return jsonify({"error": "artifact not found"}), 404
+        try:
+            store.assert_integrity()
+        except ValueError:
+            return jsonify({"error": "project integrity check failed; artifact was not served"}), 409
+        path = store.artifact_path(record)
+        if not path.is_file():
+            return jsonify({"error": "artifact content is unavailable"}), 410
+        return send_file(path, mimetype=record.media_type, as_attachment=True,
+                         download_name=Path(path).name)
+
     return app
 
 
@@ -248,6 +391,12 @@ def _safe_run_dir(root: Path, run_id: str) -> Path:
     if root not in candidate.parents:
         raise ValueError("run path escaped root")
     return candidate
+
+
+def _safe_project_id(project_id: str) -> str:
+    if not project_id or Path(project_id).name != project_id or not project_id.startswith("project-"):
+        raise ValueError("invalid project id")
+    return project_id
 
 
 def _read_json(path: Path):

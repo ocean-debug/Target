@@ -15,6 +15,9 @@ from .contracts import TaskContext, TaskSpec
 from .legacy import adapt_task_spec_2_0
 from .llm import StepClient
 from .planner import Planner
+from .research_contracts import DecisionAction, DecisionEvent, ResearchProjectSpec
+from .research_runtime import ResearchProjectRuntime
+from .research_store import ResearchProjectStore
 from .runtime import TargetDiscoveryRuntime
 from .runtime_langgraph import LangGraphRuntime
 from .schema_export import export_schemas
@@ -28,6 +31,11 @@ def load_task(path: Path) -> TaskSpec:
     if payload.get("contract_version") == "2.0.0":
         return adapt_task_spec_2_0(payload)
     return TaskSpec.model_validate(payload)
+
+
+def load_research_project(path: Path) -> ResearchProjectSpec:
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    return ResearchProjectSpec.model_validate(payload)
 
 
 def _doctor(settings: Settings) -> dict:
@@ -91,6 +99,26 @@ def main() -> None:
     run.add_argument("--runtime", choices=["legacy", "langgraph"], default="langgraph",
                      help="Execution engine; both are parity-tested and write identical artifacts")
 
+    project_run = sub.add_parser("project-run", help="Run or resume a durable disease-target research project")
+    project_run.add_argument("--input", type=Path, required=True)
+    project_run.add_argument("--resume", action="store_true")
+    project_run.add_argument("--projects-dir", type=Path)
+    project_run.add_argument("--cache-dir", type=Path)
+
+    project_status = sub.add_parser("project-status", help="Read durable project state without executing work")
+    project_status.add_argument("--project-id", required=True)
+    project_status.add_argument("--projects-dir", type=Path)
+
+    project_approve = sub.add_parser("project-approve", help="Accept a frozen plan, supervised work item, or release gate")
+    project_approve.add_argument("--project-id", required=True)
+    project_approve.add_argument("--target-id", required=True,
+                                 help="Plan id, work-item id, or release:<plan-id>")
+    project_approve.add_argument("--actor", required=True)
+    project_approve.add_argument("--rationale", required=True)
+    project_approve.add_argument("--projects-dir", type=Path)
+    project_approve.add_argument("--resume", action="store_true",
+                                 help="Resume the project immediately after recording acceptance")
+
     schemas = sub.add_parser("export-schemas", help="Export canonical Pydantic JSON Schemas")
     schemas.add_argument("--output", type=Path, default=Path("schemas"))
 
@@ -118,6 +146,7 @@ def main() -> None:
     serve.add_argument("--host", default="127.0.0.1")
     serve.add_argument("--port", type=int, required=True, help="Bind port supplied by the external deployment profile")
     serve.add_argument("--runs-dir", type=Path)
+    serve.add_argument("--projects-dir", type=Path)
     serve.add_argument("--cache-dir", type=Path)
     serve.add_argument("--runtime", choices=["legacy", "langgraph"], default="langgraph")
     serve.add_argument("--dev", action="store_true", help="Use Flask's development server")
@@ -128,6 +157,48 @@ def main() -> None:
         runtime_cls = LangGraphRuntime if args.runtime == "langgraph" else TargetDiscoveryRuntime
         runtime = runtime_cls(runs_dir=args.runs_dir, cache_dir=args.cache_dir, settings=settings)
         print(json.dumps(runtime.run(load_task(args.input), run_id=args.run_id, resume=args.resume), indent=2, ensure_ascii=False))
+    elif args.command == "project-run":
+        project_runtime = ResearchProjectRuntime(
+            projects_dir=args.projects_dir, cache_dir=args.cache_dir, settings=settings,
+        )
+        print(json.dumps(project_runtime.run(load_research_project(args.input), resume=args.resume),
+                         indent=2, ensure_ascii=False))
+    elif args.command == "project-status":
+        store = ResearchProjectStore(args.projects_dir or settings.projects_dir, args.project_id)
+        spec = store.load_spec()
+        state = store.load_state()
+        if spec is None:
+            raise SystemExit(f"project not found: {args.project_id}")
+        print(json.dumps({
+            "spec": spec.model_dump(mode="json"),
+            "state": state.model_dump(mode="json") if state else None,
+            "work_item_results": [row.model_dump(mode="json") for row in store.load_work_item_results().values()],
+            "artifacts": [row.model_dump(mode="json") for row in store.read_artifacts()],
+            "decisions": [row.model_dump(mode="json") for row in store.read_decisions()],
+        }, indent=2, ensure_ascii=False))
+    elif args.command == "project-approve":
+        store = ResearchProjectStore(args.projects_dir or settings.projects_dir, args.project_id)
+        spec, plan = store.load_spec(), store.load_plan()
+        if spec is None or plan is None:
+            raise SystemExit(f"project or plan not found: {args.project_id}")
+        allowed = {plan.plan_id, *(item.item_id for item in plan.items), f"release:{plan.plan_id}"}
+        if args.target_id not in allowed:
+            raise SystemExit("target id is not part of the frozen plan")
+        decision = next((row for row in store.read_decisions()
+                         if row.action == DecisionAction.ACCEPT and args.target_id in row.target_ids), None)
+        if decision is None:
+            decision = DecisionEvent(
+                project_id=args.project_id, action=DecisionAction.ACCEPT,
+                target_ids=[args.target_id], actor=args.actor, rationale=args.rationale,
+                reversible=False,
+            )
+            store.append_decision(decision)
+        result = {"decision": decision.model_dump(mode="json")}
+        if args.resume:
+            result["state"] = ResearchProjectRuntime(
+                projects_dir=args.projects_dir, settings=settings,
+            ).run(spec, resume=True)
+        print(json.dumps(result, indent=2, ensure_ascii=False))
     elif args.command == "export-schemas":
         for path in export_schemas(args.output):
             print(path)
@@ -197,7 +268,10 @@ def main() -> None:
     elif args.command == "serve":
         runtime_cls = LangGraphRuntime if args.runtime == "langgraph" else TargetDiscoveryRuntime
         runtime = runtime_cls(runs_dir=args.runs_dir, cache_dir=args.cache_dir, settings=settings)
-        app = create_app(runtime)
+        research_runtime = ResearchProjectRuntime(
+            projects_dir=args.projects_dir, cache_dir=args.cache_dir, settings=settings,
+        )
+        app = create_app(runtime, research_runtime)
         if args.dev:
             app.run(host=args.host, port=args.port, threaded=True)
         else:
@@ -205,4 +279,4 @@ def main() -> None:
             waitress_serve(app, host=args.host, port=args.port, threads=settings.web_workers)
 
 
-__all__ = ["main", "load_task", "_doctor", "_smoke_test"]
+__all__ = ["main", "load_task", "load_research_project", "_doctor", "_smoke_test"]

@@ -28,6 +28,7 @@ build/
 
 # Runtime artifacts and large biological data
 runs/
+projects/
 artifacts/
 cache/
 models/
