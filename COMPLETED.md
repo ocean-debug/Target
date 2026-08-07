@@ -133,6 +133,7 @@ typed transient failure
 - Reviewer LoRA 在模板一致的 30 条 held-out 集上通过合同测试，但这不代表开放世界 Reviewer 水平；
 - 当前项目修复的远程完整验收已经覆盖自动相同输入重跑、checkpointed 精确快照批准、逻辑 active item 集、release decision marker 重绑定、HTTP/MCP 和 benchmark ledger 修正；最终精确提交的验收结果以验证报告最后一节为准；
 - 远程 HTTP 端到端冒烟通过：创建项目 → 审批计划 → 真实工具执行（GEO 检索、组学分析、Europe PMC、Open Targets、ClinicalTrials）→ 终态 `completed_with_gaps` → 事件/产物/项目列表完整；
+- 2026-08-08 实时产品链路验证（Step 3.7 Flash + 冷缓存真实运行）：`init` → `project-run` → 计划 checkpoint → `project-approve --resume` → GEO 动态检索（10 候选、资格审核、拒绝理由可追溯）→ GSE197698/GSE206171 差异/通路/QC 分析 → 遗传/试验/文献 RAG → 10 个排名靶点 + 5 张 TargetCard + 11 条 Reviewer finding → 项目评审终态 `completed_with_gaps`（0 blocking）→ `project-export`（66 文件/1.67 MB zip）→ `project-package-inspect` → 全新目录 `project-import` 后状态与产物一致，重复导入拒绝覆盖；
 - 全量回归 289 passed / 2 skipped（含 9 项持久内核测试与 6 项领域 finding 修复策略测试：自动 R0/R1、checkpointed R2、越界拒绝、overlay revision、链式 resolution、方向一致性与证据独立性门禁）；远程内核守护进程冒烟通过：start → exec → status → stop。
 
 ## 6. 仍未完成
