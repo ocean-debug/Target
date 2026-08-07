@@ -24,8 +24,8 @@ from typing import Any
 import requests
 
 from ..contracts import (
-    ClaimClass, CoverageStatus, EvidenceContext, EvidenceItem, SourceLocator,
-    Stance, ToolCapability, ToolDescriptor, ToolResult, ToolStatus, new_id,
+    CONTRACT_VERSION, ClaimClass, CoverageStatus, EvidenceContext, EvidenceItem,
+    SourceLocator, Stance, ToolCapability, ToolDescriptor, ToolResult, ToolStatus, new_id,
 )
 from ..llm import LLMUnavailable, StepClient
 from .base import ScientificTool, ToolContext, ToolExecution
@@ -33,6 +33,7 @@ from .base import ScientificTool, ToolContext, ToolExecution
 
 EUROPE_PMC_SEARCH = "https://www.ebi.ac.uk/europepmc/webservices/rest/search"
 EUROPE_PMC_FULLTEXT = "https://www.ebi.ac.uk/europepmc/webservices/rest/{pmcid}/fullTextXML"
+LLM_STAGE_PROMPT_VERSION = 1
 
 
 def stable_chunks(source_id: str, text: str, size: int = 1200, overlap: int = 150,
@@ -185,52 +186,115 @@ class EuropePMCRAGTool(ScientificTool):
         return [{"chunk_id": r[0], "source_id": r[1], "section": r[2], "text": r[3]} for r in rows]
 
     # ---------------- LLM 重排(可降级) ----------------
+    def _llm_stage_key(self, stage: str, disease: str, genes: list[str],
+                       compact: list[dict[str, Any]]) -> str:
+        payload = {
+            "stage": stage,
+            "prompt_version": LLM_STAGE_PROMPT_VERSION,
+            "contract_version": CONTRACT_VERSION,
+            "tool_version": self.version,
+            "model": self.llm.model if self.llm else "none",
+            "disease": disease,
+            "genes": sorted(genes),
+            "chunks": compact,
+        }
+        return hashlib.sha256(
+            json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()
+
+    @staticmethod
+    def _llm_stage_load(cache_dir: Path | None, stage: str, key: str) -> dict[str, Any] | None:
+        if cache_dir is None:
+            return None
+        path = cache_dir / "literature_llm" / stage / f"{key}.json"
+        if not path.is_file():
+            return None
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+        return payload if isinstance(payload, dict) else None
+
+    @staticmethod
+    def _llm_stage_save(cache_dir: Path | None, stage: str, key: str, payload: dict[str, Any]) -> None:
+        if cache_dir is None:
+            return
+        path = cache_dir / "literature_llm" / stage / f"{key}.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
     def _llm_rerank(self, disease: str, genes: list[str],
-                    chunks: list[dict[str, str]]) -> tuple[list[dict[str, str]], str]:
+                    chunks: list[dict[str, str]],
+                    cache_dir: Path | None = None) -> tuple[list[dict[str, str]], str, bool]:
         if not self.llm or len(chunks) <= 4:
-            return chunks, "bm25_only"
+            return chunks, "bm25_only", False
         compact = [{"chunk_id": c["chunk_id"], "text": c["text"][:600]} for c in chunks[:20]]
         system = (
             "Rank text chunks by relevance to explicit disease-gene relationship claims. "
             "Return JSON with key ranked_chunk_ids (most relevant first, subset of supplied ids). "
             "Do not use outside knowledge."
         )
-        try:
-            payload = self.llm.json_completion(
-                system, json.dumps({"disease": disease, "genes": genes, "chunks": compact}))
-            ranked_ids = [str(x) for x in payload.get("ranked_chunk_ids", [])]
-        except (LLMUnavailable, TypeError, ValueError):
-            return chunks, "bm25_fallback_after_llm_error"
+        key = self._llm_stage_key("rerank", disease, genes, compact)
+        cached_payload = self._llm_stage_load(cache_dir, "rerank", key)
+        if cached_payload is not None:
+            ranked_ids = [str(x) for x in cached_payload.get("ranked_chunk_ids", [])]
+            backend = "step_rerank_cached"
+            cached = True
+        else:
+            try:
+                payload = self.llm.json_completion(
+                    system, json.dumps({"disease": disease, "genes": genes, "chunks": compact}))
+                ranked_ids = [str(x) for x in payload.get("ranked_chunk_ids", [])]
+            except (LLMUnavailable, TypeError, ValueError):
+                return chunks, "bm25_fallback_after_llm_error", False
+            self._llm_stage_save(cache_dir, "rerank", key, {"ranked_chunk_ids": ranked_ids})
+            backend = "step_rerank"
+            cached = False
         by_id = {c["chunk_id"]: c for c in chunks}
         ordered = [by_id[i] for i in ranked_ids if i in by_id]
         ordered += [c for c in chunks if c["chunk_id"] not in set(ranked_ids)]
         if not ordered:
-            return chunks, "bm25_fallback_empty_rerank"
-        return ordered, "step_rerank"
+            return chunks, "bm25_fallback_empty_rerank", cached
+        return ordered, backend, cached
 
     # ---------------- span 校验抽取(v2.1 逻辑保持) ----------------
-    def _llm_extract(self, disease: str, genes: list[str], chunks: list[dict[str, str]]) -> list[dict[str, str]]:
+    def _llm_extract(self, disease: str, genes: list[str], chunks: list[dict[str, str]],
+                     cache_dir: Path | None = None) -> tuple[list[dict[str, str]], bool]:
         if not self.llm or not chunks:
-            return []
+            return [], False
         compact = [{"chunk_id": c["chunk_id"], "text": c["text"]} for c in chunks[:12]]
         system = (
             "Extract only explicit disease-gene claims from supplied chunks. Return JSON with key claims. "
             "Each claim must have gene, chunk_id, exact_quote copied verbatim, stance "
             "(supports/refutes/mixed/uncertain), and statement. Do not use outside knowledge."
         )
-        try:
-            payload = self.llm.json_completion(system, json.dumps({"disease": disease, "genes": genes, "chunks": compact}))
-        except LLMUnavailable:
-            return []
+        key = self._llm_stage_key("extract", disease, genes, compact)
+        cached_payload = self._llm_stage_load(cache_dir, "extract", key)
+        if cached_payload is not None:
+            raw_claims = cached_payload.get("claims", [])
+            cached = True
+        else:
+            try:
+                payload = self.llm.json_completion(
+                    system, json.dumps({"disease": disease, "genes": genes, "chunks": compact}))
+            except LLMUnavailable:
+                return [], False
+            raw_claims = payload.get("claims", [])
+            self._llm_stage_save(cache_dir, "extract", key, {"claims": raw_claims})
+            cached = False
+        if not isinstance(raw_claims, list):
+            raw_claims = []
         by_id = {c["chunk_id"]: c["text"] for c in chunks}
         valid = []
-        for claim in payload.get("claims", []):
+        for claim in raw_claims:
+            if not isinstance(claim, dict):
+                continue
             quote = str(claim.get("exact_quote", ""))
             chunk_id = str(claim.get("chunk_id", ""))
             gene = str(claim.get("gene", ""))
             if gene in genes and chunk_id in by_id and quote and quote in by_id[chunk_id]:
                 valid.append(claim)
-        return valid
+        return valid, cached
 
     @staticmethod
     def _deterministic_extract(
@@ -318,8 +382,8 @@ class EuropePMCRAGTool(ScientificTool):
         shared_size = self._update_shared_corpus(shared_index, chunks)
         current_sources = {c["source_id"] for c in chunks}
         recalled = self._recall(shared_index, genes, prefer_sources=current_sources)
-        recalled, rerank_backend = self._llm_rerank(disease, genes, recalled)
-        extracted = self._llm_extract(disease, genes, recalled)
+        recalled, rerank_backend, rerank_cached = self._llm_rerank(disease, genes, recalled, context.cache_dir)
+        extracted, extract_cached = self._llm_extract(disease, genes, recalled, context.cache_dir)
         backend = "step_span_checked" if extracted else "deterministic_span_checked"
         if not extracted:
             extracted = self._deterministic_extract(disease, disease_terms, genes, recalled)
@@ -359,11 +423,13 @@ class EuropePMCRAGTool(ScientificTool):
                      "shared_corpus_chunks": shared_size,
                      "recalled_chunks": len(recalled), "rerank_backend": rerank_backend,
                      "extracted_claims": len(evidence), "extraction_backend": backend,
+                     "rerank_cached": rerank_cached, "extract_cached": extract_cached,
+                     "llm_stage_cached": rerank_cached or extract_cached,
                      "search_hits_are_evidence": False},
             capability=capability, data_version="EuropePMC:live-or-cache", code_version="2.2.0",
             parameters={"chunk_size": 1200, "chunk_overlap": 150,
                         "recall": "SQLite FTS5 BM25 over persistent shared corpus",
-                        "rerank": "optional Step LLM rerank with BM25 fallback",
+                        "rerank": "Step LLM rerank with persistent stage cache and BM25 fallback",
                         "fulltext": f"open-access fullTextXML, <= {self.max_fulltext} articles"},
             artifacts=[], evidence_ids=[item.evidence_id for item in evidence],
             warnings=[] if evidence else ["no_span_validated_claims"],

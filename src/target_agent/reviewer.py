@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 from collections import defaultdict
+import hashlib
 import json
+from pathlib import Path
 from typing import Any
 
 from pydantic import ValidationError
@@ -14,10 +16,20 @@ from .contracts import (
 from .llm import LLMUnavailable, StepClient
 
 
+LLM_REVIEW_PROMPT_VERSION = 1
+# The reviewer payload is much larger than planner prompts; Step routinely
+# needs 60-120s on it. Give it a dedicated budget and fail over to the
+# deterministic gates after one retry instead of burning 3x90s.
+REVIEWER_READ_TIMEOUT_SECONDS = 240
+REVIEWER_MAX_RETRIES = 1
+
+
 class Reviewer:
-    def __init__(self, client: StepClient | None = None, settings=None):
+    def __init__(self, client: StepClient | None = None, settings=None,
+                 cache_dir: Path | None = None):
         self.client = client
         self.last_backend = "deterministic"
+        self.cache_dir = cache_dir
         self._lora = None
         self._lora_failed = False
         if (
@@ -270,29 +282,43 @@ class Reviewer:
                 self.last_backend = "deterministic"
             return []
         allowed_ids = {result.tool_run_id for result in results} | {item.evidence_id for item in evidence}
-        payload: dict[str, Any] = {
-            "task": task.model_dump(mode="json"),
+        allowed_ids = {result.tool_run_id for result in results} | {item.evidence_id for item in evidence}
+        tool_rows = [
+            {
+                "tool_run_id": result.tool_run_id, "tool_name": result.tool_name,
+                "status": result.status.value, "coverage_status": result.coverage_status.value,
+                "context_match_score": result.context_match_score,
+                "warnings": result.warnings, "limitations": result.limitations,
+                "outputs": {
+                    key: value for key, value in result.outputs.items()
+                    if key in {"selection_trace", "formal_score_eligible", "analysis_stage", "numeric_validation_errors"}
+                },
+            }
+            for result in results
+        ]
+        evidence_rows = [
+            {
+                "evidence_id": item.evidence_id, "gene": item.gene_symbol,
+                "claim_class": item.claim_class.value, "statement": item.statement,
+                "context": item.context.model_dump(mode="json"),
+                "context_match_score": item.context_match_score,
+            }
+            for item in evidence[:100]
+        ]
+        task_payload = task.model_dump(mode="json")
+        # Per-run trace handles must not change the review contract: normalize
+        # them to stable positional tokens so an identical scientific payload
+        # replays from cache across runs. The LLM always sees the normalized
+        # payload; replayed findings are mapped back to current ids and
+        # re-validated against the current provenance set.
+        normalized_payload: dict[str, Any] = {
+            "task": {key: value for key, value in task_payload.items()
+                     if key not in {"task_id", "created_at"}},
             "tool_results": [
-                {
-                    "tool_run_id": result.tool_run_id, "tool_name": result.tool_name,
-                    "status": result.status.value, "coverage_status": result.coverage_status.value,
-                    "context_match_score": result.context_match_score,
-                    "warnings": result.warnings, "limitations": result.limitations,
-                    "outputs": {
-                        key: value for key, value in result.outputs.items()
-                        if key in {"selection_trace", "formal_score_eligible", "analysis_stage", "numeric_validation_errors"}
-                    },
-                }
-                for result in results
+                {**row, "tool_run_id": f"tool:{index}"} for index, row in enumerate(tool_rows)
             ],
             "evidence": [
-                {
-                    "evidence_id": item.evidence_id, "gene": item.gene_symbol,
-                    "claim_class": item.claim_class.value, "statement": item.statement,
-                    "context": item.context.model_dump(mode="json"),
-                    "context_match_score": item.context_match_score,
-                }
-                for item in evidence[:100]
+                {**row, "evidence_id": f"ev:{index}"} for index, row in enumerate(evidence_rows)
             ],
         }
         system = (
@@ -301,18 +327,57 @@ class Reviewer:
             "category, message, related_ids, and required_action. Flag metadata ambiguity, causal overreach, "
             "context mismatch, conflicting evidence, and missing validation. Use only supplied IDs."
         )
-        try:
-            raw = self.client.json_completion(system, json.dumps(payload, ensure_ascii=False))
-            reviewed: list[ReviewerFinding] = []
-            for item in list(raw.get("findings") or [])[:10]:
-                finding = ReviewerFinding.model_validate(item)
-                if set(finding.related_ids).issubset(allowed_ids):
-                    reviewed.append(finding)
-            self.last_backend = f"step:{self.client.model}"
-            return reviewed
-        except (LLMUnavailable, ValidationError, ValueError, TypeError, json.JSONDecodeError):
-            self.last_backend = "deterministic:step_unavailable_or_invalid"
-            return []
+        cache_key = hashlib.sha256(json.dumps({
+            "prompt_version": LLM_REVIEW_PROMPT_VERSION,
+            "model": self.client.model if self.client else "none",
+            "system": system,
+            "payload": normalized_payload,
+        }, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+        cache_path = (self.cache_dir / "reviewer_llm" / f"{cache_key}.json") if self.cache_dir else None
+        raw_findings: Any = None
+        cached = False
+        if cache_path is not None and cache_path.is_file():
+            try:
+                cached_payload = json.loads(cache_path.read_text(encoding="utf-8"))
+                candidate = cached_payload.get("findings")
+                if isinstance(candidate, list):
+                    raw_findings = candidate
+                    cached = True
+            except (OSError, ValueError):
+                cached = False
+        if raw_findings is None:
+            try:
+                raw = self.client.json_completion(
+                    system, json.dumps(normalized_payload, ensure_ascii=False),
+                    read_timeout_seconds=REVIEWER_READ_TIMEOUT_SECONDS,
+                    max_retries=REVIEWER_MAX_RETRIES,
+                )
+                raw_findings = raw.get("findings") or []
+                if cache_path is not None:
+                    cache_path.parent.mkdir(parents=True, exist_ok=True)
+                    cache_path.write_text(json.dumps({"findings": raw_findings}, ensure_ascii=False), encoding="utf-8")
+            except (LLMUnavailable, ValidationError, ValueError, TypeError, json.JSONDecodeError):
+                self.last_backend = "deterministic:step_unavailable_or_invalid"
+                return []
+        id_map = {f"tool:{index}": row["tool_run_id"] for index, row in enumerate(tool_rows)}
+        id_map.update({f"ev:{index}": row["evidence_id"] for index, row in enumerate(evidence_rows)})
+        # One malformed LLM finding must not discard the valid ones: skip
+        # invalid rows instead of aborting the whole review round.
+        reviewed: list[ReviewerFinding] = []
+        for item in list(raw_findings)[:10]:
+            if not isinstance(item, dict):
+                continue
+            mapped = dict(item)
+            if isinstance(mapped.get("related_ids"), list):
+                mapped["related_ids"] = [id_map.get(str(value), str(value)) for value in mapped["related_ids"]]
+            try:
+                finding = ReviewerFinding.model_validate(mapped)
+            except (ValidationError, ValueError, TypeError):
+                continue
+            if set(finding.related_ids).issubset(allowed_ids):
+                reviewed.append(finding)
+        self.last_backend = f"step:{self.client.model}" if not cached else f"step:{self.client.model}:cached"
+        return reviewed
 
     @staticmethod
     def _deduplicate(findings: list[ReviewerFinding]) -> list[ReviewerFinding]:

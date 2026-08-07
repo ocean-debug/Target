@@ -15,7 +15,7 @@ from target_agent.tools.base import ToolContext, ToolRegistry
 from target_agent.tools.omics import (
     DiseaseResolverTool, GEOMetadataAuditTool, GEOSearchTool,
     OmicsRecipeBuilderTool, SingleCellAnalysisTool, _prepare_counts,
-    _analysis_cache_key,
+    _analysis_cache_key, _analysis_cache_legacy_key, _analysis_cache_locate,
 )
 
 
@@ -333,3 +333,37 @@ def test_single_cell_runs_donor_level_pseudobulk(tmp_path):
     assert execution.result.outputs["formal_score_eligible"] is True
     assert execution.result.outputs["omics_results"][0]["donors_per_condition"] == {"control": 3, "case": 3}
     assert execution.result.artifacts
+
+def test_analysis_cache_key_is_task_context_free(tmp_path):
+    recipe = AnalysisRecipe(
+        accession="GSETEST", data_kind="bulk_counts", backend="pydeseq2",
+        input_uri="https://ftp.ncbi.nlm.nih.gov/test.tsv", design="~condition",
+        contrast=["condition", "case", "control"],
+    )
+    alz = context(tmp_path)
+    pd_ctx = context(tmp_path, spec=task(disease="Parkinson disease"))
+    assert _analysis_cache_key(alz, recipe, "abc", "2.1.1") == _analysis_cache_key(
+        pd_ctx, recipe, "abc", "2.1.1"
+    )
+    assert _analysis_cache_legacy_key(alz, recipe, "abc", "2.1.1") != _analysis_cache_legacy_key(
+        pd_ctx, recipe, "abc", "2.1.1"
+    )
+
+
+def test_analysis_cache_locate_migrates_legacy_key(tmp_path):
+    recipe = AnalysisRecipe(
+        accession="GSETEST", data_kind="bulk_counts", backend="pydeseq2",
+        input_uri="https://ftp.ncbi.nlm.nih.gov/test.tsv", design="~condition",
+        contrast=["condition", "case", "control"],
+    )
+    tool_context = context(tmp_path)
+    legacy_key = _analysis_cache_legacy_key(tool_context, recipe, "abc", "2.1.1")
+    legacy_dir = tmp_path / "cache" / "analysis" / "bulk" / legacy_key
+    legacy_dir.mkdir(parents=True)
+    (legacy_dir / "differential.csv").write_text("gene,baseMean\nIL2,10\n", encoding="utf-8")
+    path, key, mode = _analysis_cache_locate(tool_context, recipe, "abc", "2.1.1")
+    assert mode == "migrated"
+    assert path.is_file()
+    assert path.parent.name == key
+    path2, key2, mode2 = _analysis_cache_locate(tool_context, recipe, "abc", "2.1.1")
+    assert mode2 == "new" and key2 == key

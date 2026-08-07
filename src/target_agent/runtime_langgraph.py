@@ -102,7 +102,7 @@ class LangGraphRuntime:
         self.trace_observer_errors: list[str] = []
         if self.planner.registry is None:
             self.planner.registry = self.registry
-        self.reviewer = Reviewer(getattr(self.planner, "client", None), settings=self.settings)
+        self.reviewer = Reviewer(getattr(self.planner, "client", None), settings=self.settings, cache_dir=self.cache_dir)
         self._graph = self._build_graph()
 
     # ------------------------------------------------------------------ tracing

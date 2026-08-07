@@ -65,7 +65,9 @@ class StepClient:
     def from_env(cls) -> "StepClient | None":
         return cls.from_settings(load_settings())
 
-    def json_completion(self, system: str, user: str) -> dict[str, Any]:
+    def json_completion(self, system: str, user: str, *,
+                        read_timeout_seconds: int | None = None,
+                        max_retries: int | None = None) -> dict[str, Any]:
         url = f"{self.base_url}/chat/completions"
         session = self.session or requests.Session()
         payload = {
@@ -74,22 +76,24 @@ class StepClient:
             "temperature": 0,
             "response_format": {"type": "json_object"},
         }
+        read_timeout = read_timeout_seconds if read_timeout_seconds is not None else self.read_timeout_seconds
+        retry_budget = max_retries if max_retries is not None else self.max_retries
         started = time.perf_counter()
         response = None
-        for attempt in range(self.max_retries + 1):
+        for attempt in range(retry_budget + 1):
             try:
                 response = session.post(
                     url,
                     headers={"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"},
                     json=payload,
-                    timeout=(self.connect_timeout_seconds, self.read_timeout_seconds),
+                    timeout=(self.connect_timeout_seconds, read_timeout),
                 )
             except requests.RequestException as exc:
-                if attempt >= self.max_retries:
+                if attempt >= retry_budget:
                     raise LLMUnavailable(f"Step API request failed: {exc.__class__.__name__}") from exc
                 time.sleep(2 ** attempt)
                 continue
-            if response.status_code not in {429, 500, 502, 503, 504} or attempt >= self.max_retries:
+            if response.status_code not in {429, 500, 502, 503, 504} or attempt >= retry_budget:
                 break
             time.sleep(2 ** attempt)
         if response is None:

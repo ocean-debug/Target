@@ -2,6 +2,15 @@
 
 Cross-module contracts, workflow choices, model boundaries and scientific-safety decisions are recorded here. Accepted decisions must not be changed silently in a feature branch.
 
+## 2026-08-08 - Product-speed cache layers
+
+- **Status:** accepted
+- Analysis cache keys are task-context-free (dataset + recipe + source checksum + tool/contract versions); legacy task-context keys remain as a one-time migration fallback.
+- Literature LLM rerank/extract results persist under corpus-snapshot + model + prompt-version keys; replay still requires exact source spans.
+- Reviewer LLM findings cache uses a normalized payload (per-run ids become positional tokens); replay maps tokens back to current ids and re-validates. A single invalid finding is skipped instead of discarding the whole review round.
+- Reviewer uses a dedicated 240s read timeout with one retry; the previous 90s x 3 budget wasted ~4 minutes before deterministic fallback.
+- Acceptance on gpu03/agenttest: fresh UC project warm stage-2 run is 55s; cold/warm/hot runs produce identical Top-10 rankings with completed_with_gaps, 0 blocking, 2 gaps.
+
 ## 2026-08-01 - Versioned schemas are module boundaries
 
 - **Status:** accepted
