@@ -137,6 +137,51 @@ def create_mcp_server(
         )
 
     @server.tool()
+    def target_propose_fork(
+        project_id: str,
+        target_work_item_id: str,
+        mode: str,
+        rationale: str,
+        actor: str,
+        rollback_to_attempt_id: str | None = None,
+        input_overrides: dict[str, dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        """Issue a snapshot-bound user rollback (redo or restore) for one project."""
+        return product.propose_fork(
+            project_id=project_id,
+            target_work_item_id=target_work_item_id,
+            mode=mode,
+            rationale=rationale,
+            actor=actor,
+            rollback_to_attempt_id=rollback_to_attempt_id,
+            input_overrides=input_overrides,
+        )
+
+    @server.tool()
+    def target_decide_fork(
+        project_id: str,
+        branch_id: str,
+        approve: bool,
+        actor: str,
+        rationale: str,
+        resume: bool = True,
+    ) -> dict[str, Any]:
+        """Approve or reject one immutable fork branch snapshot."""
+        return product.decide_fork(
+            project_id=project_id,
+            branch_id=branch_id,
+            approve=approve,
+            actor=actor,
+            rationale=rationale,
+            resume=resume,
+        )
+
+    @server.tool()
+    def target_get_branches(project_id: str) -> dict[str, Any]:
+        """Read the fork branch history and immutable directives for a project."""
+        return product.branches(project_id)
+
+    @server.tool()
     def target_accept_checkpoint(
         project_id: str,
         target_id: str,

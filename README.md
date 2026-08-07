@@ -61,6 +61,56 @@ disease-macro nDCG/Recall/MRR and independent trap/safety gates. The scorer is i
 external expert-adjudicated final label set, evaluator-controlled scorer and publishable blind
 performance result are not yet available.
 
+## Quickstart（产品路径）
+
+1. 安装并检查环境：
+
+```bash
+python -m pip install -e ".[test,omics-bulk]"
+target-agent doctor
+```
+
+2. 配置模型（复制 .env.example 为未跟踪的 .env，或注入进程环境变量）。默认使用 Step：
+
+```bash
+LLM_PROVIDER=step STEP_API_KEY=... target-agent llm-smoke-test
+```
+
+也可以接入任意 OpenAI 兼容端点：
+
+```bash
+LLM_PROVIDER=openai OPENAI_BASE_URL=https://.../v1 OPENAI_API_KEY=... OPENAI_MODEL=... target-agent llm-smoke-test
+```
+
+3. 初始化一个研究项目（疾病 → 靶点 → 证据包）：
+
+```bash
+target-agent init --output ./my-project --disease "ulcerative colitis" --tissue colon
+target-agent project-run --input ./my-project/project.yaml
+```
+
+4. 运行工作台，在浏览器中审批计划、查看结果、回退或导出：
+
+```bash
+target-agent serve --port 8888
+```
+
+5. 把整个项目导出为可移植、可校验的 zip，在另一台机器导入后继续：
+
+```bash
+target-agent project-export --project-id project-xxx --output project-xxx.target-project.zip
+target-agent project-import --input project-xxx.target-project.zip
+target-agent project-package-inspect --input project-xxx.target-project.zip
+```
+
+6. 查看内置技能库（Best Practice 渐进披露，供 Planner 按需参考，不作为任务证据）：
+
+```bash
+target-agent skills list
+target-agent skills search --lanes genetics
+target-agent skills show --id experiment-planning
+```
+
 ## Install
 
 Python 3.11 is the acceptance runtime.
@@ -75,6 +125,15 @@ target-agent doctor
 ```
 
 Copy `.env.example` to an untracked `.env`, or inject variables through the process environment. Process variables override dotenv values. Never commit a real key.
+
+The skill catalog and paper-strategy hinting are configurable but work with defaults:
+
+```bash
+TARGET_AGENT_SKILL_CATALOG=skills
+TARGET_AGENT_SKILL_HINT_TOP_K=3
+TARGET_AGENT_PATTERN_STORE=paper_strategy/patterns.jsonl
+TARGET_AGENT_PATTERN_FEW_SHOT_TOP_K=3
+```
 
 ```bash
 target-agent --env-file .env llm-smoke-test

@@ -326,17 +326,38 @@ class HypothesisGenerationModule:
         )
 
 
+def _apply_dataset_override(
+    raw_task: Any,
+    override: Any,
+) -> Any:
+    """Merge a typed dataset-switch override without changing frozen biological context."""
+    if not isinstance(raw_task, dict) or not isinstance(override, dict):
+        return raw_task
+    merged = json.loads(json.dumps(raw_task))
+    constraints = dict(merged.get("constraints") or {})
+    selection = dict(constraints.get("dataset_selection") or {})
+    if isinstance(override.get("preferred_dataset_accessions"), list):
+        selection["preferred_dataset_accessions"] = override["preferred_dataset_accessions"]
+    if isinstance(override.get("excluded_dataset_accessions"), list):
+        selection["excluded_dataset_accessions"] = override["excluded_dataset_accessions"]
+    constraints["dataset_selection"] = selection
+    merged["constraints"] = constraints
+    return merged
+
+
 class TargetDiscoveryModule:
     descriptor = ModuleDescriptor(
         name="target_discovery",
         description="Run the existing traceable disease-target workflow as a bounded domain module.",
         input_types=("TaskSpec@2.2.0",), output_types=("TargetCard[]", "DiseaseTargetReport"),
         execution_policy="typed_domain_workflow", network_access=True,
-        side_effect_free=True, replay_safe=True, repair_modes=("same_input_retry",),
+        side_effect_free=True, replay_safe=True,
+        repair_modes=("same_input_retry", "alternate_dataset"),
     )
 
     def execute(self, context: ModuleContext) -> ModuleExecution:
         raw_task = context.item.inputs.get("target_task_spec", context.project.context.get("target_task_spec"))
+        raw_task = _apply_dataset_override(raw_task, context.item.inputs.get("dataset_override"))
         if not isinstance(raw_task, dict):
             return ModuleExecution(result=_result(
                 context.item, WorkItemStatus.NEEDS_INPUT, "The disease-target workflow requires a target_task_spec.",
@@ -447,9 +468,14 @@ class TargetDiscoveryModule:
                                "experiment_plan_count": experiment_count,
                                "deliverables_complete": deliverables_complete,
                                "domain_activity_projection_complete": projection_complete,
+                               "dataset_candidates": self._read_dataset_candidates(run_dir),
                            },
                            error=child_error,
-                           failure_class=child_failure_class,
+                           failure_class=child_failure_class or (
+                               FailureClass.SCIENTIFIC_GAP
+                               if mapped == WorkItemStatus.COMPLETED_WITH_GAPS
+                               else None
+                           ),
                            limitations=([] if scientific_complete else [
                                "The domain workflow has evidence gaps or is missing ranking, TargetCard, experiment, or report artifacts."
                            ]) + ([] if projection_complete else [
@@ -459,6 +485,110 @@ class TargetDiscoveryModule:
                            ])),
             artifacts=pending,
         )
+
+    @staticmethod
+    def _read_dataset_candidates(run_dir: Path) -> list[dict[str, Any]]:
+        """Normalize dataset-selection rows from durable child-run records.
+
+        Preferred source is the typed ``geo_metadata_audit`` tool result
+        (audited_datasets plus selection_trace); ``report.json`` is a fallback.
+        Rows always carry an accession and a normalized status so the project
+        repair policy can distinguish rejected from eligible candidates.
+        """
+        candidates: list[dict[str, Any]] = []
+        seen: set[str] = set()
+
+        def add(row: dict[str, Any]) -> None:
+            accession = str(row.get("accession") or row.get("dataset_id") or "").strip()
+            if not accession or accession in seen:
+                return
+            seen.add(accession)
+            candidates.append(row)
+
+        def selection_status(row: dict[str, Any]) -> str:
+            raw = str(row.get("status") or row.get("qualification") or "").lower()
+            if raw in {"candidate", "qualified", "eligible", "available", "selected"}:
+                return "candidate"
+            if raw in {"rejected", "ineligible", "unqualified", "eligible_not_selected_limit"}:
+                return "rejected"
+            decision = str(row.get("decision") or "").lower()
+            if decision in {"selected", "eligible_not_selected_limit"}:
+                return "candidate"
+            if decision == "rejected":
+                return "rejected"
+            nested = row.get("candidate")
+            if isinstance(nested, dict):
+                return "candidate" if str(nested.get("eligibility") or "").lower() == "eligible" else "rejected"
+            return "rejected"
+
+        tool_results_path = run_dir / "tool_results.jsonl"
+        try:
+            if tool_results_path.is_file():
+                for line in tool_results_path.read_text(encoding="utf-8").splitlines():
+                    if not line.strip():
+                        continue
+                    try:
+                        row = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    if not isinstance(row, dict) or row.get("tool_name") != "geo_metadata_audit":
+                        continue
+                    outputs = row.get("outputs") if isinstance(row.get("outputs"), dict) else {}
+                    audited = outputs.get("audited_datasets")
+                    if isinstance(audited, list):
+                        for detail in audited:
+                            if not isinstance(detail, dict):
+                                continue
+                            candidate = detail.get("candidate")
+                            if not isinstance(candidate, dict):
+                                continue
+                            eligibility = str(candidate.get("eligibility") or "").lower()
+                            add({
+                                "accession": candidate.get("accession"),
+                                "status": "candidate" if eligibility == "eligible" else "rejected",
+                                "decision": "candidate" if eligibility == "eligible" else "rejected",
+                                "reasons": candidate.get("exclusion_reasons") or [],
+                                "context_match_score": candidate.get("context_match_score"),
+                                "case_count": candidate.get("case_count"),
+                                "control_count": candidate.get("control_count"),
+                                "sample_count": candidate.get("sample_count"),
+                                "processed_files": candidate.get("processed_files"),
+                            })
+                    trace = outputs.get("selection_trace")
+                    if isinstance(trace, list):
+                        for item in trace:
+                            if not isinstance(item, dict):
+                                continue
+                            add({
+                                "accession": item.get("accession"),
+                                "status": selection_status(item),
+                                "decision": item.get("decision"),
+                                "reasons": item.get("reasons") or [],
+                            })
+        except OSError:
+            pass
+
+        report_path = run_dir / "report.json"
+        try:
+            if report_path.is_file():
+                payload = json.loads(report_path.read_text(encoding="utf-8"))
+                if isinstance(payload, dict):
+                    rows = payload.get("dataset_selection_trace") or payload.get("datasets")
+                    if isinstance(rows, list):
+                        for row in rows:
+                            if not isinstance(row, dict):
+                                continue
+                            add({
+                                "accession": row.get("accession"),
+                                "status": selection_status(row),
+                                "decision": row.get("decision"),
+                                "reasons": row.get("reasons") or row.get("exclusion_reasons") or [],
+                                "context_match_score": row.get("context_match_score"),
+                                "candidate": row.get("candidate"),
+                            })
+        except (OSError, json.JSONDecodeError):
+            pass
+        return candidates
 
     @staticmethod
     def _record_trace(

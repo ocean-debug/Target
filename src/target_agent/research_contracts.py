@@ -58,9 +58,22 @@ class FailureClass(str, Enum):
 
 class RepairAction(str, Enum):
     RERUN_SUBGRAPH_SAME_INPUTS = "rerun_subgraph_same_inputs"
+    SWITCH_DATASET_SAME_CONTEXT = "switch_dataset_same_context"
+    SUPPLEMENT_EVIDENCE = "supplement_evidence"
+    EXCLUDE_EVIDENCE = "exclude_evidence"
+    DOWNGRADE_CLAIM = "downgrade_claim"
     REQUEST_INPUT = "request_input"
     RETAIN_GAP = "retain_gap"
     STOP = "stop"
+
+
+class WorkAttemptStatus(str, Enum):
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    COMPLETED_WITH_GAPS = "completed_with_gaps"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
 
 
 class RepairRisk(str, Enum):
@@ -82,6 +95,22 @@ class RepairResolutionStatus(str, Enum):
     MITIGATED = "mitigated"
     UNRESOLVED = "unresolved"
     EXHAUSTED = "exhausted"
+
+
+class ForkMode(str, Enum):
+    """How a user-issued rollback should behave."""
+
+    REDO = "redo"
+    RESTORE = "restore"
+
+
+class PlanBranchStatus(str, Enum):
+    PROPOSED = "proposed"
+    APPROVED = "approved"
+    APPLIED = "applied"
+    RESOLVED = "resolved"
+    REJECTED = "rejected"
+    SUPERSEDED = "superseded"
 
 
 class DomainStage(str, Enum):
@@ -188,6 +217,7 @@ class ResearchProjectSpec(ResearchContract):
     autonomy_mode: AutonomyMode = AutonomyMode.CHECKPOINTED
     max_work_items: int = Field(default=12, ge=1, le=30)
     max_replans: int = Field(default=2, ge=0, le=2)
+    max_forks: int = Field(default=4, ge=1, le=30)
     created_at: str = Field(default_factory=utc_now)
 
     @model_validator(mode="after")
@@ -227,11 +257,15 @@ class WorkItemSpec(ResearchContract):
     max_attempts: int = Field(default=1, ge=1, le=3)
     rerun_of_item_id: str | None = Field(default=None, pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
     repair_request_id: str | None = Field(default=None, pattern=r"^repair-[a-f0-9]{24}$")
+    fork_branch_id: str | None = Field(default=None, pattern=r"^branch-[a-f0-9]{24}$")
 
     @model_validator(mode="after")
     def bind_repair_metadata(self) -> "WorkItemSpec":
-        if (self.rerun_of_item_id is None) != (self.repair_request_id is None):
-            raise ValueError("rerun_of_item_id and repair_request_id must be set together")
+        bound = sum(row is not None for row in (self.repair_request_id, self.fork_branch_id))
+        if (self.rerun_of_item_id is None) != (bound == 0):
+            raise ValueError(
+                "rerun_of_item_id must be set together with exactly one of repair_request_id or fork_branch_id"
+            )
         return self
 
 
@@ -288,6 +322,92 @@ class ArtifactRecord(ResearchContract):
     created_at: str = Field(default_factory=utc_now)
 
 
+class ArtifactVersion(ResearchContract):
+    """Immutable content-addressable version of one logical artifact."""
+
+    version_id: str = Field(pattern=r"^artifact-version-[a-f0-9]{24}$")
+    project_id: str
+    artifact_id: str = Field(pattern=r"^artifact-[a-f0-9]{24}$")
+    version: int = Field(ge=1)
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    size_bytes: int = Field(ge=0)
+    work_item_id: str
+    logical_name: str = Field(min_length=1)
+    media_type: str = "application/octet-stream"
+    uri: str = Field(pattern=r"^project://")
+    supersedes_version_id: str | None = Field(default=None, pattern=r"^artifact-version-[a-f0-9]{24}$")
+    created_at: str = Field(default_factory=utc_now)
+
+
+class ReviewTarget(ResearchContract):
+    """Immutable set of artifact/result digests that a Reviewer may assess."""
+
+    review_target_id: str = Field(pattern=r"^review-target-[a-f0-9]{24}$")
+    project_id: str
+    scope: Literal["work_item", "release", "repair"]
+    work_item_id: str | None = None
+    work_item_ids: list[str] = Field(default_factory=list)
+    result_digests: dict[str, str] = Field(default_factory=dict)
+    artifact_ids: list[str] = Field(default_factory=list)
+    snapshot_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
+    reason: str = Field(min_length=1)
+    created_at: str = Field(default_factory=utc_now)
+
+
+class RepairDirective(ResearchContract):
+    """Typed domain repair intent; the policy layer decides whether it may execute."""
+
+    directive_id: str = Field(pattern=r"^directive-[a-f0-9]{24}$")
+    project_id: str
+    work_item_id: str
+    operation: RepairAction
+    subject_key: str = Field(min_length=1)
+    payload: dict[str, Any] = Field(default_factory=dict)
+    expected_risk: RepairRisk
+    expected_authorization: RepairAuthorization
+    rationale: str = Field(min_length=1)
+    proposed_by: str = Field(default="deterministic_reviewer")
+    created_at: str = Field(default_factory=utc_now)
+
+    @model_validator(mode="after")
+    def operation_must_be_domain_repair(self) -> "RepairDirective":
+        allowed = {
+            RepairAction.SWITCH_DATASET_SAME_CONTEXT,
+            RepairAction.SUPPLEMENT_EVIDENCE,
+            RepairAction.EXCLUDE_EVIDENCE,
+            RepairAction.DOWNGRADE_CLAIM,
+        }
+        if self.operation not in allowed:
+            raise ValueError(f"directive operation {self.operation.value} is not a domain repair")
+        return self
+
+
+class ForkDirective(ResearchContract):
+    """Immutable user-issued intent to roll a project back to a work item."""
+
+    fork_directive_id: str = Field(pattern=r"^fork-[a-f0-9]{24}$")
+    project_id: str
+    branch_id: str = Field(pattern=r"^branch-[a-f0-9]{24}$")
+    target_work_item_id: str
+    mode: ForkMode
+    rollback_to_attempt_id: str | None = Field(default=None, pattern=r"^attempt-[a-f0-9]{24}$")
+    snapshot_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
+    input_overrides: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    rationale: str = Field(min_length=1)
+    actor: str = Field(min_length=1)
+    created_at: str = Field(default_factory=utc_now)
+
+    @model_validator(mode="after")
+    def bind_rollback_mode(self) -> "ForkDirective":
+        if self.mode == ForkMode.RESTORE and self.rollback_to_attempt_id is None:
+            raise ValueError("restore fork requires rollback_to_attempt_id")
+        if self.mode == ForkMode.REDO and self.rollback_to_attempt_id is not None:
+            raise ValueError("redo fork cannot carry rollback_to_attempt_id")
+        if any(not key.strip() for key in self.input_overrides):
+            raise ValueError("fork input override item ids must be non-empty")
+        return self
+
+
 class WorkItemResult(ResearchContract):
     item_id: str
     module: str
@@ -302,8 +422,52 @@ class WorkItemResult(ResearchContract):
     input_digest: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     supersedes_result_digest: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     repair_request_id: str | None = Field(default=None, pattern=r"^repair-[a-f0-9]{24}$")
+    fork_branch_id: str | None = Field(default=None, pattern=r"^branch-[a-f0-9]{24}$")
     started_at: str = Field(default_factory=utc_now)
     completed_at: str = Field(default_factory=utc_now)
+
+
+class WorkerLease(ResearchContract):
+    """CAS-bound claim that one worker may execute one work item attempt."""
+
+    lease_id: str = Field(pattern=r"^lease-[a-f0-9]{24}$")
+    project_id: str
+    work_item_id: str
+    attempt_id: str = Field(pattern=r"^attempt-[a-f0-9]{24}$")
+    worker_id: str = Field(min_length=1)
+    version: int = Field(default=1, ge=1)
+    acquired_at: str = Field(default_factory=utc_now)
+    expires_at: str = Field(min_length=1)
+    heartbeat_at: str = Field(default_factory=utc_now)
+    released_at: str | None = None
+
+
+class WorkAttempt(ResearchContract):
+    """Immutable attempt record for one work-item execution."""
+
+    attempt_id: str = Field(pattern=r"^attempt-[a-f0-9]{24}$")
+    project_id: str
+    work_item_id: str
+    attempt_number: int = Field(ge=1, le=3)
+    status: WorkAttemptStatus
+    input_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
+    output_digest: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    worker_lease_id: str | None = Field(default=None, pattern=r"^lease-[a-f0-9]{24}$")
+    supersedes_attempt_id: str | None = Field(default=None, pattern=r"^attempt-[a-f0-9]{24}$")
+    failure_class: FailureClass | None = None
+    error: str | None = None
+    started_at: str = Field(default_factory=utc_now)
+    completed_at: str | None = None
+    created_at: str = Field(default_factory=utc_now)
+
+    @model_validator(mode="after")
+    def bind_attempt_status_fields(self) -> "WorkAttempt":
+        if self.status in {WorkAttemptStatus.RUNNING, WorkAttemptStatus.PENDING}:
+            if self.completed_at is not None or self.output_digest is not None:
+                raise ValueError("non-terminal attempt cannot carry completion fields")
+        elif self.completed_at is None:
+            raise ValueError("terminal attempt requires completed_at")
+        return self
 
 
 class AssessmentRecord(ResearchContract):
@@ -351,9 +515,20 @@ class RepairRequest(ResearchContract):
     input_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
     policy_rule_id: str
     policy_version: str = "1.0.0"
+    directive_id: str | None = Field(default=None, pattern=r"^directive-[a-f0-9]{24}$")
+    directive_payload: dict[str, Any] = Field(default_factory=dict)
+    no_scope_change: bool = True
     success_criteria: list[str] = Field(min_length=1)
     rationale: str
     created_at: str = Field(default_factory=utc_now)
+
+    @model_validator(mode="after")
+    def bind_directive_payload(self) -> "RepairRequest":
+        if self.directive_id is not None and not self.directive_payload:
+            raise ValueError("domain repair request requires directive_payload")
+        if self.directive_id is None and self.directive_payload:
+            raise ValueError("directive_payload requires directive_id")
+        return self
 
 
 class ResearchPlanRevision(ResearchContract):
@@ -363,9 +538,15 @@ class ResearchPlanRevision(ResearchContract):
     project_id: str
     base_plan_id: str
     parent_revision_id: str | None = Field(default=None, pattern=r"^revision-[a-f0-9]{24}$")
-    revision_number: int = Field(ge=1, le=2)
-    repair_request_id: str = Field(pattern=r"^repair-[a-f0-9]{24}$")
-    operation: Literal["rerun_subgraph_same_inputs"] = "rerun_subgraph_same_inputs"
+    revision_number: int = Field(ge=1, le=30)
+    repair_request_id: str | None = Field(default=None, pattern=r"^repair-[a-f0-9]{24}$")
+    fork_branch_id: str | None = Field(default=None, pattern=r"^branch-[a-f0-9]{24}$")
+    operation: Literal[
+        "rerun_subgraph_same_inputs", "switch_dataset_same_context", "supplement_evidence",
+        "exclude_evidence", "downgrade_claim", "fork_rollback",
+    ] = "rerun_subgraph_same_inputs"
+    directive_id: str | None = Field(default=None, pattern=r"^directive-[a-f0-9]{24}$")
+    payload: dict[str, Any] = Field(default_factory=dict)
     added_items: list[WorkItemSpec] = Field(min_length=1)
     superseded_item_ids: list[str] = Field(min_length=1)
     superseded_assessment_ids: list[str] = Field(default_factory=list)
@@ -376,13 +557,86 @@ class ResearchPlanRevision(ResearchContract):
 
     @model_validator(mode="after")
     def validate_overlay(self) -> "ResearchPlanRevision":
+        if (self.repair_request_id is None) == (self.fork_branch_id is None):
+            raise ValueError("plan revision must bind exactly one of repair_request_id or fork_branch_id")
         added_ids = [item.item_id for item in self.added_items]
         if len(added_ids) != len(set(added_ids)):
             raise ValueError("plan revision added item ids must be unique")
         if set(added_ids) & set(self.superseded_item_ids):
             raise ValueError("plan revision cannot add and supersede the same item id")
-        if any(item.repair_request_id != self.repair_request_id for item in self.added_items):
-            raise ValueError("every revision item must bind to the revision repair request")
+        if self.fork_branch_id is not None:
+            if self.operation != "fork_rollback":
+                raise ValueError("fork plan revisions must use the fork_rollback operation")
+            if self.directive_id is not None:
+                raise ValueError("fork plan revisions cannot bind a repair directive")
+            if any(
+                item.fork_branch_id != self.fork_branch_id or item.repair_request_id is not None
+                for item in self.added_items
+            ):
+                raise ValueError("every fork revision item must bind to the fork branch")
+        else:
+            if self.operation not in {
+                "rerun_subgraph_same_inputs", "switch_dataset_same_context", "supplement_evidence",
+                "exclude_evidence", "downgrade_claim",
+            }:
+                raise ValueError(f"operation {self.operation} is not an eligible repair overlay")
+            if any(
+                item.repair_request_id != self.repair_request_id or item.fork_branch_id is not None
+                for item in self.added_items
+            ):
+                raise ValueError("every revision item must bind to the revision repair request")
+            if self.directive_id is not None and self.operation == "rerun_subgraph_same_inputs":
+                raise ValueError("rerun_subgraph_same_inputs revisions cannot bind a domain directive")
+        return self
+
+
+class PlanBranch(ResearchContract):
+    """Append-only snapshot of one user-issued rollback branch.
+
+    Status transitions append new snapshots; ``read_branches`` returns the
+    latest snapshot per branch id so the branch history stays auditable.
+    """
+
+    branch_id: str = Field(pattern=r"^branch-[a-f0-9]{24}$")
+    project_id: str
+    base_plan_id: str
+    parent_branch_id: str | None = Field(default=None, pattern=r"^branch-[a-f0-9]{24}$")
+    fork_directive_id: str = Field(pattern=r"^fork-[a-f0-9]{24}$")
+    revision_id: str | None = Field(default=None, pattern=r"^revision-[a-f0-9]{24}$")
+    fork_point_item_id: str
+    mode: ForkMode
+    rollback_to_attempt_id: str | None = Field(default=None, pattern=r"^attempt-[a-f0-9]{24}$")
+    fork_count: int = Field(ge=1, le=30)
+    superseded_item_ids: list[str] = Field(min_length=1)
+    added_item_ids: list[str] = Field(min_length=1)
+    before_snapshot_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
+    after_snapshot_digest: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    resolved_snapshot_digest: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    status: PlanBranchStatus = PlanBranchStatus.PROPOSED
+    created_at: str = Field(default_factory=utc_now)
+    applied_at: str | None = None
+    resolved_at: str | None = None
+
+    @model_validator(mode="after")
+    def bind_branch_status(self) -> "PlanBranch":
+        if self.status == PlanBranchStatus.PROPOSED:
+            if self.revision_id is not None or self.after_snapshot_digest is not None or self.applied_at is not None:
+                raise ValueError("proposed branch cannot carry applied metadata")
+        if self.status in {PlanBranchStatus.PROPOSED, PlanBranchStatus.APPROVED, PlanBranchStatus.REJECTED}:
+            if self.revision_id is not None:
+                raise ValueError("unapplied branch cannot carry a revision id")
+        if self.status == PlanBranchStatus.APPLIED:
+            if self.revision_id is None or self.after_snapshot_digest is None or self.applied_at is None:
+                raise ValueError("applied branch requires revision id, after digest and applied_at")
+        if self.status == PlanBranchStatus.RESOLVED:
+            if self.resolved_snapshot_digest is None or self.resolved_at is None:
+                raise ValueError("resolved branch requires resolved snapshot digest and resolved_at")
+        if self.mode == ForkMode.RESTORE and self.rollback_to_attempt_id is None:
+            raise ValueError("restore branch requires rollback_to_attempt_id")
+        if self.mode == ForkMode.REDO and self.rollback_to_attempt_id is not None:
+            raise ValueError("redo branch cannot carry rollback_to_attempt_id")
+        if set(self.added_item_ids) & set(self.superseded_item_ids):
+            raise ValueError("branch cannot add and supersede the same item id")
         return self
 
 
@@ -465,7 +719,7 @@ class ProjectState(ResearchContract):
     completed_items: list[str] = Field(default_factory=list)
     failed_items: list[str] = Field(default_factory=list)
     attempts: dict[str, int] = Field(default_factory=dict)
-    checkpoint_kind: Literal["plan", "work_item", "repair", "release"] | None = None
+    checkpoint_kind: Literal["plan", "work_item", "repair", "release", "fork"] | None = None
     checkpoint_target_id: str | None = None
     checkpoint_snapshot_digest: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     terminal_reason: str | None = None
@@ -479,7 +733,7 @@ class ProjectState(ResearchContract):
             return self
         if not self.checkpoint_target_id:
             raise ValueError("checkpoint_kind requires checkpoint_target_id")
-        if self.checkpoint_kind in {"repair", "release"} and self.checkpoint_snapshot_digest is None:
+        if self.checkpoint_kind in {"repair", "release", "fork"} and self.checkpoint_snapshot_digest is None:
             raise ValueError("repair/release checkpoint requires snapshot digest")
         return self
 
@@ -511,6 +765,12 @@ class ResearchProjectSnapshot(ResearchContract):
     repair_requests: list[RepairRequest] = Field(default_factory=list)
     plan_revisions: list[ResearchPlanRevision] = Field(default_factory=list)
     repair_resolutions: list[RepairResolution] = Field(default_factory=list)
+    fork_directives: list[ForkDirective] = Field(default_factory=list)
+    plan_branches: list[PlanBranch] = Field(default_factory=list)
+    work_attempts: list[WorkAttempt] = Field(default_factory=list)
+    artifact_versions: list[ArtifactVersion] = Field(default_factory=list)
+    review_targets: list[ReviewTarget] = Field(default_factory=list)
+    worker_leases: list[WorkerLease] = Field(default_factory=list)
     active_work_item_ids: list[str] = Field(default_factory=list)
     release_snapshot_digest: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     next_actions: list[dict[str, Any]] = Field(default_factory=list)
@@ -520,7 +780,8 @@ class ResearchProjectSnapshot(ResearchContract):
         project_id = self.spec.project_id
         project_records: list[Any] = [
             *self.artifacts, *self.assessments, *self.decisions, *self.repair_requests,
-            *self.plan_revisions, *self.repair_resolutions,
+            *self.plan_revisions, *self.repair_resolutions, *self.fork_directives,
+            *self.plan_branches,
         ]
         if self.state is not None:
             project_records.append(self.state)
@@ -542,12 +803,14 @@ TERMINAL_WORK_ITEM_STATUSES = frozenset({
 
 
 __all__ = [
-    "RESEARCH_CONTRACT_VERSION", "ArtifactRecord", "AssessmentDimension", "AssessmentLevel",
-    "AssessmentRecord", "AssessmentResult", "AutonomyMode", "DataContract", "DecisionAction",
-    "DecisionEvent", "DomainActivityPage", "DomainActivityRecord", "DomainActivityStatus", "DomainStage",
-    "FailureClass", "ProjectEvent", "ProjectState", "ProjectStatus", "RepairAction",
-    "RepairAuthorization", "RepairQueueSnapshot", "RepairRequest", "RepairResolution",
-    "RepairResolutionStatus", "RepairRisk", "ResearchGoal", "ResearchPlan", "ResearchPlanRevision",
-    "ResearchProjectSnapshot", "ResearchProjectSpec", "TERMINAL_WORK_ITEM_STATUSES",
-    "WorkItemResult", "WorkItemSpec", "WorkItemStatus",
+    "RESEARCH_CONTRACT_VERSION", "ArtifactRecord", "ArtifactVersion", "AssessmentDimension",
+    "AssessmentLevel", "AssessmentRecord", "AssessmentResult", "AutonomyMode", "DataContract",
+    "DecisionAction", "DecisionEvent", "DomainActivityPage", "DomainActivityRecord",
+    "DomainActivityStatus", "DomainStage", "FailureClass", "ProjectEvent", "ProjectState",
+    "ProjectStatus", "RepairAction", "RepairAuthorization", "RepairDirective",
+    "RepairQueueSnapshot", "RepairRequest", "RepairResolution", "RepairResolutionStatus",
+    "RepairRisk", "ResearchGoal", "ResearchPlan", "ResearchPlanRevision",
+    "ResearchProjectSnapshot", "ResearchProjectSpec", "ReviewTarget", "TERMINAL_WORK_ITEM_STATUSES",
+    "WorkAttempt", "WorkAttemptStatus", "WorkItemResult", "WorkItemSpec", "WorkItemStatus",
+    "WorkerLease",
 ]

@@ -92,6 +92,34 @@ The current increment includes typed project/goal/work-item/plan/result/artifact
 
 Phase one does not provide arbitrary LLM-generated Python/R/shell execution, universal life-science workflow coverage, automatic wet-lab control, self-modifying code, automatic training, clinical decision support or scientific independence when one model produces and reviews the same claim.
 
+## Execution integrity status (2026-08-08)
+
+The work-item execution path now treats leases and attempts as durable, auditable state:
+
+- `_execute_one` acquires a bounded `WorkerLease` (default 4h) before executing and always releases it in `finally`. Orphan leases (no attempt, or attempt already terminal) are reclaimed and recorded as `lease_reclaimed`; a live `RUNNING`/`PENDING` attempt on the same item raises `ProjectBusyError` instead of double-executing.
+- Every completed execution appends an immutable `WorkAttempt` (`attempt-<hex>` id, contiguous attempt number, output digest, lease id and supersedes chain). On resume, `_reconcile_attempt_ledger()` backfills cancelled ledger rows so numbering never jumps.
+- `read_leases()` returns the latest snapshot per lease id from the append-only JSONL, so an active and a released snapshot of the same lease never coexist.
+- Dataset candidates are read canonically from `tool_results.jsonl` (fallback to `report.json`), normalized to `candidate`/`rejected` statuses with `context_match_score`, sample counts and processed files, and deduplicated by accession with tool results taking precedence. This keeps dataset switching and Reviewer-driven re-selection consistent within the same project context.
+- Schema export is verified end to end: 52 canonical JSON Schemas including `research_work_attempt`, `research_worker_lease`, `research_fork_directive` and `research_plan_branch`. `python -m target_agent.cli` now works (module entry guard added); `target-agent` remains the documented entry point.
+- Regression: full suite 257 passed / 2 skipped on the remote acceptance environment.
+
+Arbitrary step rollback is now implemented as `ForkDirective` + `PlanBranch` + `fork_rollback` plan overlays:
+
+- `redo` replaces the target item and its transitive dependants with fresh item ids bound to the branch and re-executes them; `input_overrides` are limited to affected items and frozen in the immutable directive.
+- `restore` replays an immutable historical `WorkAttempt` result snapshot without re-running the step, then re-runs only its dependants. A restore may target the original logical step even after a fork replaced it: the service resolves the unique active representative and re-binds the snapshot to that item with `supersedes_result_digest` provenance, keeping the attempt snapshot as the source of truth.
+- Every branch is bound to an exact project snapshot digest; a stale directive pauses the project instead of applying. `checkpointed` projects and every `restore` require human approval (`decide_fork`), while `autonomous` redo forks auto-approve. Fork budget is independent of the repair budget (`max_forks`), and plan revisions are capped at 30.
+- `assert_integrity()` verifies branch chain continuity, directive/branch one-to-one binding, fork revision digests, restore attempt lineage and normalized restored-result digests, and rejects tampering.
+- Web API exposes `POST /api/projects/<id>/forks`, `GET /api/projects/<id>/branches` and `POST /api/projects/<id>/forks/<branch_id>/decision`; MCP exposes `target_propose_fork`, `target_decide_fork` and `target_get_branches`.
+
+The Web workbench is now a wired project console rather than a static mock:
+
+- `GET /api/projects` lists durable projects; `POST /api/projects/<id>/resume` manually continues a paused project.
+- The single-page workbench (rewritten with correct UTF-8 Chinese) supports creating a project (disease, subtype, tissue, cell type, stage, phenotype, approval mode), checkpoint approvals (`plan`/`release`), repair/fork approve-or-reject, and arbitrary-step rollback: `redo` with `input_overrides`, `restore` with historical-attempt selection and lineage-aware re-binding.
+- Results, branches, events and artifacts render only from backend APIs; the page never fabricates numbers.
+- End-to-end HTTP smoke on the remote acceptance environment passed: create project → approve plan → real tool execution (GEO search, omics analysis, Europe PMC, Open Targets, ClinicalTrials) → terminal `completed_with_gaps` with honest degradation → events/artifacts/project list all present.
+
+Paper-to-Strategy (P0/P1) is delivered: `paper_strategy.py` defines immutable `ObservedWorkflow` / `StrategyPattern` / `BestPracticePattern` contracts, an append-only deterministic `PatternStore` and `PlannerFewShotBuilder`; the seed corpus has 10 curated discovery patterns with a checksum manifest. Patterns are strategy hints, never task evidence, until expert + benchmark validation promotes them to `best_practice`. P3 alignment-data generation and Planner/Reviewer LoRA training are deferred to the final phase per team decision.
+
 ## Release gate
 
 A target project may be `completed` only when all required work items satisfy their contracts, required artifacts pass hash validation, no blocking scientific finding remains, and ranked candidates, required TargetCards and the declared report exist. Otherwise the project must return `completed_with_gaps`, `needs_input` or `failed` with the missing evidence and next action; a domain tool may separately record `refused` for an out-of-scope request. Tool-call count, LLM confidence and polished prose are not completion criteria.

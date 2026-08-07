@@ -152,8 +152,11 @@ def test_workbench_assets_are_utf8_chinese_and_demo_oriented():
     script = (static / "app.js").read_text(encoding="utf-8")
     combined = html + script
     assert "科研工作台" in html
-    assert "已验证案例" in html
-    assert "/api/demo/cases" in script
-    assert "/bundle" in script
-    assert "item.reasons" in script
-    assert not any(marker in combined for marker in ("锛", "鍔", "鐮", "璇诲彇"))
+    assert "新建项目" in html
+    assert "/api/projects" in script
+    assert "/forks" in script
+    assert "proposeFork" in script
+    assert "decideFork" in script
+    assert "accept_checkpoint" in script
+    assert chr(0xFFFD) not in combined
+    assert "读取" not in combined

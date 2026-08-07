@@ -102,6 +102,7 @@ def create_app(
             "settings": runtime.settings.public_summary(),
             "tools": runtime.registry.public_capabilities(),
             "research_modules": research_runtime.registry.public_capabilities(),
+            "skills": research_runtime.skill_catalog.public_summary(),
             "analysis_backends": {
                 "pydeseq2": bool(importlib.util.find_spec("pydeseq2")),
                 "gseapy": bool(importlib.util.find_spec("gseapy")),
@@ -115,6 +116,17 @@ def create_app(
                 "max_cells": 100_000, "max_download_mb": 2048,
             },
         })
+
+    @app.get("/api/skills")
+    def skills_list():
+        return jsonify(research_runtime.skill_catalog.public_summary())
+
+    @app.get("/api/skills/<skill_id>")
+    def skill_detail(skill_id: str):
+        loaded = research_runtime.skill_catalog.load(skill_id)
+        if loaded is None:
+            return jsonify({"error": "skill not found"}), 404
+        return jsonify(loaded)
 
     @app.get("/api/diseases")
     def diseases():
@@ -298,6 +310,34 @@ def create_app(
             "events_url": f"/api/projects/{project.project_id}/events",
         }), 202
 
+    @app.get("/api/projects")
+    def list_projects():
+        try:
+            return jsonify({"projects": research_service.list_projects()})
+        except Exception as exc:
+            return jsonify({"error": str(exc)}), 500
+
+    @app.post("/api/projects/<project_id>/resume")
+    def resume_project(project_id: str):
+        project_id = _safe_project_id(project_id)
+        store = ResearchProjectStore(research_runtime.projects_dir, project_id)
+        spec = store.load_spec()
+        if spec is None:
+            return jsonify({"error": "project not found"}), 404
+
+        def resume_worker() -> None:
+            try:
+                research_runtime.run(spec, resume=True)
+            except Exception:
+                return
+
+        queued = pool.submit(resume_worker)
+        return jsonify({
+            "project_id": project_id,
+            "resume_queued": queued,
+            "status_url": f"/api/projects/{project_id}",
+        }), 202
+
     @app.get("/api/projects/<project_id>")
     def get_project(project_id: str):
         project_id = _safe_project_id(project_id)
@@ -305,6 +345,63 @@ def create_app(
             payload = research_service.snapshot(project_id)
         except ResearchProjectNotFound:
             return jsonify({"error": "project not found"}), 404
+        return jsonify(payload)
+
+    @app.get("/api/projects/<project_id>/export")
+    def export_project_package(project_id: str):
+        project_id = _safe_project_id(project_id)
+        try:
+            from .project_package import export_project_bytes
+
+            data, summary = export_project_bytes(research_runtime.projects_dir, project_id)
+        except ResearchProjectNotFound:
+            return jsonify({"error": "project not found"}), 404
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+        return Response(
+            data,
+            mimetype="application/zip",
+            headers={
+                "Content-Disposition": (
+                    f'attachment; filename="{project_id}.target-project.zip"'
+                ),
+                "X-Project-File-Count": str(summary["file_count"]),
+                "X-Project-Total-Bytes": str(summary["total_bytes"]),
+            },
+        )
+
+    @app.get("/api/projects/<project_id>/graph")
+    def project_graph(project_id: str):
+        project_id = _safe_project_id(project_id)
+        try:
+            payload = research_service.evidence_graph(project_id)
+        except ResearchProjectNotFound:
+            return jsonify({"error": "project not found"}), 404
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+        return jsonify(payload)
+
+    @app.get("/api/projects/<project_id>/files")
+    def project_files(project_id: str):
+        project_id = _safe_project_id(project_id)
+        try:
+            payload = research_service.project_files(project_id)
+        except ResearchProjectNotFound:
+            return jsonify({"error": "project not found"}), 404
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+        return jsonify(payload)
+
+    @app.get("/api/projects/<project_id>/files/preview")
+    def project_file_preview(project_id: str):
+        project_id = _safe_project_id(project_id)
+        rel_path = request.args.get("path", "")
+        try:
+            payload = research_service.preview_file(project_id, rel_path)
+        except ResearchProjectNotFound:
+            return jsonify({"error": "project not found"}), 404
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
         return jsonify(payload)
 
     @app.get("/api/projects/<project_id>/events")
@@ -386,6 +483,92 @@ def create_app(
                 return
 
         queued = pool.submit(resume_repair_worker)
+        return jsonify({
+            "decision": decided["decision"],
+            "decision_persisted": True,
+            "resume_queued": queued,
+            "status_url": f"/api/projects/{project_id}",
+        }), 202
+
+    @app.post("/api/projects/<project_id>/forks")
+    def propose_project_fork(project_id: str):
+        project_id = _safe_project_id(project_id)
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            return jsonify({"error": "request body must be a JSON object"}), 400
+        target_work_item_id = str(payload.get("target_work_item_id") or "").strip()
+        mode = str(payload.get("mode") or "").strip()
+        rationale = str(payload.get("rationale") or "").strip()
+        actor = str(payload.get("actor") or "").strip()
+        rollback_to_attempt_id = str(payload.get("rollback_to_attempt_id") or "").strip() or None
+        input_overrides = payload.get("input_overrides")
+        if not target_work_item_id or not mode or not rationale or not actor:
+            return jsonify({
+                "error": "target_work_item_id, mode, rationale and actor are required"
+            }), 400
+        if input_overrides is not None and not isinstance(input_overrides, dict):
+            return jsonify({"error": "input_overrides must be a JSON object"}), 400
+        try:
+            proposed = research_service.propose_fork(
+                project_id=project_id,
+                target_work_item_id=target_work_item_id,
+                mode=mode,
+                rationale=rationale,
+                actor=actor,
+                rollback_to_attempt_id=rollback_to_attempt_id,
+                input_overrides=input_overrides or None,
+            )
+        except ResearchProjectNotFound:
+            return jsonify({"error": "project not found"}), 404
+        except (ResearchDecisionError, ValueError) as exc:
+            return jsonify({"error": str(exc)}), 400
+        return jsonify({"fork": proposed}), 202
+
+    @app.get("/api/projects/<project_id>/branches")
+    def project_branches(project_id: str):
+        project_id = _safe_project_id(project_id)
+        try:
+            return jsonify(research_service.branches(project_id))
+        except ResearchProjectNotFound:
+            return jsonify({"error": "project not found"}), 404
+
+    @app.post("/api/projects/<project_id>/forks/<branch_id>/decision")
+    def decide_project_fork(project_id: str, branch_id: str):
+        project_id = _safe_project_id(project_id)
+        if not branch_id or not branch_id.startswith("branch-"):
+            return jsonify({"error": "invalid branch id"}), 400
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            return jsonify({"error": "request body must be a JSON object"}), 400
+        actor = str(payload.get("actor") or "").strip()
+        rationale = str(payload.get("rationale") or "").strip()
+        approve = payload.get("approve")
+        if not actor or not rationale or not isinstance(approve, bool):
+            return jsonify({"error": "actor, rationale and boolean approve are required"}), 400
+        try:
+            decided = research_service.decide_fork(
+                project_id=project_id,
+                branch_id=branch_id,
+                approve=approve,
+                actor=actor,
+                rationale=rationale,
+                resume=False,
+            )
+        except ResearchProjectNotFound:
+            return jsonify({"error": "project not found"}), 404
+        except ResearchDecisionError as exc:
+            return jsonify({"error": str(exc)}), 400
+        store = ResearchProjectStore(research_runtime.projects_dir, project_id)
+        spec = store.load_spec()
+        assert spec is not None
+
+        def resume_fork_worker() -> None:
+            try:
+                research_runtime.run(spec, resume=True)
+            except Exception:
+                return
+
+        queued = pool.submit(resume_fork_worker)
         return jsonify({
             "decision": decided["decision"],
             "decision_persisted": True,

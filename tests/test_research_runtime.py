@@ -10,11 +10,10 @@ import requests
 from target_agent.contracts import TaskContext, TaskSpec, ToolDescriptor, TraceEvent
 from target_agent.research_contracts import (
     AssessmentDimension, AssessmentLevel, AssessmentRecord, AssessmentResult, AutonomyMode,
-    DecisionAction, DecisionEvent, ProjectState, ProjectStatus, RepairResolutionStatus,
-    ResearchGoal,
+    DecisionAction, DecisionEvent, FailureClass, ProjectState, ProjectStatus,
+    RepairResolutionStatus, ResearchGoal,
     ResearchProjectSpec,
-    WorkItemResult,
-    WorkItemStatus,
+    WorkAttempt, WorkItemResult, WorkItemStatus, WorkerLease,
 )
 from target_agent.research_modules import (
     ModuleDescriptor,
@@ -87,6 +86,7 @@ class FakeResearchModule:
         fail_module: str | None = None,
         transient_fail_once: str | None = None,
         bad_contract_module: str | None = None,
+        domain_gap_module: str | None = None,
     ):
         self.descriptor = ModuleDescriptor(
             name=name,
@@ -102,6 +102,7 @@ class FakeResearchModule:
         self.fail_module = fail_module
         self.transient_fail_once = transient_fail_once
         self.bad_contract_module = bad_contract_module
+        self.domain_gap_module = domain_gap_module
 
     def execute(self, context):
         name = self.descriptor.name
@@ -175,6 +176,28 @@ class FakeResearchModule:
                 )
                 for item_id, result in context.prior_results.items()
             ]
+            if self.domain_gap_module is not None:
+                gap_result = context.prior_results.get(self.domain_gap_module)
+                if gap_result is not None and gap_result.status == WorkItemStatus.COMPLETED_WITH_GAPS:
+                    gap_candidates = gap_result.outputs.get("dataset_candidates") or []
+                    if any(
+                        isinstance(row, dict) and str(row.get("status") or "") in {
+                            "rejected", "ineligible", "unqualified",
+                        }
+                        for row in gap_candidates
+                    ):
+                        assessments.append(AssessmentRecord(
+                            project_id=context.project.project_id,
+                            target_id=self.domain_gap_module,
+                            target_digest=work_item_result_digest(gap_result),
+                            dimension=AssessmentDimension.METHODOLOGY,
+                            level=AssessmentLevel.A0,
+                            result=AssessmentResult.FAIL,
+                            actor="fake_independent_review",
+                            method="typed_dataset_gate",
+                            rationale="Preferred dataset rejected; same-context repair is eligible.",
+                            blocking=True,
+                        ))
         elif name == "research_report":
             gaps = [
                 item_id for item_id, result in context.prior_results.items()
@@ -213,6 +236,68 @@ class FakeResearchModule:
         )
 
 
+
+class FakeDomainGapModule:
+    """target_discovery stand-in that reports a rejected preferred dataset
+    with a same-context qualified alternative, then succeeds on the rerun."""
+
+    def __init__(self, name: str, calls: Counter):
+        self.descriptor = ModuleDescriptor(
+            name=name,
+            description="Deterministic fake domain module exercising dataset-switch repair",
+            input_types=("object",),
+            output_types=("object",),
+            execution_policy="deterministic_test",
+            side_effect_free=True,
+            replay_safe=True,
+            repair_modes=("same_input_retry", "alternate_dataset"),
+        )
+        self.calls = calls
+
+    def execute(self, context):
+        name = self.descriptor.name
+        self.calls[name] += 1
+        is_rerun = context.item.rerun_of_item_id is not None
+        outputs = {
+            "child_run_id": f"run-fake-target-{context.item.item_id}",
+            "terminal_status": "completed" if is_rerun else "completed_with_gaps",
+            "ranked_target_count": 10,
+            "target_card_count": 5,
+            "experiment_plan_count": 5,
+            "deliverables_complete": is_rerun,
+            "domain_activity_projection_complete": True,
+        }
+        if is_rerun:
+            override = context.item.inputs.get("dataset_override") or {}
+            outputs["selected_accession"] = (override.get("preferred_dataset_accessions") or [None])[0]
+            outputs["dataset_candidates"] = [
+                {"accession": "GSE99999", "status": "qualified"},
+            ]
+            status = WorkItemStatus.COMPLETED
+            summary = "Fake target discovery succeeded with the replacement dataset."
+        else:
+            outputs["dataset_candidates"] = [
+                {"accession": "GSE11111", "status": "rejected", "reason": "metadata audit failed"},
+                {"accession": "GSE99999", "status": "qualified", "tissue": "colon"},
+            ]
+            status = WorkItemStatus.COMPLETED_WITH_GAPS
+            summary = "Fake target discovery gap: preferred dataset rejected."
+        result = WorkItemResult(
+            item_id=context.item.item_id,
+            module=name,
+            status=status,
+            summary=summary,
+            outputs=outputs,
+            failure_class=FailureClass.SCIENTIFIC_GAP if not is_rerun else None,
+        )
+        artifact_path = context.output_dir / f"{name}.json"
+        artifact_path.write_text(json.dumps(outputs, ensure_ascii=False), encoding="utf-8")
+        return ModuleExecution(
+            result=result,
+            artifacts=[PendingArtifact(artifact_path, f"{name}_output", "application/json")],
+        )
+
+
 def fake_research_runtime(
     tmp_path,
     *,
@@ -230,6 +315,37 @@ def fake_research_runtime(
             bad_contract_module=bad_contract_module,
         )
         for name in (*BASELINE_MODULES, "target_discovery")
+    ]
+    registry = ResearchModuleRegistry(modules)
+    settings = Settings(
+        _env_file=None,
+        STEP_API_KEY=None,
+        TARGET_AGENT_RUN_DIR=tmp_path / "runs",
+        RESEARCH_AGENT_PROJECT_DIR=tmp_path / "projects",
+        TARGET_AGENT_CACHE_DIR=tmp_path / "cache",
+        TARGET_AGENT_CACHE_ONLY=True,
+        TARGET_AGENT_WEB_WORKERS=1,
+        TARGET_AGENT_WEB_QUEUE_SIZE=2,
+    )
+    runtime = ResearchProjectRuntime(
+        projects_dir=settings.projects_dir,
+        cache_dir=settings.cache_dir,
+        registry=registry,
+        planner=ResearchPlanner(registry, client=None),
+        settings=settings,
+    )
+    return runtime, calls
+
+
+
+def fake_domain_repair_runtime(tmp_path):
+    calls: Counter = Counter()
+    modules = [
+        FakeDomainGapModule("target_discovery", calls),
+        *(
+            FakeResearchModule(name, calls, domain_gap_module="target_discovery")
+            for name in BASELINE_MODULES
+        ),
     ]
     registry = ResearchModuleRegistry(modules)
     settings = Settings(
@@ -333,6 +449,76 @@ def test_autonomous_transient_failure_reruns_affected_subgraph_and_rebinds_relea
     assert any(row.action == DecisionAction.REPLAN for row in store.read_decisions())
     release = [row for row in store.read_decisions() if row.action == DecisionAction.RELEASE]
     assert len(release) == 1 and release[0].evidence_snapshot_digest
+    store.assert_integrity()
+
+
+
+def test_checkpointed_domain_repair_switches_dataset_without_changing_context(tmp_path):
+    runtime, calls = fake_domain_repair_runtime(tmp_path)
+    project = research_project(
+        "project-domain-dataset-switch",
+        domain="disease_target_discovery",
+        context={
+            "target_task_spec": {
+                "task_type": "disease_to_target",
+                "question": "Which targets are supported by public evidence?",
+                "context": {"disease": "ulcerative colitis", "tissue": "colon"},
+            }
+        },
+        autonomy_mode=AutonomyMode.CHECKPOINTED,
+    )
+    service = ResearchProjectService(runtime)
+
+    first = runtime.run(project)
+    assert first["status"] == ProjectStatus.NEEDS_INPUT.value
+    store = ResearchProjectStore(runtime.projects_dir, project.project_id)
+    plan = store.load_plan()
+    assert plan is not None
+    service.accept_checkpoint(
+        project_id=project.project_id, target_id=plan.plan_id,
+        actor="reviewer", rationale="Plan is in scope.", resume=True,
+    )
+    assert store.load_state().status == ProjectStatus.WAITING_REVIEW
+
+    request = store.read_repair_requests()[0]
+    assert request.action.value == "switch_dataset_same_context"
+    assert request.directive_payload["preferred_dataset_accessions"] == ["GSE99999"]
+    assert request.directive_payload["excluded_dataset_accessions"] == ["GSE11111"]
+    assert request.no_scope_change is True
+
+    service.decide_repair(
+        project_id=project.project_id,
+        repair_request_id=request.repair_request_id,
+        trigger_snapshot_digest=request.trigger_snapshot_digest,
+        approve=True,
+        actor="reviewer",
+        rationale="Approve same-context dataset replacement.",
+        resume=True,
+    )
+    assert calls["target_discovery"] == 2
+    results = store.load_work_item_results()
+    repaired = results["target_discovery__repair_1"]
+    assert repaired.status == WorkItemStatus.COMPLETED
+    assert repaired.outputs["selected_accession"] == "GSE99999"
+    assert repaired.input_digest != results["target_discovery"].input_digest
+
+    revision = store.read_plan_revisions()[0]
+    added = next(
+        item for item in revision.added_items
+        if item.rerun_of_item_id == "target_discovery"
+    )
+    override = added.inputs["dataset_override"]
+    assert override["preferred_dataset_accessions"] == ["GSE99999"]
+    assert override["excluded_dataset_accessions"] == ["GSE11111"]
+
+    state = store.load_state()
+    assert state.status == ProjectStatus.WAITING_REVIEW
+    release_target = service.snapshot(project.project_id)["next_actions"][0]["target_id"]
+    service.accept_checkpoint(
+        project_id=project.project_id, target_id=release_target,
+        actor="reviewer", rationale="Release after verified dataset replacement.", resume=True,
+    )
+    assert store.load_state().status == ProjectStatus.COMPLETED.value
     store.assert_integrity()
 
 
@@ -672,3 +858,118 @@ def test_interrupted_first_attempt_resumes_once_and_backfills_without_duplicates
     assert [row.source_trace_id for row in store.read_domain_activities()] == [event.event_id]
     assert len([row for row in store.read_artifacts() if row.logical_name == "target_discovery_trace"]) == 1
     store.assert_integrity()
+
+
+def test_successful_run_records_terminal_attempts_and_releases_leases(tmp_path):
+    runtime, _ = fake_research_runtime(tmp_path)
+    project = research_project("project-attempts")
+
+    terminal = runtime.run(project)
+
+    store = ResearchProjectStore(runtime.projects_dir, project.project_id)
+    assert terminal["status"] == ProjectStatus.COMPLETED.value
+    attempts = store.read_attempts()
+    by_item = {row.work_item_id: row for row in attempts}
+    assert set(by_item) == set(store.load_work_item_results())
+    assert all(row.output_digest for row in attempts)
+    assert all(row.completed_at for row in attempts)
+    assert all(row.worker_lease_id for row in attempts)
+    leases = store.read_leases()
+    assert leases
+    assert all(row.released_at is not None for row in leases)
+    events = store.read_events()
+    assert any(row.event_type == "lease_acquired" for row in events)
+    assert any(row.event_type == "work_attempt_recorded" for row in events)
+    store.assert_integrity()
+
+
+def test_orphan_lease_is_reclaimed_and_attempts_backfill_on_resume(tmp_path):
+    runtime, _ = fake_research_runtime(tmp_path)
+    project = research_project("project-orphan-lease")
+    store = ResearchProjectStore(runtime.projects_dir, project.project_id)
+    store.create(project)
+    plan = runtime.planner.deterministic(project)
+    store.save_plan(plan)
+    store.save_state(ProjectState(
+        project_id=project.project_id, status=ProjectStatus.RUNNING,
+    ))
+    orphan = WorkerLease(
+        lease_id=ResearchProjectRuntime._new_contract_id("lease"),
+        project_id=project.project_id,
+        work_item_id="literature_search",
+        attempt_id=ResearchProjectRuntime._new_contract_id("attempt"),
+        worker_id="crashed-worker",
+        expires_at="2099-01-01T00:00:00+00:00",
+    )
+    store.append_lease(orphan)
+
+    terminal = runtime.run(project, resume=True)
+
+    assert terminal["status"] == ProjectStatus.COMPLETED.value
+    assert any(row.event_type == "lease_reclaimed" for row in store.read_events())
+    attempts = store.read_attempts()
+    assert attempts
+    assert all(row.status.value in {"completed", "completed_with_gaps"} for row in attempts)
+    assert all(row.released_at is not None for row in store.read_leases())
+    store.assert_integrity()
+
+
+def test_read_dataset_candidates_prefers_tool_results_and_normalizes_status(tmp_path):
+    import json as _json
+
+    from target_agent.research_modules import TargetDiscoveryModule
+
+    run_dir = tmp_path / "child-run"
+    run_dir.mkdir()
+    (run_dir / "tool_results.jsonl").write_text(
+        _json.dumps({
+            "tool_name": "geo_metadata_audit",
+            "outputs": {
+                "audited_datasets": [
+                    {"candidate": {"accession": "GSE1", "eligibility": "eligible", "context_match_score": 0.8}},
+                    {"candidate": {"accession": "GSE2", "eligibility": "ineligible",
+                                   "exclusion_reasons": ["metadata_confidence_below_gate"]}},
+                ],
+            },
+        }) + "\n",
+        encoding="utf-8",
+    )
+    rows = TargetDiscoveryModule._read_dataset_candidates(run_dir)
+    by_accession = {row["accession"]: row for row in rows}
+    assert set(by_accession) == {"GSE1", "GSE2"}
+    assert by_accession["GSE1"]["status"] == "candidate"
+    assert by_accession["GSE2"]["status"] == "rejected"
+    assert by_accession["GSE1"]["context_match_score"] == 0.8
+
+
+def test_read_dataset_candidates_dedupes_across_report_and_trace(tmp_path):
+    import json as _json
+
+    from target_agent.research_modules import TargetDiscoveryModule
+
+    run_dir = tmp_path / "child-run"
+    run_dir.mkdir()
+    (run_dir / "report.json").write_text(
+        _json.dumps({"dataset_selection_trace": [
+            {"accession": "GSE1", "decision": "rejected", "reasons": ["missing_case_controls"]},
+        ]}),
+        encoding="utf-8",
+    )
+    (run_dir / "tool_results.jsonl").write_text(
+        _json.dumps({
+            "tool_name": "geo_metadata_audit",
+            "outputs": {
+                "selection_trace": [
+                    {"accession": "GSE1", "decision": "selected", "reasons": []},
+                    {"accession": "GSE3", "decision": "eligible_not_selected_limit"},
+                ],
+            },
+        }) + "\n",
+        encoding="utf-8",
+    )
+    rows = TargetDiscoveryModule._read_dataset_candidates(run_dir)
+    assert len(rows) == 2
+    by_accession = {row["accession"]: row for row in rows}
+    # tool_results take precedence for the duplicate accession
+    assert by_accession["GSE1"]["decision"] == "selected"
+    assert by_accession["GSE3"]["status"] == "candidate"

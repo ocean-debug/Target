@@ -5,6 +5,9 @@ import pytest
 from target_agent.contracts import ToolDescriptor, TraceEvent
 from target_agent.research_contracts import (
     AssessmentDimension,
+    WorkAttempt,
+    WorkAttemptStatus,
+    WorkerLease,
     AssessmentLevel,
     AssessmentRecord,
     AssessmentResult,
@@ -286,3 +289,73 @@ def test_domain_activity_integrity_rejects_sequence_and_source_tampering(tmp_pat
 
     with pytest.raises(ValueError, match="sequence"):
         store.assert_integrity()
+
+
+def test_lease_append_release_and_reacquire(tmp_path):
+    store = initialized_store(tmp_path)
+    first = WorkerLease(
+        lease_id="lease-" + "a" * 24,
+        project_id="project-test",
+        work_item_id="literature",
+        attempt_id="attempt-" + "a" * 24,
+        worker_id="worker-a",
+        expires_at="2099-01-01T00:00:00+00:00",
+    )
+    store.append_lease(first)
+    active = [row for row in store.read_leases() if row.released_at is None]
+    assert [row.lease_id for row in active] == [first.lease_id]
+
+    released = store.release_lease(first.lease_id)
+    assert released.released_at is not None
+    latest = store.read_leases(first.work_item_id)
+    assert len(latest) == 1
+    assert latest[0].released_at is not None
+
+    # A released lease must not block a new lease for the same work item.
+    second = WorkerLease(
+        lease_id="lease-" + "b" * 24,
+        project_id="project-test",
+        work_item_id="literature",
+        attempt_id="attempt-" + "b" * 24,
+        worker_id="worker-b",
+        expires_at="2099-01-01T00:00:00+00:00",
+    )
+    store.append_lease(second)
+    assert [row.lease_id for row in store.read_leases() if row.released_at is None] == [second.lease_id]
+
+
+def test_attempt_ledger_is_immutable_and_contiguous(tmp_path):
+    store = initialized_store(tmp_path)
+    first = WorkAttempt(
+        attempt_id="attempt-" + "a" * 24,
+        project_id="project-test",
+        work_item_id="literature",
+        attempt_number=1,
+        status=WorkAttemptStatus.COMPLETED,
+        input_digest="0" * 64,
+        output_digest="1" * 64,
+        completed_at="2026-08-08T00:00:00+00:00",
+    )
+    store.append_attempt(first)
+    with pytest.raises(ValueError, match="already exists"):
+        store.append_attempt(first)
+    with pytest.raises(ValueError, match="does not follow"):
+        store.append_attempt(first.model_copy(update={
+            "attempt_id": "attempt-" + "b" * 24,
+            "attempt_number": 3,
+        }))
+    store.append_attempt(first.model_copy(update={
+        "attempt_id": "attempt-" + "b" * 24,
+        "attempt_number": 2,
+    }))
+    assert [row.attempt_number for row in store.read_attempts("literature")] == [1, 2]
+    with pytest.raises(ValueError):
+        WorkAttempt(
+            attempt_id="attempt-" + "c" * 24,
+            project_id="project-test",
+            work_item_id="literature",
+            attempt_number=1,
+            status=WorkAttemptStatus.RUNNING,
+            input_digest="0" * 64,
+            completed_at="2026-08-08T00:00:00+00:00",
+        )

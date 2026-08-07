@@ -1,6 +1,6 @@
 # Target 已完成能力与证据边界
 
-> 状态日期：2026-08-05  
+> 状态日期：2026-08-08  
 > 本文只记录仓库中已经实现且有检查路径的能力；未完成项不会写成产品能力。具体远程验收事实见 [docs/VALIDATION_REPORT.md](docs/VALIDATION_REPORT.md)。
 
 ## 1. 已完成的科学主链
@@ -64,7 +64,7 @@ typed transient failure
 
 自动修复必须同时满足：模块 side-effect-free、replay-safe、声明 `same_input_retry`、输入 digest 不变且仍在预算内。checkpointed/supervised 模式要求对精确 trigger snapshot 批准；过期 digest 被拒绝。旧 result/assessment/artifact 不删除；当前 runtime 的 finalize 与 release digest 使用逻辑 active item 集，API ledger 仍返回全部历史记录并额外给出 active item IDs，尚无 WorkItemHead/ArtifactHead。
 
-尚未完成：领域科学 Reviewer finding 驱动的补证、通用 GEO 数据集切换、科学方法改变、跨证据补证、上下文拆分和从自由 Reviewer 文本直接生成修复。系统明确不执行这些动作。
+已实现同上下文数据集切换修复：Reviewer 对首选数据集给出 blocking FAIL 时，确定性策略生成类型化 SWITCH_DATASET_SAME_CONTEXT 指令（不改变冻结 TaskSpec，仅替换 preferred/excluded accession），重建受影响子图并强制重新评审，具备端到端验收测试。尚未完成：科学方法改变、跨证据补证、上下文拆分和从自由 Reviewer 文本直接生成修复；系统明确不执行这些动作。
 
 ### 2.3 Review 与发布
 
@@ -78,6 +78,13 @@ typed transient failure
 
 - CLI：创建、运行、状态、事件、活动、checkpoint、repair queue 和 repair decision；
 - HTTP：项目创建/运行/状态、事件、领域活动、artifact、repair queue 与 snapshot-bound 决策；
+- HTTP 工作台：`/api/projects` 项目列表、`/api/projects/<id>/resume` 手动继续、checkpoint 审批（plan/release）、repair/fork 审批、redo/restore 回退与 branches 查询；
+- Web 单页工作台（UTF-8 中文）：新建项目、计划/结果/分支/事件/产物渲染，所有数字只来自后端 API；
+- MCP fork 工具：`target_propose_fork`、`target_decide_fork`、`target_get_branches`；
+- 产品外壳：`target-agent init` 脚手架（project.yaml + README + .env.example）、`project-export`/`project-import` 可移植项目包（MANIFEST + SHA-256 校验、拒绝覆盖、拒绝密钥文件）、`project-package-inspect` 与 Web `GET /api/projects/<id>/export`；
+- 模型供应商抽象：`LLM_PROVIDER=step|openai`，openai 模式走任意 OpenAI 兼容 Chat Completions 端点；
+- 科研工作区：`GET /api/projects/<id>/graph` 证据图（工作项依赖 + 产物溯源 DAG）、`GET /api/projects/<id>/files` 项目文件树、`GET /api/projects/<id>/files/preview` 文本预览（路径越界/密钥文件/超大文件拒绝），Web 工作台新增证据图与文件预览面板；
+- 技能库：skills/ 下 6 个 SKILL.md（文献证据抽取、bulk RNA 受控分析、单细胞 pseudobulk、遗传审计、TargetCard Review、可证伪实验设计），SkillCatalog 扫描并以 SHA-256 校验、确定性检索；CLI `skills list/search/show`、Web `GET /api/skills` 与 `GET /api/skills/<id>`、`/api/capabilities.skills`；Planner 只接收 id/name/description/evidence_lanes 渐进提示，完整正文按需加载且不作为任务证据；
 - stdio MCP：十一项类型化工具，全部调用同一 `ResearchProjectService`；
 - Web 与 MCP 不建立第二套状态语义；
 - 决策已持久化但后台队列已满时，接口区分“决定已接受”和“是否成功排队”。
@@ -87,7 +94,9 @@ typed transient failure
 - 内部 fake/unit benchmark 覆盖合同、恢复、拒绝、确定性和引擎一致性；
 - 参考 blind-ranking scorer 能在载入私有标签前冻结任务、排名和状态 digest，并计算 disease-macro 指标及 trap/safety gate；
 - Planner/Reviewer SFT、偏好和 held-out 资产具有角色字段与 promotion gate；现有 120 条 SFT 是 6 个模板各 20 个索引变体，科学与工程角色由同一负责人完成，不是独立双人审核；
-- benchmark runner 已读取权威 `reviewer_findings.jsonl`，并支持显式 `finding_category` 断言。
+- benchmark runner 已读取权威 `reviewer_findings.jsonl`，并支持显式 `finding_category` 断言；
+- 论文策略 P0/P1：`paper_strategy.py` 的 ObservedWorkflow/StrategyPattern/BestPracticePattern 合同、append-only 确定性 PatternStore 与 Planner few-shot；种子库 10 条 discovery patterns 与 checksum manifest；
+- P3 对齐数据生成与 Planner/Reviewer LoRA 训练按团队决定延后至最后阶段，以论文策略沉淀为数据来源。
 
 重要限定：历史 18 疾病 `conflicting_evidence` 桶的 54/54 仅验证终态、provenance 和报告存在；当时 `expectation.reviewer_categories` 未作为可执行断言，因此不能证明冲突识别或修复。公共疾病库也不能作为最终盲测集。当前没有外部 evaluator 控制、独立专家标注的生物学性能结果。
 
@@ -96,12 +105,14 @@ typed transient failure
 - 动态 AD、LUAD、UC 流程曾在远程环境运行；无合格 UC 组学时可靠降级；
 - Step 结构化 Planner、Waitress 服务、stdio MCP、Schema 导出与仓库策略均有远程验收记录；
 - Reviewer LoRA 在模板一致的 30 条 held-out 集上通过合同测试，但这不代表开放世界 Reviewer 水平；
-- 当前项目修复的远程完整验收已经覆盖自动相同输入重跑、checkpointed 精确快照批准、逻辑 active item 集、release decision marker 重绑定、HTTP/MCP 和 benchmark ledger 修正；最终精确提交的验收结果以验证报告最后一节为准。
+- 当前项目修复的远程完整验收已经覆盖自动相同输入重跑、checkpointed 精确快照批准、逻辑 active item 集、release decision marker 重绑定、HTTP/MCP 和 benchmark ledger 修正；最终精确提交的验收结果以验证报告最后一节为准；
+- 远程 HTTP 端到端冒烟通过：创建项目 → 审批计划 → 真实工具执行（GEO 检索、组学分析、Europe PMC、Open Targets、ClinicalTrials）→ 终态 `completed_with_gaps` → 事件/产物/项目列表完整；
+- 全量回归 274 passed / 2 skipped。
 
 ## 6. 仍未完成
 
-- WorkAttempt/Head、worker lease/heartbeat 和所有中断边界恢复；
-- ArtifactVersion/ReviewTarget 的完整 active-head 模型；
+- WorkItemHead/ArtifactVersion/ReviewTarget 的完整 active-head 模型；
+- 所有中断边界恢复（WorkerLease 与 WorkAttempt 台账已实现，尚缺 heartbeat 与跨进程 CAS 全场景）；
 - 类型化领域修复、同上下文数据集替换和科学依赖失效；
 - 真实 fine-mapping/coloc 重算和广泛适用的扰动 Oracle；
 - 大规模、多疾病、独立专家审核的 alignment 数据；

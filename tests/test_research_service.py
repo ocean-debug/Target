@@ -223,6 +223,9 @@ def test_official_mcp_sdk_exposes_the_same_durable_service(tmp_path):
                 "target_get_domain_activities",
                 "target_get_repairs",
                 "target_decide_repair",
+                "target_propose_fork",
+                "target_decide_fork",
+                "target_get_branches",
                 "target_accept_checkpoint",
                 "target_read_text_artifact",
             } <= names

@@ -14,6 +14,7 @@ from .alignment import generate
 from .contracts import TaskContext, TaskSpec
 from .legacy import parse_task_spec
 from .llm import StepClient
+from .paper_strategy import PatternStore
 from .planner import Planner
 from .research_contracts import ResearchProjectSpec
 from .research_runtime import ResearchProjectRuntime
@@ -34,6 +35,32 @@ def load_task(path: Path) -> TaskSpec:
 def load_research_project(path: Path) -> ResearchProjectSpec:
     payload = yaml.safe_load(path.read_text(encoding="utf-8"))
     return ResearchProjectSpec.model_validate(payload)
+
+
+def _init_readme(spec: ResearchProjectSpec) -> str:
+    project_id = spec.project_id
+    return (
+        f"# {spec.title}\n"
+        "\n"
+        "Research project scaffold created by target-agent init.\n"
+        "\n"
+        "## Question\n"
+        f"{spec.goal.question}\n"
+        "\n"
+        "## Run\n"
+        "\n"
+        "1. Copy .env.example to .env and fill in your model key.\n"
+        "2. target-agent project-run --input project.yaml\n"
+        f"3. target-agent project-status --project-id {project_id}\n"
+        "4. target-agent serve --port 8888   # open the workbench\n"
+        "\n"
+        "## Package\n"
+        f"target-agent project-export --project-id {project_id} --output {project_id}.target-project.zip\n"
+        "target-agent project-import --input <package>.zip   # on another machine\n"
+        "\n"
+        "## Honest boundary\n"
+        "A released project is a research decision package, not a clinical recommendation.\n"
+    )
 
 
 def _doctor(settings: Settings) -> dict:
@@ -140,10 +167,35 @@ def main() -> None:
     sub.add_parser("doctor", help="Check configuration and capabilities without printing secrets")
     sub.add_parser("llm-smoke-test", help="Make one real Step structured-planning request")
 
+    pattern_cmd = sub.add_parser("pattern", help="Inspect and maintain the paper-strategy pattern library")
+    pattern_sub = pattern_cmd.add_subparsers(dest="pattern_command", required=True)
+    pattern_search = pattern_sub.add_parser("search", help="Retrieve strategy patterns for a disease and data availability")
+    pattern_search.add_argument("--disease", required=True)
+    pattern_search.add_argument("--query", default="")
+    pattern_search.add_argument("--lanes", default="", help="Comma-separated available evidence lanes")
+    pattern_search.add_argument("--top-k", type=int, default=5)
+    pattern_search.add_argument("--store", type=Path)
+    pattern_list = pattern_sub.add_parser("list", help="Show the pattern library summary")
+    pattern_list.add_argument("--store", type=Path)
+    pattern_add = pattern_sub.add_parser("add", help="Add one pattern from a JSON or YAML file")
+    pattern_add.add_argument("--input", type=Path, required=True)
+    pattern_add.add_argument("--store", type=Path)
+
     diseases_cmd = sub.add_parser("diseases", help="List the OLS-verified disease library")
     diseases_cmd.add_argument("--json", action="store_true", help="Emit machine-readable JSON")
 
     run_disease = sub.add_parser("run-disease", help="Run one or more library diseases by id/name/synonym")
+
+    skills_cmd = sub.add_parser("skills", help="Inspect the on-demand best-practice skill catalog")
+    skills_sub = skills_cmd.add_subparsers(dest="skills_command", required=True)
+    skills_sub.add_parser("list", help="List available skills with capability summaries")
+    skills_search = skills_sub.add_parser("search", help="Search skills by query/lane/scope")
+    skills_search.add_argument("--query", default="")
+    skills_search.add_argument("--lanes", default="", help="Comma-separated evidence lanes")
+    skills_search.add_argument("--scopes", default="", help="Comma-separated scopes")
+    skills_search.add_argument("--top-k", type=int, default=5)
+    skills_show = skills_sub.add_parser("show", help="Print the full SKILL.md body for one skill")
+    skills_show.add_argument("--id", required=True)
     run_disease.add_argument("--disease", required=True,
                              help="Comma-separated disease ids, names or synonyms (e.g. uc,ra,ad)")
     run_disease.add_argument("--kind", choices=["normal", "missing_context", "conflicting_evidence", "trap"],
@@ -162,6 +214,32 @@ def main() -> None:
     serve.add_argument("--cache-dir", type=Path)
     serve.add_argument("--runtime", choices=["legacy", "langgraph"], default="langgraph")
     serve.add_argument("--dev", action="store_true", help="Use Flask's development server")
+
+    init_cmd = sub.add_parser("init", help="Scaffold a durable target-research project workspace")
+    init_cmd.add_argument("--output", type=Path, required=True)
+    init_cmd.add_argument("--project-id")
+    init_cmd.add_argument("--disease", required=True)
+    init_cmd.add_argument("--question", help="Defaults to a disease-to-target question")
+    init_cmd.add_argument("--title")
+    init_cmd.add_argument("--subtype")
+    init_cmd.add_argument("--tissue")
+    init_cmd.add_argument("--cell-type")
+    init_cmd.add_argument("--stage")
+    init_cmd.add_argument("--phenotype")
+    init_cmd.add_argument("--organism", default="Homo sapiens")
+    init_cmd.add_argument("--autonomy", choices=["checkpointed", "autonomous", "supervised"], default="checkpointed")
+
+    export_cmd = sub.add_parser("project-export", help="Export a durable project to a portable zip package")
+    export_cmd.add_argument("--project-id", required=True)
+    export_cmd.add_argument("--output", type=Path)
+    export_cmd.add_argument("--projects-dir", type=Path)
+
+    import_cmd = sub.add_parser("project-import", help="Verify and import a portable project zip package")
+    import_cmd.add_argument("--input", type=Path, required=True)
+    import_cmd.add_argument("--projects-dir", type=Path)
+
+    inspect_cmd = sub.add_parser("project-package-inspect", help="Show package metadata without importing")
+    inspect_cmd.add_argument("--input", type=Path, required=True)
 
     sub.add_parser(
         "mcp-serve",
@@ -217,6 +295,37 @@ def main() -> None:
         print(json.dumps(_doctor(settings), indent=2, ensure_ascii=False))
     elif args.command == "llm-smoke-test":
         print(json.dumps(_smoke_test(settings), indent=2, ensure_ascii=False))
+    elif args.command == "pattern":
+        store_path = args.store or settings.pattern_store_path
+        if args.pattern_command == "search":
+            lanes = {item.strip().lower() for item in args.lanes.split(",") if item.strip()}
+            hits = PatternStore(store_path).search(
+                query=args.query, disease=args.disease,
+                lanes_available=lanes or None, top_k=args.top_k,
+            )
+            print(json.dumps([
+                {
+                    "pattern_id": hit.pattern.pattern_id,
+                    "name": hit.pattern.name,
+                    "score": round(hit.score, 2),
+                    "start_lane": hit.pattern.evidence_start_lane,
+                    "ordered_lanes": hit.pattern.ordered_lanes,
+                    "why_this_order": hit.pattern.mixed_method_rationale,
+                    "matched_reason": hit.matched_reason,
+                }
+                for hit in hits
+            ], indent=2, ensure_ascii=False))
+        elif args.pattern_command == "list":
+            print(json.dumps(PatternStore(store_path).corpus_card(), indent=2, ensure_ascii=False))
+        elif args.pattern_command == "add":
+            payload = yaml.safe_load(args.input.read_text(encoding="utf-8"))
+            store = PatternStore(store_path)
+            added = store.add(payload)
+            print(json.dumps({
+                "added": added,
+                "pattern_id": payload.get("pattern_id") if isinstance(payload, dict) else None,
+                "path": str(store.path),
+            }, indent=2, ensure_ascii=False))
     elif args.command == "diseases":
         from .diseases import load_library
 
@@ -274,6 +383,35 @@ def main() -> None:
                 {"library_version": library.version, "kind": args.kind, "runs": summary_rows},
                 indent=2, ensure_ascii=False), encoding="utf-8")
             print(f"summary written to {args.summary_out}")
+    elif args.command == "skills":
+        from .skill_catalog import SkillCatalog
+
+        catalog = SkillCatalog(settings.skill_catalog_path)
+        if args.skills_command == "list":
+            print(json.dumps(catalog.public_summary(), indent=2, ensure_ascii=False))
+        elif args.skills_command == "search":
+            lanes = {item.strip().lower() for item in args.lanes.split(",") if item.strip()} or None
+            scopes = {item.strip().lower() for item in args.scopes.split(",") if item.strip()} or None
+            hits = catalog.search(query=args.query, lanes=lanes, scopes=scopes, top_k=args.top_k)
+            print(json.dumps([
+                {
+                    "id": hit.skill.skill_id,
+                    "name": hit.skill.name,
+                    "score": round(hit.score, 3),
+                    "evidence_lanes": hit.skill.evidence_lanes,
+                    "reason": hit.matched_reason,
+                }
+                for hit in hits
+            ], indent=2, ensure_ascii=False))
+        elif args.skills_command == "show":
+            loaded = catalog.load(args.id)
+            if loaded is None:
+                raise SystemExit(f"skill not found: {args.id}")
+            print(f"# {loaded['name']} (v{loaded['version']}, sha256 {loaded['sha256'][:12]})")
+            print()
+            print(loaded["description"])
+            print()
+            print(loaded["content"])
     elif args.command == "serve":
         runtime_cls = LangGraphRuntime if args.runtime == "langgraph" else TargetDiscoveryRuntime
         runtime = runtime_cls(runs_dir=args.runs_dir, cache_dir=args.cache_dir, settings=settings)
@@ -286,6 +424,61 @@ def main() -> None:
         else:
             from waitress import serve as waitress_serve
             waitress_serve(app, host=args.host, port=args.port, threads=settings.web_workers)
+    elif args.command == "init":
+        service = ResearchProjectService(ResearchProjectRuntime(settings=settings))
+        spec = service.build_disease_project(
+            question=args.question or f"Discover drug targets for {args.disease}",
+            disease=args.disease,
+            title=args.title,
+            project_id=args.project_id,
+            disease_subtype=args.subtype,
+            tissue=args.tissue,
+            cell_type=args.cell_type,
+            disease_stage=args.stage,
+            desired_phenotype=args.phenotype,
+            organism=args.organism,
+            autonomy_mode=args.autonomy,
+        )
+        output = args.output.expanduser().resolve()
+        output.mkdir(parents=True, exist_ok=True)
+        (output / "project.yaml").write_text(
+            yaml.safe_dump(spec.model_dump(mode="json"), allow_unicode=True, sort_keys=False),
+            encoding="utf-8",
+        )
+        env_example = Path(__file__).resolve().parents[2] / ".env.example"
+        if env_example.exists():
+            shutil.copy2(env_example, output / ".env.example")
+        (output / "README.md").write_text(_init_readme(spec), encoding="utf-8")
+        print(json.dumps({
+            "project_id": spec.project_id,
+            "title": spec.title,
+            "output": str(output),
+            "next": [
+                "target-agent project-run --input " + str(output / "project.yaml"),
+                "target-agent serve --port 8888",
+            ],
+        }, indent=2, ensure_ascii=False))
+    elif args.command == "project-export":
+        from .project_package import export_project as _export_package
+
+        summary = _export_package(
+            projects_dir=args.projects_dir or settings.projects_dir,
+            project_id=args.project_id,
+            output=args.output,
+        )
+        print(json.dumps(summary, indent=2, ensure_ascii=False))
+    elif args.command == "project-import":
+        from .project_package import import_project as _import_package
+
+        summary = _import_package(
+            projects_dir=args.projects_dir or settings.projects_dir,
+            archive=args.input,
+        )
+        print(json.dumps(summary, indent=2, ensure_ascii=False))
+    elif args.command == "project-package-inspect":
+        from .project_package import inspect_package
+
+        print(json.dumps(inspect_package(args.input), indent=2, ensure_ascii=False))
     elif args.command == "mcp-serve":
         try:
             from .mcp_server import create_mcp_server
@@ -296,3 +489,8 @@ def main() -> None:
 
 
 __all__ = ["main", "load_task", "load_research_project", "_doctor", "_smoke_test"]
+
+
+if __name__ == "__main__":
+    main()
+

@@ -137,3 +137,46 @@ def test_project_repair_api_exposes_verified_autonomous_repair(tmp_path):
     queue = client.get(f"/api/projects/{project.project_id}/repairs").get_json()
     assert len(queue["requests"]) == len(queue["revisions"]) == len(queue["resolutions"]) == 1
     assert queue["resolutions"][0]["status"] == "resolved"
+
+
+def test_project_list_exposes_durable_summaries(tmp_path):
+    research_runtime, _ = fake_research_runtime(tmp_path)
+    client = create_app(
+        fake_target_runtime(tmp_path),
+        research_runtime=research_runtime,
+    ).test_client()
+
+    assert client.get("/api/projects").get_json() == {"projects": []}
+
+    first = research_project("project-web-list-a")
+    second = research_project("project-web-list-b")
+    assert client.post("/api/projects", json=first.model_dump(mode="json")).status_code == 202
+    assert client.post("/api/projects", json=second.model_dump(mode="json")).status_code == 202
+    _wait_for_project(client, first.project_id)
+    _wait_for_project(client, second.project_id)
+
+    rows = client.get("/api/projects").get_json()["projects"]
+    assert {row["project_id"] for row in rows} == {first.project_id, second.project_id}
+    by_id = {row["project_id"]: row for row in rows}
+    assert by_id[first.project_id]["status"] == "completed"
+    assert by_id[first.project_id]["title"] == first.title
+    assert by_id[second.project_id]["status"] == "completed"
+
+
+def test_project_resume_endpoint_queues_reconcile_and_rejects_missing(tmp_path):
+    research_runtime, _ = fake_research_runtime(tmp_path)
+    client = create_app(
+        fake_target_runtime(tmp_path),
+        research_runtime=research_runtime,
+    ).test_client()
+
+    assert client.post("/api/projects/project-does-not-exist/resume").status_code == 404
+
+    project = research_project("project-web-resume")
+    assert client.post("/api/projects", json=project.model_dump(mode="json")).status_code == 202
+    _wait_for_project(client, project.project_id)
+    resumed = client.post(f"/api/projects/{project.project_id}/resume")
+    assert resumed.status_code == 202
+    assert resumed.get_json()["resume_queued"] is True
+    assert resumed.get_json()["project_id"] == project.project_id
+    assert _wait_for_project(client, project.project_id).get_json()["state"]["status"] == "completed"

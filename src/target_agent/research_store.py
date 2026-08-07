@@ -22,30 +22,42 @@ from pydantic import BaseModel
 
 from .research_contracts import (
     ArtifactRecord,
+    ArtifactVersion,
     AssessmentRecord,
     AssessmentResult,
     AutonomyMode,
     DecisionEvent,
     FailureClass,
     DomainActivityRecord,
+    ForkDirective,
+    ForkMode,
+    PlanBranch,
+    PlanBranchStatus,
     ProjectEvent,
     ProjectState,
     RepairAction,
     RepairAuthorization,
+    RepairDirective,
     RepairRequest,
     RepairResolution,
     RepairResolutionStatus,
     ResearchPlan,
     ResearchPlanRevision,
     ResearchProjectSpec,
+    ReviewTarget,
+    WorkAttempt,
+    WorkAttemptStatus,
     WorkItemResult,
     WorkItemStatus,
+    WorkerLease,
 )
 from .research_projection import DomainActivityProjection, trace_event_digest
 from .research_repair import (
     active_assessments,
+    active_item_ids,
     canonical_sha256,
     effective_plan,
+    fork_affected_item_ids,
     project_snapshot_digest,
     work_item_result_digest,
 )
@@ -282,6 +294,201 @@ class ResearchProjectStore:
                 raise ValueError(f"work item result path/id mismatch: {item_id} != {result.item_id}")
             results[item_id] = result
         return results
+
+    def append_attempt(self, attempt: WorkAttempt) -> None:
+        if attempt.project_id != self.project_id:
+            raise ValueError("attempt project id does not match store project id")
+        attempt_id = self._safe_component(attempt.attempt_id, "attempt id")
+        with self._lock:
+            prior = self.read_attempts(attempt.work_item_id)
+            if any(row.attempt_id == attempt.attempt_id for row in prior):
+                raise ValueError("attempt id already exists")
+            if attempt.attempt_number != len(prior) + 1:
+                raise ValueError(
+                    f"attempt number {attempt.attempt_number} does not follow {len(prior)} prior attempts"
+                )
+            self._save_immutable(
+                self.project_dir / "work_items" / attempt.work_item_id / "attempts" / f"{attempt_id}.json",
+                attempt,
+                "work attempt",
+            )
+
+    def read_attempts(self, work_item_id: str | None = None) -> list[WorkAttempt]:
+        root = self.project_dir / "work_items"
+        if not root.exists():
+            return []
+        records: list[WorkAttempt] = []
+        for path in sorted(root.glob("*/attempts/*.json")):
+            if path.name.endswith(".result.json"):
+                continue
+            record = WorkAttempt.model_validate_json(path.read_text(encoding="utf-8"))
+            if work_item_id is not None and record.work_item_id != work_item_id:
+                continue
+            records.append(record)
+        return sorted(records, key=lambda row: (row.work_item_id, row.attempt_number, row.attempt_id))
+
+    def current_attempt(self, work_item_id: str) -> WorkAttempt | None:
+        records = self.read_attempts(work_item_id)
+        return records[-1] if records else None
+
+    def save_attempt_result(self, attempt: WorkAttempt, result: WorkItemResult) -> None:
+        """Persist the immutable result payload bound to one terminal attempt."""
+        if attempt.project_id != self.project_id:
+            raise ValueError("attempt project id does not match store project id")
+        if result.item_id != attempt.work_item_id:
+            raise ValueError("attempt result item id does not match its attempt")
+        if attempt.output_digest is None:
+            raise ValueError("cannot snapshot a non-terminal attempt result")
+        if work_item_result_digest(result) != attempt.output_digest:
+            raise ValueError("attempt result digest does not match the immutable attempt record")
+        path = self.project_dir / "work_items" / attempt.work_item_id / "attempts" / f"{attempt.attempt_id}.result.json"
+        with self._lock:
+            if path.exists():
+                existing = WorkItemResult.model_validate_json(path.read_text(encoding="utf-8"))
+                if work_item_result_digest(existing) != attempt.output_digest:
+                    raise ValueError("attempt result snapshot is immutable and already differs")
+                return
+            self._write_json_atomic(path, result)
+
+    def load_attempt_result(self, attempt_id: str) -> WorkItemResult | None:
+        attempt = next((row for row in self.read_attempts() if row.attempt_id == attempt_id), None)
+        if attempt is None:
+            return None
+        path = self.project_dir / "work_items" / attempt.work_item_id / "attempts" / f"{attempt.attempt_id}.result.json"
+        if not path.exists():
+            return None
+        return WorkItemResult.model_validate_json(path.read_text(encoding="utf-8"))
+
+    def append_lease(self, lease: WorkerLease) -> None:
+        if lease.project_id != self.project_id:
+            raise ValueError("lease project id does not match store project id")
+        with self._lock:
+            existing = self.read_leases(lease.work_item_id)
+            active = [row for row in existing if row.released_at is None]
+            if active:
+                raise ValueError("work item already has an active worker lease")
+            if any(row.lease_id == lease.lease_id for row in existing):
+                raise ValueError("lease id already exists")
+            self._append_jsonl(
+                self.project_dir / "work_items" / lease.work_item_id / "leases.jsonl",
+                lease,
+            )
+
+    def read_leases(self, work_item_id: str | None = None) -> list[WorkerLease]:
+        """Return the latest record per lease id (leases are append-only snapshots)."""
+        root = self.project_dir / "work_items"
+        if not root.exists():
+            return []
+        records: list[WorkerLease] = []
+        for path in sorted(root.glob("*/leases.jsonl")):
+            records.extend(self._read_jsonl(path.relative_to(self.project_dir).as_posix(), WorkerLease))
+        latest: dict[str, WorkerLease] = {}
+        for row in records:
+            latest[row.lease_id] = row
+        records = list(latest.values())
+        if work_item_id is not None:
+            records = [row for row in records if row.work_item_id == work_item_id]
+        return sorted(records, key=lambda row: (row.work_item_id, row.acquired_at, row.lease_id))
+
+    def release_lease(self, lease_id: str, released_at: str | None = None) -> WorkerLease:
+        safe_lease = self._safe_component(lease_id, "lease id")
+        with self._lock:
+            target = next((row for row in self.read_leases() if row.lease_id == safe_lease), None)
+            if target is None:
+                raise ValueError("lease not found")
+            if target.released_at is not None:
+                return target
+            released = target.model_copy(update={
+                "released_at": released_at or target.heartbeat_at,
+                "heartbeat_at": released_at or target.heartbeat_at,
+            })
+            self._append_jsonl(
+                self.project_dir / "work_items" / target.work_item_id / "leases.jsonl",
+                released,
+            )
+            return released
+
+    def append_artifact_version(self, version: ArtifactVersion) -> None:
+        if version.project_id != self.project_id:
+            raise ValueError("artifact version project id does not match store project id")
+        with self._lock:
+            existing = self.read_artifact_versions(version.artifact_id)
+            if any(row.version_id == version.version_id for row in existing):
+                raise ValueError("artifact version id already exists")
+            if version.version != (existing[-1].version + 1 if existing else 1):
+                raise ValueError("artifact version sequence must be contiguous")
+            if version.sha256 == (existing[-1].sha256 if existing else None):
+                raise ValueError("artifact version must change content")
+            self._append_jsonl("artifact_versions.jsonl", version)
+
+    def read_artifact_versions(self, artifact_id: str | None = None) -> list[ArtifactVersion]:
+        records = self._read_jsonl("artifact_versions.jsonl", ArtifactVersion)
+        if artifact_id is None:
+            return records
+        return [row for row in records if row.artifact_id == artifact_id]
+
+    def current_artifact_version(self, artifact_id: str) -> ArtifactVersion | None:
+        records = self.read_artifact_versions(artifact_id)
+        return records[-1] if records else None
+
+    def append_review_target(self, target: ReviewTarget) -> None:
+        if target.project_id != self.project_id:
+            raise ValueError("review target project id does not match store project id")
+        with self._lock:
+            existing = self.read_review_targets()
+            if any(row.review_target_id == target.review_target_id for row in existing):
+                raise ValueError("review target id already exists")
+            self._append_jsonl("review_targets.jsonl", target)
+
+    def read_review_targets(self) -> list[ReviewTarget]:
+        return self._read_jsonl("review_targets.jsonl", ReviewTarget)
+
+    def append_repair_directive(self, directive: RepairDirective) -> None:
+        if directive.project_id != self.project_id:
+            raise ValueError("repair directive project id does not match store project id")
+        with self._lock:
+            existing = self.read_repair_directives()
+            if any(row.directive_id == directive.directive_id for row in existing):
+                raise ValueError("repair directive id already exists")
+            self._append_jsonl("repair_directives.jsonl", directive)
+
+    def read_repair_directives(self) -> list[RepairDirective]:
+        return self._read_jsonl("repair_directives.jsonl", RepairDirective)
+
+
+    def append_fork_directive(self, directive: ForkDirective) -> None:
+        """Persist one immutable user-issued fork directive."""
+        if directive.project_id != self.project_id:
+            raise ValueError("fork directive project id does not match store project id")
+        with self._lock:
+            existing = self.read_fork_directives()
+            if any(row.fork_directive_id == directive.fork_directive_id for row in existing):
+                raise ValueError("fork directive id already exists")
+            self._append_jsonl("fork_directives.jsonl", directive)
+
+    def read_fork_directives(self) -> list[ForkDirective]:
+        return self._read_jsonl("fork_directives.jsonl", ForkDirective)
+
+    def append_branch_snapshot(self, branch: PlanBranch) -> None:
+        """Append one immutable branch snapshot; status transitions append new rows."""
+        if branch.project_id != self.project_id:
+            raise ValueError("plan branch project id does not match store project id")
+        with self._lock:
+            existing = self.read_branches()
+            if any(row.branch_id == branch.branch_id and row.model_dump(mode="json") == branch.model_dump(mode="json")
+                   for row in existing):
+                raise ValueError("duplicate plan branch snapshot")
+            self._append_jsonl("plan_branches.jsonl", branch)
+
+    def read_branches(self) -> list[PlanBranch]:
+        """Return the latest snapshot per branch id, ordered by fork_count."""
+        latest: dict[str, PlanBranch] = {}
+        for row in self._read_jsonl("plan_branches.jsonl", PlanBranch):
+            latest[row.branch_id] = row
+        return [latest[branch_id] for branch_id in sorted(latest, key=lambda row: (latest[row].fork_count, row))]
+
+    def current_branch(self, branch_id: str) -> PlanBranch | None:
+        return next((row for row in self.read_branches() if row.branch_id == branch_id), None)
 
     def append_event(
         self,
@@ -583,13 +790,20 @@ class ResearchProjectStore:
 
         assessments = self.read_assessments()
         decisions = self.read_decisions()
+        fork_directives = self.read_fork_directives()
+        branches = self.read_branches()
         self._unique(assessments, "assessment_id", "assessment")
         self._unique(decisions, "decision_id", "decision")
         self._unique(artifacts, "artifact_id", "artifact")
         self._unique(repair_requests, "repair_request_id", "repair request")
         self._unique(revisions, "revision_id", "plan revision")
         self._unique(resolutions, "resolution_id", "repair resolution")
-        for record in [*assessments, *decisions, *artifacts, *repair_requests, *revisions, *resolutions]:
+        self._unique(fork_directives, "fork_directive_id", "fork directive")
+        self._unique(branches, "branch_id", "plan branch")
+        for record in [
+            *assessments, *decisions, *artifacts, *repair_requests, *revisions, *resolutions,
+            *fork_directives, *branches,
+        ]:
             if record.project_id != self.project_id:
                 raise ValueError("append-only record project id mismatch")
 
@@ -597,7 +811,10 @@ class ResearchProjectStore:
         assessment_ids = {record.assessment_id for record in assessments}
         request_ids = {record.repair_request_id for record in repair_requests}
         revision_ids = {record.revision_id for record in revisions}
-        allowed_decision_targets = known_items | artifact_ids | assessment_ids | request_ids | revision_ids
+        branch_ids = {record.branch_id for record in branches}
+        allowed_decision_targets = (
+            known_items | artifact_ids | assessment_ids | request_ids | revision_ids | branch_ids
+        )
         if base_plan is not None:
             allowed_decision_targets.add(base_plan.plan_id)
         for decision in decisions:
@@ -616,6 +833,46 @@ class ResearchProjectStore:
             if missing:
                 raise ValueError(f"work item {result.item_id} references missing artifacts: {sorted(missing)}")
 
+        attempts = self.read_attempts()
+        for attempt in attempts:
+            if attempt.project_id != self.project_id:
+                raise ValueError("work attempt project id mismatch")
+            if known_items and attempt.work_item_id not in known_items:
+                raise ValueError(f"work attempt references unknown work item: {attempt.work_item_id}")
+            if attempt.output_digest is not None:
+                snapshot = self.load_attempt_result(attempt.attempt_id)
+                if snapshot is None:
+                    raise ValueError(f"work attempt result snapshot is missing: {attempt.attempt_id}")
+                if snapshot.item_id != attempt.work_item_id:
+                    raise ValueError("work attempt result snapshot item id mismatch")
+                if work_item_result_digest(snapshot) != attempt.output_digest:
+                    raise ValueError("work attempt result snapshot digest mismatch")
+
+        branch_by_id = {row.branch_id: row for row in branches}
+        directive_by_id = {row.fork_directive_id: row for row in fork_directives}
+        if sorted(row.fork_count for row in branches) != list(range(1, len(branches) + 1)):
+            raise ValueError("plan branch fork_count is not contiguous")
+        if len(branches) > spec.max_forks:
+            raise ValueError("plan branch budget exceeded")
+        if set(branch_by_id) != {row.branch_id for row in fork_directives}:
+            raise ValueError("fork directives and plan branches are not one-to-one")
+        prior_branch_id: str | None = None
+        for branch in branches:
+            if branch.project_id != self.project_id:
+                raise ValueError("plan branch project id mismatch")
+            if branch.parent_branch_id != prior_branch_id:
+                raise ValueError("plan branch parent chain is not contiguous")
+            directive = directive_by_id.get(branch.fork_directive_id)
+            if directive is None:
+                raise ValueError("plan branch references missing fork directive")
+            if directive.branch_id != branch.branch_id:
+                raise ValueError("fork directive branch binding mismatch")
+            if directive.mode != branch.mode or directive.target_work_item_id != branch.fork_point_item_id:
+                raise ValueError("fork directive and plan branch intent mismatch")
+            if directive.rollback_to_attempt_id != branch.rollback_to_attempt_id:
+                raise ValueError("fork directive and plan branch attempt binding mismatch")
+            prior_branch_id = branch.branch_id
+
         request_by_id = {row.repair_request_id: row for row in repair_requests}
         revision_by_id = {row.revision_id: row for row in revisions}
         if [row.revision_number for row in revisions] != list(range(1, len(revisions) + 1)):
@@ -623,9 +880,19 @@ class ResearchProjectStore:
         known_before = {item.item_id for item in base_plan.items} if base_plan is not None else set()
         prior_revision_id: str | None = None
         for revision in revisions:
-            request = request_by_id.get(revision.repair_request_id)
-            if request is None:
-                raise ValueError("plan revision references missing repair request")
+            branch = None
+            request = None
+            if revision.fork_branch_id is not None:
+                branch = branch_by_id.get(revision.fork_branch_id)
+                if branch is None:
+                    raise ValueError("plan revision references missing plan branch")
+                directive = directive_by_id.get(branch.fork_directive_id)
+                if directive is None:
+                    raise ValueError("plan branch references missing fork directive")
+            else:
+                request = request_by_id.get(revision.repair_request_id)
+                if request is None:
+                    raise ValueError("plan revision references missing repair request")
             if base_plan is None or revision.base_plan_id != base_plan.plan_id:
                 raise ValueError("plan revision base plan mismatch")
             if revision.parent_revision_id != prior_revision_id:
@@ -636,7 +903,10 @@ class ResearchProjectStore:
                 "parent_revision_id": revision.parent_revision_id,
                 "revision_number": revision.revision_number,
                 "repair_request_id": revision.repair_request_id,
+                "fork_branch_id": revision.fork_branch_id,
                 "operation": revision.operation,
+                "directive_id": revision.directive_id,
+                "payload": revision.payload,
                 "added_items": [item.model_dump(mode="json") for item in revision.added_items],
                 "superseded_item_ids": revision.superseded_item_ids,
                 "superseded_assessment_ids": revision.superseded_assessment_ids,
@@ -645,37 +915,126 @@ class ResearchProjectStore:
             }
             if canonical_sha256(revision_body) != revision.revision_digest:
                 raise ValueError("plan revision digest mismatch")
-            if revision.trigger_snapshot_digest != request.trigger_snapshot_digest:
+            if revision.trigger_snapshot_digest != (
+                branch.before_snapshot_digest if branch is not None else request.trigger_snapshot_digest
+            ):
                 raise ValueError("plan revision trigger snapshot mismatch")
-            if request.failure_class != FailureClass.TRANSIENT or request.action != RepairAction.RERUN_SUBGRAPH_SAME_INPUTS:
-                raise ValueError("plan revision is not backed by an eligible same-input transient request")
-            expected_authorization = (
-                RepairAuthorization.AUTOMATIC
-                if spec.autonomy_mode == AutonomyMode.AUTONOMOUS
-                else RepairAuthorization.CHECKPOINT_REQUIRED
-            )
-            if request.authorization != expected_authorization:
-                raise ValueError("repair request authorization does not match project autonomy")
-            if revision.approval_required != (expected_authorization == RepairAuthorization.CHECKPOINT_REQUIRED):
-                raise ValueError("plan revision approval requirement does not match repair authorization")
-            if revision.approval_required and not any(
-                decision.action.value == "accept"
-                and request.repair_request_id in decision.target_ids
-                and decision.evidence_snapshot_digest == request.trigger_snapshot_digest
-                for decision in decisions
-            ):
-                raise ValueError("checkpointed plan revision lacks exact-snapshot approval")
-            if any(
-                decision.action.value == "reject"
-                and request.repair_request_id in decision.target_ids
-                and decision.evidence_snapshot_digest == request.trigger_snapshot_digest
-                for decision in decisions
-            ):
-                raise ValueError("plan revision conflicts with an immutable repair rejection")
+            if branch is not None:
+                if revision.operation != "fork_rollback":
+                    raise ValueError("fork revision must use the fork_rollback operation")
+                if revision.repair_request_id is not None or revision.directive_id is not None:
+                    raise ValueError("fork revision cannot carry repair metadata")
+                if branch.revision_id != revision.revision_id:
+                    raise ValueError("plan branch revision binding mismatch")
+                if directive.snapshot_digest != branch.before_snapshot_digest:
+                    raise ValueError("fork directive snapshot digest mismatch")
+                plan_before = effective_plan(
+                    base_plan, [row for row in revisions if row.revision_number < revision.revision_number]
+                )
+                active_before = active_item_ids(
+                    plan_before, [row for row in revisions if row.revision_number < revision.revision_number]
+                )
+                expected_affected = set(fork_affected_item_ids(
+                    plan_before, branch.fork_point_item_id, branch.mode, active_before,
+                ))
+                if set(revision.superseded_item_ids) != expected_affected:
+                    raise ValueError("fork revision affected items do not match the descendant closure")
+                expected_approval = (
+                    directive.mode == ForkMode.RESTORE or spec.autonomy_mode != AutonomyMode.AUTONOMOUS
+                )
+                if revision.approval_required != expected_approval:
+                    raise ValueError("fork revision approval requirement mismatch")
+                if revision.approval_required and not any(
+                    decision.action.value == "accept"
+                    and branch.branch_id in decision.target_ids
+                    and decision.evidence_snapshot_digest == branch.before_snapshot_digest
+                    for decision in decisions
+                ):
+                    raise ValueError("checkpointed fork revision lacks exact-snapshot approval")
+                if any(
+                    decision.action.value == "reject"
+                    and branch.branch_id in decision.target_ids
+                    and decision.evidence_snapshot_digest == branch.before_snapshot_digest
+                    for decision in decisions
+                ):
+                    raise ValueError("fork revision conflicts with an immutable fork rejection")
+                if branch.status in {PlanBranchStatus.PROPOSED, PlanBranchStatus.APPROVED, PlanBranchStatus.REJECTED}:
+                    raise ValueError("fork revision exists while the branch is not applied")
+                if directive.mode == ForkMode.RESTORE:
+                    if branch.fork_point_item_id in set(revision.superseded_item_ids):
+                        raise ValueError("restore fork must keep its restored fork point active")
+                    plan_by_id = {item.item_id: item for item in plan.items}
+                    seen_ancestors: set[str] = set()
+                    current_item = plan_by_id.get(branch.fork_point_item_id)
+                    while current_item is not None and current_item.rerun_of_item_id is not None:
+                        if current_item.rerun_of_item_id in seen_ancestors:
+                            break
+                        seen_ancestors.add(current_item.rerun_of_item_id)
+                        current_item = plan_by_id.get(current_item.rerun_of_item_id)
+                    attempt = next(
+                        (row for row in attempts if row.attempt_id == directive.rollback_to_attempt_id),
+                        None,
+                    )
+                    if attempt is None or attempt.work_item_id not in (
+                        {branch.fork_point_item_id} | seen_ancestors
+                    ):
+                        raise ValueError("restore fork references a missing or mismatched attempt")
+                    if attempt.output_digest is None or attempt.status not in {
+                        WorkAttemptStatus.COMPLETED, WorkAttemptStatus.COMPLETED_WITH_GAPS,
+                    }:
+                        raise ValueError("restore fork attempt is not a terminal completed result")
+                    restored = self.load_attempt_result(attempt.attempt_id)
+                    current_target = results.get(branch.fork_point_item_id)
+                    if restored is None or current_target is None:
+                        raise ValueError("restore fork target result is missing")
+                    if work_item_result_digest(restored) != attempt.output_digest:
+                        raise ValueError("restore fork attempt result digest mismatch")
+                    if work_item_result_digest(current_target) != work_item_result_digest(restored):
+                        normalized = current_target.model_copy(update={
+                            "item_id": restored.item_id,
+                            "repair_request_id": restored.repair_request_id,
+                            "fork_branch_id": restored.fork_branch_id,
+                            "supersedes_result_digest": restored.supersedes_result_digest,
+                        })
+                        if work_item_result_digest(normalized) != work_item_result_digest(restored):
+                            raise ValueError("restore fork target result was not restored")
+            else:
+                domain_repair = request.action.value in {"switch_dataset_same_context", "supplement_evidence", "exclude_evidence", "downgrade_claim"}
+                if not domain_repair:
+                    if request.failure_class != FailureClass.TRANSIENT or request.action != RepairAction.RERUN_SUBGRAPH_SAME_INPUTS:
+                        raise ValueError("plan revision is not backed by an eligible same-input transient request")
+                elif request.failure_class != FailureClass.SCIENTIFIC_GAP:
+                    raise ValueError("plan revision is not backed by an eligible scientific-gap domain request")
+                if domain_repair:
+                    expected_authorization = RepairAuthorization.CHECKPOINT_REQUIRED
+                else:
+                    expected_authorization = (
+                        RepairAuthorization.AUTOMATIC
+                        if spec.autonomy_mode == AutonomyMode.AUTONOMOUS
+                        else RepairAuthorization.CHECKPOINT_REQUIRED
+                    )
+                if request.authorization != expected_authorization:
+                    raise ValueError("repair request authorization does not match project autonomy")
+                if revision.approval_required != (expected_authorization == RepairAuthorization.CHECKPOINT_REQUIRED):
+                    raise ValueError("plan revision approval requirement does not match repair authorization")
+                if revision.approval_required and not any(
+                    decision.action.value == "accept"
+                    and request.repair_request_id in decision.target_ids
+                    and decision.evidence_snapshot_digest == request.trigger_snapshot_digest
+                    for decision in decisions
+                ):
+                    raise ValueError("checkpointed plan revision lacks exact-snapshot approval")
+                if any(
+                    decision.action.value == "reject"
+                    and request.repair_request_id in decision.target_ids
+                    and decision.evidence_snapshot_digest == request.trigger_snapshot_digest
+                    for decision in decisions
+                ):
+                    raise ValueError("plan revision conflicts with an immutable repair rejection")
+                if revision.superseded_item_ids != request.affected_work_item_ids:
+                    raise ValueError("plan revision affected work items do not match repair request")
             if not set(revision.superseded_item_ids).issubset(known_before):
                 raise ValueError("plan revision supersedes unknown work items")
-            if revision.superseded_item_ids != request.affected_work_item_ids:
-                raise ValueError("plan revision affected work items do not match repair request")
             added_ids = {item.item_id for item in revision.added_items}
             if added_ids & known_before:
                 raise ValueError("plan revision reuses an existing work item id")
@@ -696,13 +1055,31 @@ class ResearchProjectStore:
                     raise ValueError("revision item does not rerun a superseded work item")
                 source = prior_items[item.rerun_of_item_id]
                 source_payload = source.model_dump(mode="json", exclude={
-                    "item_id", "dependencies", "rerun_of_item_id", "repair_request_id",
+                    "item_id", "dependencies", "rerun_of_item_id", "repair_request_id", "fork_branch_id",
                 })
                 item_payload = item.model_dump(mode="json", exclude={
-                    "item_id", "dependencies", "rerun_of_item_id", "repair_request_id",
+                    "item_id", "dependencies", "rerun_of_item_id", "repair_request_id", "fork_branch_id",
                 })
+                expected_inputs = dict(source.inputs or {})
+                if revision.fork_branch_id is not None:
+                    expected_inputs.update(directive.input_overrides.get(source.item_id, {}))
+                elif revision.operation == "switch_dataset_same_context" and request is not None:
+                    directive_payload = request.directive_payload or {}
+                    expected_inputs["dataset_override"] = {
+                        key: directive_payload[key]
+                        for key in ("preferred_dataset_accessions", "excluded_dataset_accessions")
+                        if directive_payload.get(key) is not None
+                    }
                 if source_payload != item_payload:
-                    raise ValueError("plan revision changes work-item content beyond retry metadata")
+                    allowed_override = bool(
+                        revision.fork_branch_id is not None
+                        and directive.input_overrides.get(source.item_id) is not None
+                    ) or (
+                        revision.fork_branch_id is None
+                        and revision.operation == "switch_dataset_same_context"
+                    )
+                    if not allowed_override or item.inputs != expected_inputs:
+                        raise ValueError("plan revision changes work-item content beyond retry metadata")
                 expected_dependencies = [replacement_ids.get(dep, dep) for dep in source.dependencies]
                 if item.dependencies != expected_dependencies:
                     raise ValueError("plan revision changes dependencies beyond the affected subgraph overlay")
@@ -712,7 +1089,13 @@ class ResearchProjectStore:
             source = results.get(request.target_work_item_id)
             if source is None or work_item_result_digest(source) != request.trigger_result_digest:
                 raise ValueError("repair request source result digest mismatch")
-            if (source.status != WorkItemStatus.FAILED
+            domain_repair_source = request.action.value in {"switch_dataset_same_context", "supplement_evidence", "exclude_evidence", "downgrade_claim"}
+            if domain_repair_source:
+                if (source.status != WorkItemStatus.COMPLETED_WITH_GAPS
+                        or source.failure_class != FailureClass.SCIENTIFIC_GAP
+                        or source.input_digest != request.input_digest):
+                    raise ValueError("repair request source is not a same-context scientific gap")
+            elif (source.status != WorkItemStatus.FAILED
                     or source.failure_class != FailureClass.TRANSIENT
                     or source.input_digest != request.input_digest):
                 raise ValueError("repair request source is not an identical-input transient failure")
@@ -721,16 +1104,21 @@ class ResearchProjectStore:
             trigger_assessments = [
                 row for row in assessments if row.assessment_id in request.trigger_assessment_ids
             ]
+            expected_methods = (
+                {"typed_status_gate"}
+                if not domain_repair_source
+                else {"typed_status_gate", "typed_dataset_gate", "typed_domain_review"}
+            )
             if any(
                 row.target_id != request.target_work_item_id
                 or row.target_digest != request.trigger_result_digest
                 or row.result != AssessmentResult.FAIL
                 or not row.blocking
-                or row.method != "typed_status_gate"
+                or row.method not in expected_methods
                 or row.actor not in {"independent_review", "fake_independent_review"}
                 for row in trigger_assessments
             ):
-                raise ValueError("repair request trigger assessment is not a bound blocking status failure")
+                raise ValueError("repair request trigger assessment is not a bound blocking failure")
         for resolution in resolutions:
             if resolution.repair_request_id not in request_ids or resolution.revision_id not in revision_by_id:
                 raise ValueError("repair resolution references missing request or revision")
@@ -761,8 +1149,9 @@ class ResearchProjectStore:
                     for row in verification
                 )
             )
+            domain_resolution = request.action.value in {"switch_dataset_same_context", "supplement_evidence", "exclude_evidence", "downgrade_claim"}
             if resolution.status == RepairResolutionStatus.RESOLVED:
-                if not verified or root_result.input_digest != request.input_digest:
+                if not verified or (not domain_resolution and root_result.input_digest != request.input_digest):
                     raise ValueError("resolved repair lacks identical-input independent verification")
                 if any(
                     results.get(item.item_id) is None

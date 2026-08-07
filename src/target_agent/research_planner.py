@@ -13,6 +13,8 @@ from .research_contracts import (
     ResearchProjectSpec,
     WorkItemSpec,
 )
+from .paper_strategy import PatternStore, PlannerFewShotBuilder, infer_data_availability
+from .skill_catalog import SkillCatalog, SkillHintBuilder
 from .research_modules import ResearchModuleRegistry
 
 
@@ -61,9 +63,20 @@ def _output_contract(schema_id: str, **fields: str) -> DataContract:
 class ResearchPlanner:
     """Create plans exclusively from the live typed module registry."""
 
-    def __init__(self, registry: ResearchModuleRegistry, client: StepClient | None = None):
+    def __init__(
+        self,
+        registry: ResearchModuleRegistry,
+        client: StepClient | None = None,
+        pattern_store: PatternStore | None = None,
+        few_shot_top_k: int = 3,
+        skill_catalog: SkillCatalog | None = None,
+        skill_hint_top_k: int = 3,
+    ):
         self.registry = registry
         self.client = client
+        self.pattern_store = pattern_store
+        self.few_shot = PlannerFewShotBuilder(pattern_store, few_shot_top_k)
+        self.skill_hints = SkillHintBuilder(skill_catalog, skill_hint_top_k)
 
     @property
     def capabilities(self) -> list[dict[str, Any]]:
@@ -290,8 +303,35 @@ class ResearchPlanner:
             "For a disease-target project, target_discovery is the bounded scientific workflow; do not "
             "duplicate its internal literature or omics stages at project level. The independent_review item must depend "
             "on every scientific work item and research_report must depend on independent_review. "
-            "Never request shell, command execution, arbitrary code, dynamic scripts or unregistered tools."
+            "Never request shell, command execution, arbitrary code, dynamic scripts or unregistered tools. "
+            "When evidence_strategy_patterns are provided, use them only as strategy hints for choosing "
+            "evidence order and stop rules; they are never evidence for the current task and never justify "
+            "changing a protected safety field. skill_hints list on-demand best-practice bundles; they are references for choosing and sequencing typed modules, never a license to add unregistered modules or free-form execution."
         )
+        target_context = (
+            project.context.get("target_task_spec", {}).get("context", {})
+            if isinstance(project.context.get("target_task_spec"), dict) else {}
+        )
+        evidence_strategy_patterns: list[dict[str, Any]] = []
+        if self.pattern_store is not None and isinstance(target_context, dict):
+            availability = infer_data_availability(target_context)
+            evidence_strategy_patterns = self.few_shot.build(
+                disease=str(target_context.get("disease") or project.goal.question),
+                tissue=target_context.get("tissue") if isinstance(target_context.get("tissue"), str) else None,
+                cell_type=target_context.get("cell_type") if isinstance(target_context.get("cell_type"), str) else None,
+                data_availability=availability,
+            )
+        skill_hints: list[dict[str, Any]] = []
+        if isinstance(target_context, dict):
+            from .paper_strategy import infer_data_availability as _infer_availability
+
+            availability = _infer_availability(target_context)
+            available_lanes = [lane for lane, available in (availability or {}).items() if available]
+            skill_hints = self.skill_hints.build(
+                lanes=available_lanes or None,
+                scopes=["disease_target_discovery"],
+                query=str(target_context.get("disease") or project.goal.question),
+            )
         user = json.dumps({
             "project": {
                 "project_id": project.project_id,
@@ -304,6 +344,8 @@ class ResearchPlanner:
             },
             "registered_capabilities": self.capabilities,
             "max_work_items": project.max_work_items,
+            "evidence_strategy_patterns": evidence_strategy_patterns,
+            "skill_hints": skill_hints,
             "required_template": {
                 "items": [item.model_dump(mode="json") for item in template.items],
                 "rationale": template.rationale,
@@ -312,10 +354,15 @@ class ResearchPlanner:
         try:
             raw = self.client.json_completion(system, user)
             payload = _PlannerPayload.model_validate(raw)
+            backend = f"step:{self.client.model}"
+            if evidence_strategy_patterns:
+                backend += f"+pattern-fewshot:{len(evidence_strategy_patterns)}"
+            if skill_hints:
+                backend += f"+skills:{len(skill_hints)}"
             plan = ResearchPlan(
                 project_id=project.project_id,
                 items=payload.items,
-                planner_backend=f"step:{self.client.model}",
+                planner_backend=backend,
                 rationale=payload.rationale,
             )
             self._validate(project, plan, canonical_template=template)
