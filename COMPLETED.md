@@ -75,6 +75,11 @@ typed transient failure
 - overlay 全部由确定性 `DomainOverlayModule` 在派生层执行：保留源结果、只写 `domain_overlay.json` 审计文件，并将已解决的 finding 标记为 `finding_status=resolved`，Reviewer 不再重复触发；
 - 多个 finding 形成链式 overlay 时，早期 repair 的 Resolution 会跟随最终 active 链升级为 RESOLVED，仓库完整性校验按链末 active 项复核，避免“修好了但永远显示 unresolved”。
 
+- 确定性证据门禁（来自子运行 claims/evidence，而不是 LLM 文本）：
+  - 方向一致性：同一基因同时出现 increase 与 decrease 证据时，生成 blocking `conflicting_evidence` finding，映射到 R2 证据排除（需 checkpoint 审批）；
+  - 证据独立性：一条 Claim 的多条证据共享同一 source/dataset/study/tool-run 谱系时，生成 blocking `evidence_dependence` finding，映射到 R0 声明降级（自动降为 INFERRED），防止把同一研究的重复引用当作独立支持；
+  - 与子运行 Reviewer finding 按 finding_id 去重合并，确定性门禁不覆盖人工/LLM finding。
+
 仍未完成/明确不做：从自由 Reviewer 文本直接生成修复（只接受类型化 finding）、上下文拆分与科学依赖失效的自动修复；系统明确不执行这些动作。
 
 ### 2.3 Review 与发布
@@ -128,7 +133,7 @@ typed transient failure
 - Reviewer LoRA 在模板一致的 30 条 held-out 集上通过合同测试，但这不代表开放世界 Reviewer 水平；
 - 当前项目修复的远程完整验收已经覆盖自动相同输入重跑、checkpointed 精确快照批准、逻辑 active item 集、release decision marker 重绑定、HTTP/MCP 和 benchmark ledger 修正；最终精确提交的验收结果以验证报告最后一节为准；
 - 远程 HTTP 端到端冒烟通过：创建项目 → 审批计划 → 真实工具执行（GEO 检索、组学分析、Europe PMC、Open Targets、ClinicalTrials）→ 终态 `completed_with_gaps` → 事件/产物/项目列表完整；
-- 全量回归 288 passed / 2 skipped（含 9 项持久内核测试与 5 项领域 finding 修复策略测试：自动 R0/R1、checkpointed R2、越界拒绝、overlay revision 与链式 resolution）；远程内核守护进程冒烟通过：start → exec → status → stop。
+- 全量回归 289 passed / 2 skipped（含 9 项持久内核测试与 6 项领域 finding 修复策略测试：自动 R0/R1、checkpointed R2、越界拒绝、overlay revision、链式 resolution、方向一致性与证据独立性门禁）；远程内核守护进程冒烟通过：start → exec → status → stop。
 
 ## 6. 仍未完成
 

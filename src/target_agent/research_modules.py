@@ -463,6 +463,19 @@ class TargetDiscoveryModule:
             path = run_dir / filename
             if path.exists():
                 pending.append(PendingArtifact(path, logical, media))
+        derived_claims = self._read_jsonl(run_dir / "claims.jsonl", limit=200)
+        evidence_items = self._read_jsonl(run_dir / "evidence_items.jsonl", limit=200)
+        domain_findings = self._normalize_domain_findings(
+            run_dir / "reviewer_findings.jsonl", limit=50,
+        )
+        deterministic_findings = self._deterministic_evidence_findings(
+            claims=derived_claims, evidence_items=evidence_items,
+        )
+        seen_finding_ids = {str(row.get("finding_id") or "") for row in domain_findings}
+        for row in deterministic_findings:
+            if str(row.get("finding_id") or "") not in seen_finding_ids:
+                domain_findings.append(row)
+                seen_finding_ids.add(str(row["finding_id"]))
         return ModuleExecution(
             result=_result(context.item, mapped, f"Target-discovery workflow ended with {terminal}.",
                            outputs={
@@ -472,11 +485,9 @@ class TargetDiscoveryModule:
                                "deliverables_complete": deliverables_complete,
                                "domain_activity_projection_complete": projection_complete,
                                "dataset_candidates": self._read_dataset_candidates(run_dir),
-                               "derived_claims": self._read_jsonl(run_dir / "claims.jsonl", limit=200),
-                               "evidence_items": self._read_jsonl(run_dir / "evidence_items.jsonl", limit=200),
-                               "domain_findings": self._normalize_domain_findings(
-                                   run_dir / "reviewer_findings.jsonl", limit=50,
-                               ),
+                               "derived_claims": derived_claims,
+                               "evidence_items": evidence_items,
+                               "domain_findings": domain_findings,
                            },
                            error=child_error,
                            failure_class=child_failure_class or (
@@ -639,6 +650,79 @@ class TargetDiscoveryModule:
         except OSError:
             return []
         return rows
+
+    @staticmethod
+    def _deterministic_evidence_findings(
+        claims: list[dict[str, Any]], evidence_items: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """Deterministic evidence gates over durable child-run claims/evidence.
+
+        Direction gate: a gene with evidence items reporting both increase and
+        decrease is a blocking conflicting_evidence finding. Independence gate:
+        a claim whose supporting evidence items share the same source lineage
+        (source_id / dataset_id / study_id / tool_run_id) is an
+        evidence_dependence finding, because multiple references to the same
+        underlying study do not establish independent support.
+        """
+        findings: list[dict[str, Any]] = []
+        directions: dict[str, dict[str, list[str]]] = {}
+        for row in evidence_items:
+            if not isinstance(row, dict):
+                continue
+            gene = str(row.get("gene_symbol") or row.get("gene") or "").strip()
+            direction = str(row.get("effect_direction") or "").strip()
+            eid = str(row.get("evidence_id") or "").strip()
+            if not gene or direction not in {"increase", "decrease"} or not eid:
+                continue
+            directions.setdefault(gene, {}).setdefault(direction, []).append(eid)
+        for gene, by_direction in directions.items():
+            if "increase" in by_direction and "decrease" in by_direction:
+                related = [by_direction["increase"][0], by_direction["decrease"][0]]
+                findings.append({
+                    "finding_id": f"finding-direction-{gene.lower()}".replace(" ", "-"),
+                    "category": "conflicting_evidence",
+                    "severity": "blocking",
+                    "related_ids": related,
+                    "subject": {"gene": gene},
+                    "message": (
+                        f"{gene} has opposing effect directions across evidence items; "
+                        "resolve by tissue, cell, assay and perturbation context before ranking."
+                    ),
+                })
+        for claim in claims:
+            if not isinstance(claim, dict):
+                continue
+            claim_id = str(claim.get("claim_id") or "").strip()
+            evidence_ids = [str(value) for value in (claim.get("evidence_ids") or []) if value]
+            if not claim_id or len(evidence_ids) < 2:
+                continue
+            lineage: dict[str, list[str]] = {}
+            for row in evidence_items:
+                if not isinstance(row, dict):
+                    continue
+                eid = str(row.get("evidence_id") or "").strip()
+                if eid not in evidence_ids:
+                    continue
+                key = "|".join(
+                    str(row.get(field) or "")
+                    for field in ("source_id", "dataset_id", "study_id", "tool_run_id")
+                )
+                lineage.setdefault(key or "unknown", []).append(eid)
+            for key, ids in lineage.items():
+                if len(ids) >= 2:
+                    findings.append({
+                        "finding_id": f"finding-dependence-{claim_id}",
+                        "category": "evidence_dependence",
+                        "severity": "blocking",
+                        "related_ids": [claim_id, *ids],
+                        "subject": {"claim_id": claim_id},
+                        "message": (
+                            f"Claim {claim_id} relies on evidence items sharing the same "
+                            f"source lineage ({key}); independent support is not established."
+                        ),
+                    })
+                    break
+        return findings
 
     @staticmethod
     def _normalize_domain_findings(path: Path, limit: int = 50) -> list[dict[str, Any]]:

@@ -46,12 +46,14 @@ DATASET_SWITCH_POLICY_RULE = "project.domain.same_context_dataset_switch.v1"
 CLAIM_DOWNGRADE_POLICY_RULE = "project.domain.claim_downgrade.v1"
 EVIDENCE_SUPPLEMENT_POLICY_RULE = "project.domain.evidence_supplement.v1"
 EVIDENCE_EXCLUSION_POLICY_RULE = "project.domain.evidence_exclusion.v1"
+EVIDENCE_DEPENDENCE_POLICY_RULE = "project.domain.evidence_dependence.v1"
 
 # Typed Reviewer finding categories -> the only deterministic repair they may
 # trigger. Anything outside this map is never proposed by the policy layer.
 FINDING_TO_ACTION: dict[str, RepairAction] = {
     "causal_overreach": RepairAction.DOWNGRADE_CLAIM,
     "gene_mapping_overreach": RepairAction.DOWNGRADE_CLAIM,
+    "evidence_dependence": RepairAction.DOWNGRADE_CLAIM,
     "coverage_gap": RepairAction.SUPPLEMENT_EVIDENCE,
     "missing_provenance": RepairAction.SUPPLEMENT_EVIDENCE,
     "context_mismatch": RepairAction.EXCLUDE_EVIDENCE,
@@ -574,7 +576,11 @@ def _propose_domain_finding_repair(
                 "to_class": CLAIM_DOWNGRADE_TARGET_CLASS,
                 "statement_note": finding["message"] or "Causal interpretation removed by deterministic policy.",
             }
-            rule_id = CLAIM_DOWNGRADE_POLICY_RULE
+            rule_id = (
+                EVIDENCE_DEPENDENCE_POLICY_RULE
+                if finding["category"] == "evidence_dependence"
+                else CLAIM_DOWNGRADE_POLICY_RULE
+            )
             subject_key = "derived_claims"
         elif action == RepairAction.SUPPLEMENT_EVIDENCE:
             evidence = _derived_evidence(result)
@@ -1030,6 +1036,7 @@ __all__ = [
     "CLAIM_DOWNGRADE_POLICY_RULE",
     "DATASET_SWITCH_POLICY_RULE",
     "DOMAIN_REPAIR_POLICY",
+    "EVIDENCE_DEPENDENCE_POLICY_RULE",
     "EVIDENCE_EXCLUSION_POLICY_RULE",
     "EVIDENCE_SUPPLEMENT_POLICY_RULE",
     "FINDING_TO_ACTION",

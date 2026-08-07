@@ -18,7 +18,7 @@ from target_agent.research_contracts import (
 )
 from target_agent.research_modules import (
     DomainOverlayModule, ModuleDescriptor, ModuleExecution, PendingArtifact,
-    ResearchModuleRegistry,
+    ResearchModuleRegistry, TargetDiscoveryModule,
 )
 from target_agent.research_planner import ResearchPlanner
 from target_agent.research_repair import (
@@ -355,6 +355,64 @@ def test_policy_maps_blocking_findings_to_typed_requests(tmp_path):
     assert exclusion.risk == RepairRisk.R2_SCIENTIFIC_METHOD_CHANGE
     assert exclusion.authorization == RepairAuthorization.CHECKPOINT_REQUIRED
     assert exclusion.directive_payload["evidence_refs"] == ["ev-genetics"]
+
+    dependence = _propose_one(
+        tmp_path, registry, project, plan,
+        _finding("evidence_dependence", ["claim-overstated"], finding_id="finding-dependence"),
+    )
+    assert dependence is not None
+    assert dependence.action == RepairAction.DOWNGRADE_CLAIM
+    assert dependence.risk == RepairRisk.R0_DERIVATION_ONLY
+    assert dependence.authorization == RepairAuthorization.AUTOMATIC
+    assert dependence.directive_payload["claim_id"] == "claim-overstated"
+    assert dependence.directive_payload["to_class"] == "INFERRED"
+
+
+def test_deterministic_evidence_gates_direction_and_independence():
+    claims = [
+        {
+            "claim_id": "claim-directional",
+            "claim_class": "OBSERVED",
+            "evidence_ids": ["ev-up", "ev-down"],
+        },
+        {
+            "claim_id": "claim-single-lineage",
+            "claim_class": "INFERRED",
+            "evidence_ids": ["ev-x1", "ev-x2"],
+        },
+        {
+            "claim_id": "claim-independent",
+            "claim_class": "OBSERVED",
+            "evidence_ids": ["ev-a", "ev-b"],
+        },
+    ]
+    evidence = [
+        {"evidence_id": "ev-up", "gene_symbol": "GENE1", "effect_direction": "increase",
+         "source_id": "study-up"},
+        {"evidence_id": "ev-down", "gene_symbol": "GENE1", "effect_direction": "decrease",
+         "source_id": "study-down"},
+        {"evidence_id": "ev-x1", "gene_symbol": "GENE2", "effect_direction": "increase",
+         "source_id": "study-shared", "dataset_id": "GSE-shared"},
+        {"evidence_id": "ev-x2", "gene_symbol": "GENE2", "effect_direction": "increase",
+         "source_id": "study-shared", "dataset_id": "GSE-shared"},
+        {"evidence_id": "ev-a", "gene_symbol": "GENE3", "effect_direction": "increase",
+         "source_id": "study-a"},
+        {"evidence_id": "ev-b", "gene_symbol": "GENE3", "effect_direction": "decrease",
+         "source_id": "study-b", "tool_run_id": "run-b"},
+    ]
+    findings = TargetDiscoveryModule._deterministic_evidence_findings(claims, evidence)
+    by_id = {row["finding_id"]: row for row in findings}
+    assert "finding-direction-gene1" in by_id
+    assert by_id["finding-direction-gene1"]["category"] == "conflicting_evidence"
+    assert by_id["finding-direction-gene1"]["severity"] == "blocking"
+    assert set(by_id["finding-direction-gene1"]["related_ids"]) == {"ev-up", "ev-down"}
+    assert "finding-dependence-claim-single-lineage" in by_id
+    assert by_id["finding-dependence-claim-single-lineage"]["category"] == "evidence_dependence"
+    assert by_id["finding-dependence-claim-single-lineage"]["subject"]["claim_id"] == "claim-single-lineage"
+    assert not any(row["finding_id"].startswith("finding-dependence-claim-independent")
+                   for row in findings)
+    assert "finding-direction-gene3" in by_id
+    assert set(by_id["finding-direction-gene3"]["related_ids"]) == {"ev-a", "ev-b"}
 
 
 def test_policy_never_proposes_scope_or_truth_changes(tmp_path):

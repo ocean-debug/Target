@@ -57,9 +57,11 @@
 - [x] P1 首轮验收：274 passed / 2 skipped（证据图、技能库、文件预览、同上下文数据集切换修复）
 - [x] P1 二轮验收：283 passed / 2 skipped（持久内核 + 工作台内核控制台）
 - [x] P1 三轮验收：288 passed / 2 skipped（领域 finding 驱动的 R0–R3 修复策略：自动降级/补证、checkpointed 排除、越界拒绝与链式 overlay resolution）
+- [x] P1 四轮验收：289 passed / 2 skipped（新增方向一致性与证据独立性确定性门禁）
 - [x] 持久 Python/R 执行内核（借鉴 OpenAI4S/Wisp，作为可选用后端）：KernelManager + 守护进程 + CLI/Web 控制台 + 9 项内核测试
 - [x] 同上下文数据集切换：SWITCH_DATASET_SAME_CONTEXT 类型化指令（不改变冻结 TaskSpec）+ 端到端验收
 - [x] 领域 finding 驱动的补证 / 排除 / 降级全策略（R0–R3）：类型化 finding → DOWNGRADE/SUPPLEMENT/EXCLUDE overlay 链 → 已解决标记 → 链式 Resolution 升级 → 仓库完整性复核
+- [x] 确定性证据门禁：方向一致性（同基因反向证据 → `conflicting_evidence` → R2 排除）与证据独立性（同谱系重复引用 → `evidence_dependence` → R0 降级），与子运行 Reviewer finding 去重合并
 
 ### P2：平台化
 
