@@ -56,9 +56,10 @@
 - [x] 项目文件树与报告/产物在线预览：GET /api/projects/<id>/files + files/preview + 工作台面板
 - [x] P1 首轮验收：274 passed / 2 skipped（证据图、技能库、文件预览、同上下文数据集切换修复）
 - [x] P1 二轮验收：283 passed / 2 skipped（持久内核 + 工作台内核控制台）
+- [x] P1 三轮验收：288 passed / 2 skipped（领域 finding 驱动的 R0–R3 修复策略：自动降级/补证、checkpointed 排除、越界拒绝与链式 overlay resolution）
 - [x] 持久 Python/R 执行内核（借鉴 OpenAI4S/Wisp，作为可选用后端）：KernelManager + 守护进程 + CLI/Web 控制台 + 9 项内核测试
 - [x] 同上下文数据集切换：SWITCH_DATASET_SAME_CONTEXT 类型化指令（不改变冻结 TaskSpec）+ 端到端验收
-- 领域 finding 驱动的补证 / 排除 / 降级全策略（R0–R3 剩余项）
+- [x] 领域 finding 驱动的补证 / 排除 / 降级全策略（R0–R3）：类型化 finding → DOWNGRADE/SUPPLEMENT/EXCLUDE overlay 链 → 已解决标记 → 链式 Resolution 升级 → 仓库完整性复核
 
 ### P2：平台化
 

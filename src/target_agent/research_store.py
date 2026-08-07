@@ -53,9 +53,11 @@ from .research_contracts import (
 )
 from .research_projection import DomainActivityProjection, trace_event_digest
 from .research_repair import (
+    DOMAIN_REPAIR_POLICY,
     active_assessments,
     active_item_ids,
     canonical_sha256,
+    chain_final_replacement,
     effective_plan,
     fork_affected_item_ids,
     project_snapshot_digest,
@@ -256,6 +258,34 @@ class ResearchProjectStore:
                 self.project_dir / "repair_resolutions" / f"{resolution_id}.json",
                 resolution,
                 "repair resolution",
+            )
+
+    def replace_repair_resolution(
+        self, resolution: RepairResolution, previous_resolution_id: str,
+    ) -> None:
+        """Atomically replace an earlier (unresolved) resolution for the same repair.
+
+        A repair whose subgraph is later superseded by another repair revision may
+        transition from unresolved to resolved once the final active chain passes
+        independent review. The previous file is removed and the new immutable
+        resolution is written under the same store lock.
+        """
+        if resolution.project_id != self.project_id:
+            raise ValueError("repair resolution project id does not match store project id")
+        previous = self._safe_component(previous_resolution_id, "repair resolution id")
+        with self._lock:
+            root = self.project_dir / "repair_resolutions"
+            old_path = root / f"{previous}.json"
+            if not old_path.exists():
+                raise ValueError("previous repair resolution is missing")
+            old = RepairResolution.model_validate_json(old_path.read_text(encoding="utf-8"))
+            if (old.repair_request_id != resolution.repair_request_id
+                    or old.revision_id != resolution.revision_id):
+                raise ValueError("replacement resolution does not match the previous resolution")
+            old_path.unlink()
+            self._save_immutable(
+                root / f"{self._safe_component(resolution.resolution_id, 'repair resolution id')}.json",
+                resolution, "repair resolution",
             )
 
     def read_repair_resolutions(self) -> list[RepairResolution]:
@@ -1006,7 +1036,7 @@ class ResearchProjectStore:
                 elif request.failure_class != FailureClass.SCIENTIFIC_GAP:
                     raise ValueError("plan revision is not backed by an eligible scientific-gap domain request")
                 if domain_repair:
-                    expected_authorization = RepairAuthorization.CHECKPOINT_REQUIRED
+                    expected_authorization = DOMAIN_REPAIR_POLICY[request.action][1]
                 else:
                     expected_authorization = (
                         RepairAuthorization.AUTOMATIC
@@ -1070,13 +1100,27 @@ class ResearchProjectStore:
                         for key in ("preferred_dataset_accessions", "excluded_dataset_accessions")
                         if directive_payload.get(key) is not None
                     }
+                elif revision.operation in {
+                    "supplement_evidence", "exclude_evidence", "downgrade_claim",
+                } and request is not None:
+                    if item.rerun_of_item_id == request.target_work_item_id:
+                        if item.module != "domain_overlay":
+                            raise ValueError("overlay revision must replace the target with the domain_overlay module")
+                        expected_inputs["source_item_id"] = source.item_id
+                        expected_inputs["domain_overlay"] = {
+                            **(request.directive_payload or {}),
+                            "operation": revision.operation,
+                        }
                 if source_payload != item_payload:
                     allowed_override = bool(
                         revision.fork_branch_id is not None
                         and directive.input_overrides.get(source.item_id) is not None
                     ) or (
                         revision.fork_branch_id is None
-                        and revision.operation == "switch_dataset_same_context"
+                        and revision.operation in {
+                            "switch_dataset_same_context", "supplement_evidence",
+                            "exclude_evidence", "downgrade_claim",
+                        }
                     )
                     if not allowed_override or item.inputs != expected_inputs:
                         raise ValueError("plan revision changes work-item content beyond retry metadata")
@@ -1091,9 +1135,16 @@ class ResearchProjectStore:
                 raise ValueError("repair request source result digest mismatch")
             domain_repair_source = request.action.value in {"switch_dataset_same_context", "supplement_evidence", "exclude_evidence", "downgrade_claim"}
             if domain_repair_source:
-                if (source.status != WorkItemStatus.COMPLETED_WITH_GAPS
-                        or source.failure_class != FailureClass.SCIENTIFIC_GAP
-                        or source.input_digest != request.input_digest):
+                if source.input_digest != request.input_digest:
+                    raise ValueError("repair request source input digest mismatch")
+                overlay_chain = source.module == "domain_overlay"
+                if overlay_chain:
+                    if source.status not in {
+                        WorkItemStatus.COMPLETED, WorkItemStatus.COMPLETED_WITH_GAPS,
+                    }:
+                        raise ValueError("repair request overlay source is not terminal")
+                elif (source.status != WorkItemStatus.COMPLETED_WITH_GAPS
+                        or source.failure_class != FailureClass.SCIENTIFIC_GAP):
                     raise ValueError("repair request source is not a same-context scientific gap")
             elif (source.status != WorkItemStatus.FAILED
                     or source.failure_class != FailureClass.TRANSIENT
@@ -1132,7 +1183,8 @@ class ResearchProjectStore:
                 item for item in revision.added_items
                 if item.rerun_of_item_id == request.target_work_item_id
             )
-            root_result = results.get(root.item_id)
+            final_root = chain_final_replacement(revision, request, revisions)
+            root_result = results.get(final_root.item_id)
             verification = [
                 row for row in assessments
                 if row.assessment_id in resolution.verification_assessment_ids
@@ -1140,7 +1192,7 @@ class ResearchProjectStore:
             verified = (
                 root_result is not None
                 and any(
-                    row.target_id == root.item_id
+                    row.target_id == final_root.item_id
                     and row.target_digest == work_item_result_digest(root_result)
                     and row.result == AssessmentResult.PASS
                     and not row.blocking
@@ -1153,11 +1205,21 @@ class ResearchProjectStore:
             if resolution.status == RepairResolutionStatus.RESOLVED:
                 if not verified or (not domain_resolution and root_result.input_digest != request.input_digest):
                     raise ValueError("resolved repair lacks identical-input independent verification")
-                if any(
-                    results.get(item.item_id) is None
-                    or results[item.item_id].status != WorkItemStatus.COMPLETED
-                    for item in revision.added_items
-                ):
+                if final_root.item_id == root.item_id:
+                    incomplete = [
+                        results.get(item.item_id)
+                        for item in revision.added_items
+                        if results.get(item.item_id) is None
+                        or results[item.item_id].status != WorkItemStatus.COMPLETED
+                    ]
+                else:
+                    incomplete = [
+                        results.get(item_id)
+                        for item_id in active_item_ids(plan, revisions)
+                        if results.get(item_id) is None
+                        or results[item_id].status != WorkItemStatus.COMPLETED
+                    ]
+                if incomplete:
                     raise ValueError("resolved repair contains an incomplete recomputed work item")
         if resolutions:
             latest = max(resolutions, key=lambda row: revision_by_id[row.revision_id].revision_number)

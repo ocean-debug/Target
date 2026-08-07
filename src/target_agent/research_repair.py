@@ -43,6 +43,41 @@ CONTROL_MODULES = frozenset({"project_brief", "independent_review", "research_re
 REPAIR_POLICY_VERSION = "1.0.0"
 SAME_INPUT_POLICY_RULE = "project.transient.same_input_subgraph.v1"
 DATASET_SWITCH_POLICY_RULE = "project.domain.same_context_dataset_switch.v1"
+CLAIM_DOWNGRADE_POLICY_RULE = "project.domain.claim_downgrade.v1"
+EVIDENCE_SUPPLEMENT_POLICY_RULE = "project.domain.evidence_supplement.v1"
+EVIDENCE_EXCLUSION_POLICY_RULE = "project.domain.evidence_exclusion.v1"
+
+# Typed Reviewer finding categories -> the only deterministic repair they may
+# trigger. Anything outside this map is never proposed by the policy layer.
+FINDING_TO_ACTION: dict[str, RepairAction] = {
+    "causal_overreach": RepairAction.DOWNGRADE_CLAIM,
+    "gene_mapping_overreach": RepairAction.DOWNGRADE_CLAIM,
+    "coverage_gap": RepairAction.SUPPLEMENT_EVIDENCE,
+    "missing_provenance": RepairAction.SUPPLEMENT_EVIDENCE,
+    "context_mismatch": RepairAction.EXCLUDE_EVIDENCE,
+    "conflicting_evidence": RepairAction.EXCLUDE_EVIDENCE,
+    "dataset_ineligibility": RepairAction.EXCLUDE_EVIDENCE,
+}
+
+# One deterministic downgrade target: derived causal/mechanistic language is
+# weakened to INFERRED; the policy never upgrades any claim.
+CLAIM_DOWNGRADE_TARGET_CLASS = "INFERRED"
+
+OVERLAY_ACTIONS = frozenset({
+    RepairAction.DOWNGRADE_CLAIM,
+    RepairAction.SUPPLEMENT_EVIDENCE,
+    RepairAction.EXCLUDE_EVIDENCE,
+})
+
+# Payload keys the overlay may carry; everything else is rejected so a finding
+# can never smuggle a frozen-context or truth change into the overlay.
+OVERLAY_ALLOWED_PAYLOAD_KEYS: dict[RepairAction, frozenset[str]] = {
+    RepairAction.DOWNGRADE_CLAIM: frozenset({
+        "finding_id", "claim_id", "from_class", "to_class", "statement_note",
+    }),
+    RepairAction.SUPPLEMENT_EVIDENCE: frozenset({"finding_id", "evidence_ids", "lane"}),
+    RepairAction.EXCLUDE_EVIDENCE: frozenset({"finding_id", "evidence_refs", "reason"}),
+}
 
 DOMAIN_REPAIR_POLICY: dict[RepairAction, tuple[RepairRisk, RepairAuthorization]] = {
     RepairAction.SWITCH_DATASET_SAME_CONTEXT: (
@@ -51,15 +86,15 @@ DOMAIN_REPAIR_POLICY: dict[RepairAction, tuple[RepairRisk, RepairAuthorization]]
     ),
     RepairAction.SUPPLEMENT_EVIDENCE: (
         RepairRisk.R1_SAME_SCOPE_READ_ONLY,
-        RepairAuthorization.CHECKPOINT_REQUIRED,
+        RepairAuthorization.AUTOMATIC,
     ),
     RepairAction.EXCLUDE_EVIDENCE: (
         RepairRisk.R2_SCIENTIFIC_METHOD_CHANGE,
         RepairAuthorization.CHECKPOINT_REQUIRED,
     ),
     RepairAction.DOWNGRADE_CLAIM: (
-        RepairRisk.R2_SCIENTIFIC_METHOD_CHANGE,
-        RepairAuthorization.CHECKPOINT_REQUIRED,
+        RepairRisk.R0_DERIVATION_ONLY,
+        RepairAuthorization.AUTOMATIC,
     ),
 }
 
@@ -408,6 +443,227 @@ def _dataset_candidates_from_results(results: dict[str, WorkItemResult]) -> list
     return candidates
 
 
+def _domain_findings_from_results(results: dict[str, WorkItemResult]) -> list[dict[str, Any]]:
+    """Normalize typed blocking findings emitted by domain modules."""
+    findings: list[dict[str, Any]] = []
+    for result in results.values():
+        rows = result.outputs.get("domain_findings")
+        if not isinstance(rows, list):
+            continue
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            category = str(row.get("category") or "")
+            if category not in FINDING_TO_ACTION:
+                continue
+            if str(row.get("severity") or "major") != "blocking":
+                continue
+            if str(row.get("finding_status") or "") == "resolved":
+                continue
+            findings.append({
+                "finding_id": str(row.get("finding_id") or row.get("id") or ""),
+                "target_work_item_id": result.item_id,
+                "category": category,
+                "subject": row.get("subject") if isinstance(row.get("subject"), dict) else {},
+                "related_ids": [str(value) for value in (row.get("related_ids") or []) if value],
+                "message": str(row.get("message") or row.get("required_action") or ""),
+            })
+    return findings
+
+
+def _derived_claims(result: WorkItemResult) -> list[dict[str, Any]]:
+    rows = result.outputs.get("derived_claims")
+    if not isinstance(rows, list):
+        return []
+    return [row for row in rows if isinstance(row, dict) and row.get("claim_id")]
+
+
+def _derived_evidence(result: WorkItemResult) -> dict[str, dict[str, Any]]:
+    rows = result.outputs.get("evidence_items")
+    if not isinstance(rows, list):
+        return {}
+    return {str(row.get("evidence_id") or ""): row for row in rows if isinstance(row, dict) and row.get("evidence_id")}
+
+
+def _blocking_domain_review_assessments(
+    assessments: list[AssessmentRecord],
+    revisions: list[ResearchPlanRevision],
+    target_id: str,
+    digest: str,
+) -> list[AssessmentRecord]:
+    return [
+        row for row in active_assessments(assessments, revisions)
+        if row.target_id == target_id
+        and row.target_digest == digest
+        and row.blocking
+        and row.result == AssessmentResult.FAIL
+        and row.method == "typed_domain_review"
+    ]
+
+
+def _overlay_payload_allowed(action: RepairAction, payload: dict[str, Any]) -> bool:
+    allowed = OVERLAY_ALLOWED_PAYLOAD_KEYS.get(action)
+    if allowed is None:
+        return False
+    return set(payload) <= allowed
+
+
+def _propose_domain_finding_repair(
+    *,
+    project: ResearchProjectSpec,
+    base_plan: ResearchPlan,
+    plan: ResearchPlan,
+    results: dict[str, WorkItemResult],
+    assessments: list[AssessmentRecord],
+    artifacts: list[BaseModel],
+    revisions: list[ResearchPlanRevision],
+    registry: Any,
+) -> RepairRequest | None:
+    """Propose one typed derived-layer repair from a blocking domain finding.
+
+    R0 (claim downgrade) and R1 (same-scope evidence supplement) are automatic
+    after their deterministic gates; R2 (evidence exclusion) always requires a
+    checkpoint. Findings outside the typed map are never proposed, so frozen
+    scope, truth and thresholds can never be changed by the policy layer.
+    """
+    if _repair_revision_count(revisions) >= project.max_replans:
+        return None
+    active_ids = active_item_ids(plan, revisions)
+    snapshot_digest = project_snapshot_digest(
+        plan=plan, results=results, assessments=assessments, artifacts=artifacts, revisions=revisions,
+    )
+    for finding in _domain_findings_from_results(results):
+        action = FINDING_TO_ACTION[finding["category"]]
+        target_id = finding["target_work_item_id"]
+        if target_id not in active_ids:
+            continue
+        item = next((row for row in plan.items if row.item_id == target_id), None)
+        if item is None or item.module not in set(getattr(registry, "names", [])):
+            continue
+        descriptor = registry.get(item.module).descriptor
+        if action.value not in getattr(descriptor, "repair_modes", ()):
+            continue
+        result = results.get(target_id)
+        if result is None or result.status not in {
+            WorkItemStatus.COMPLETED, WorkItemStatus.COMPLETED_WITH_GAPS,
+        }:
+            continue
+        trigger_digest = work_item_result_digest(result)
+        if not _blocking_domain_review_assessments(assessments, revisions, target_id, trigger_digest):
+            continue
+        related = list(finding["related_ids"])
+        if finding["subject"].get("claim_id"):
+            related.insert(0, str(finding["subject"]["claim_id"]))
+        subject_key = "derived_claims"
+        payload: dict[str, Any] = {}
+        if action == RepairAction.DOWNGRADE_CLAIM:
+            claims = _derived_claims(result)
+            claim = next(
+                (row for row in claims if str(row.get("claim_id") or "") in related),
+                None,
+            )
+            if claim is None:
+                continue
+            from_class = str(claim.get("claim_class") or "")
+            if from_class == CLAIM_DOWNGRADE_TARGET_CLASS:
+                continue  # already at the weakest deterministic class
+            payload = {
+                "finding_id": finding["finding_id"],
+                "claim_id": str(claim["claim_id"]),
+                "from_class": from_class,
+                "to_class": CLAIM_DOWNGRADE_TARGET_CLASS,
+                "statement_note": finding["message"] or "Causal interpretation removed by deterministic policy.",
+            }
+            rule_id = CLAIM_DOWNGRADE_POLICY_RULE
+            subject_key = "derived_claims"
+        elif action == RepairAction.SUPPLEMENT_EVIDENCE:
+            evidence = _derived_evidence(result)
+            eligible = [eid for eid in related if eid in evidence and eid not in (result.evidence_refs or [])]
+            if not eligible:
+                continue
+            payload = {
+                "finding_id": finding["finding_id"],
+                "evidence_ids": eligible,
+                "lane": str(finding["subject"].get("lane") or "untyped"),
+            }
+            rule_id = EVIDENCE_SUPPLEMENT_POLICY_RULE
+            subject_key = "evidence_refs"
+        elif action == RepairAction.EXCLUDE_EVIDENCE:
+            known = set(result.evidence_refs or [])
+            excluded = [eid for eid in related if eid in known]
+            if not excluded:
+                continue
+            payload = {
+                "finding_id": finding["finding_id"],
+                "evidence_refs": excluded,
+                "reason": finding["message"] or "Context mismatch or conflicting evidence flagged by the Reviewer.",
+            }
+            rule_id = EVIDENCE_EXCLUSION_POLICY_RULE
+            subject_key = "evidence_refs"
+        else:  # pragma: no cover - FINDING_TO_ACTION is closed
+            continue
+        if not _overlay_payload_allowed(action, payload):
+            continue
+        risk, authorization = DOMAIN_REPAIR_POLICY[action]
+        affected = _descendant_closure(plan, target_id, active_ids)
+        directive = RepairDirective(
+            directive_id=_stable_id("directive", {
+                "project_id": project.project_id,
+                "work_item_id": target_id,
+                "operation": action.value,
+                "payload": payload,
+            }),
+            project_id=project.project_id,
+            work_item_id=target_id,
+            operation=action,
+            subject_key=subject_key,
+            payload=payload,
+            expected_risk=risk,
+            expected_authorization=authorization,
+            rationale=(
+                f"Blocking Reviewer finding {finding['finding_id']} ({finding['category']}) "
+                f"maps deterministically to {action.value}; the frozen TaskSpec is unchanged."
+            ),
+        )
+        return RepairRequest(
+            repair_request_id=_stable_id("repair", {
+                "project_id": project.project_id,
+                "base_plan_id": base_plan.plan_id,
+                "target_work_item_id": target_id,
+                "trigger_result_digest": trigger_digest,
+                "directive_id": directive.directive_id,
+            }),
+            project_id=project.project_id,
+            base_plan_id=base_plan.plan_id,
+            target_work_item_id=target_id,
+            trigger_assessment_ids=[
+                row.assessment_id
+                for row in _blocking_domain_review_assessments(assessments, revisions, target_id, trigger_digest)
+            ],
+            trigger_result_digest=trigger_digest,
+            trigger_snapshot_digest=snapshot_digest,
+            failure_class=FailureClass.SCIENTIFIC_GAP,
+            action=action,
+            risk=risk,
+            authorization=authorization,
+            affected_work_item_ids=affected,
+            input_digest=result.input_digest or canonical_sha256(item.inputs),
+            policy_rule_id=rule_id,
+            policy_version=REPAIR_POLICY_VERSION,
+            directive_id=directive.directive_id,
+            directive_payload=directive.payload,
+            no_scope_change=True,
+            success_criteria=[
+                "The derived-layer overlay was applied without modifying source evidence.",
+                "The frozen TaskSpec disease, tissue, cell type and stage are unchanged.",
+                "The full affected subgraph is recomputed and re-reviewed.",
+                "The release snapshot digest is rebound to the new active results.",
+            ],
+            rationale=directive.rationale,
+        )
+    return None
+
+
 def propose_domain_repair(
     *,
     project: ResearchProjectSpec,
@@ -529,7 +785,16 @@ def propose_domain_repair(
             ],
             rationale=directive.rationale,
         )
-    return None
+    return _propose_domain_finding_repair(
+        project=project,
+        base_plan=base_plan,
+        plan=plan,
+        results=results,
+        assessments=assessments,
+        artifacts=artifacts,
+        revisions=revisions,
+        registry=registry,
+    )
 
 
 def build_plan_revision(
@@ -558,12 +823,17 @@ def build_plan_revision(
         if item_id == request.target_work_item_id and request.directive_id is not None:
             inputs = dict(payload.get("inputs") or {})
             directive_payload = dict(request.directive_payload)
-            override = {
-                "preferred_dataset_accessions": directive_payload.get("preferred_dataset_accessions"),
-                "excluded_dataset_accessions": directive_payload.get("excluded_dataset_accessions"),
-            }
-            override = {key: value for key, value in override.items() if value is not None}
-            inputs["dataset_override"] = override
+            if request.action in OVERLAY_ACTIONS:
+                payload["module"] = "domain_overlay"
+                inputs["source_item_id"] = source.item_id
+                inputs["domain_overlay"] = {**directive_payload, "operation": request.action.value}
+            else:
+                override = {
+                    "preferred_dataset_accessions": directive_payload.get("preferred_dataset_accessions"),
+                    "excluded_dataset_accessions": directive_payload.get("excluded_dataset_accessions"),
+                }
+                override = {key: value for key, value in override.items() if value is not None}
+                inputs["dataset_override"] = override
             payload["inputs"] = inputs
         added.append(WorkItemSpec.model_validate(payload))
     affected_artifact_ids = {
@@ -599,6 +869,32 @@ def build_plan_revision(
     )
 
 
+def chain_final_replacement(
+    revision: ResearchPlanRevision,
+    request: RepairRequest,
+    revisions: list[ResearchPlanRevision],
+) -> WorkItemSpec:
+    """Follow repair replacement chains to the final active work item.
+
+    A repair revision may itself be superseded by a later revision (for example a
+    second derived-layer overlay chained on the first). Its final disposition is
+    judged against the last replacement still active in the effective plan.
+    """
+    root = next(
+        row for row in revision.added_items
+        if row.rerun_of_item_id == request.target_work_item_id
+    )
+    by_source: dict[str, WorkItemSpec] = {}
+    for later in revisions:
+        if later.revision_number <= revision.revision_number:
+            continue
+        by_source.update({row.rerun_of_item_id: row for row in later.added_items})
+    final = root
+    while final.item_id in by_source:
+        final = by_source[final.item_id]
+    return final
+
+
 def build_repair_resolution(
     *,
     request: RepairRequest,
@@ -620,10 +916,14 @@ def build_repair_resolution(
     active_ids = active_item_ids(plan, revisions)
     if any(item_id not in results for item_id in active_ids):
         return None
-    result = results[rerun_item.item_id]
+    final_item = chain_final_replacement(revision, request, revisions)
+    result = results.get(final_item.item_id)
+    if result is None:
+        return None
+    superseded = final_item.item_id != rerun_item.item_id
     verification = [
         row for row in active_assessments(assessments, revisions)
-        if row.target_id == rerun_item.item_id
+        if row.target_id == final_item.item_id
         and row.actor in {"independent_review", "fake_independent_review"}
         and row.method == "typed_status_gate"
         and row.target_digest == work_item_result_digest(result)
@@ -631,14 +931,33 @@ def build_repair_resolution(
     passed_review = any(
         row.result == AssessmentResult.PASS and not row.blocking for row in verification
     )
-    same_context = _frozen_context_unchanged(project, rerun_item) if request.directive_id is not None else True
+    overlay_ok = (
+        request.action in OVERLAY_ACTIONS
+        and final_item.module == "domain_overlay"
+        and result.outputs.get("domain_overlay_applied") is True
+        and _overlay_payload_allowed(request.action, request.directive_payload)
+    )
+    same_context = (
+        _frozen_context_unchanged(project, rerun_item)
+        if request.directive_id is not None and request.action == RepairAction.SWITCH_DATASET_SAME_CONTEXT
+        else True
+    )
     identical_input = result.input_digest == request.input_digest
     recomputed = [row.item_id for row in revision.added_items]
-    downstream_completed = all(
-        results.get(item_id) is not None
-        and results[item_id].status == WorkItemStatus.COMPLETED
-        for item_id in recomputed
-    )
+    if superseded:
+        # The whole replacement subgraph was replaced by a later repair revision;
+        # the earlier repair succeeds only if the final active plan is complete.
+        downstream_completed = all(
+            results.get(item_id) is not None
+            and results[item_id].status == WorkItemStatus.COMPLETED
+            for item_id in active_ids
+        )
+    else:
+        downstream_completed = all(
+            results.get(item_id) is not None
+            and results[item_id].status == WorkItemStatus.COMPLETED
+            for item_id in recomputed
+        )
     no_active_blocker = not any(
         row.blocking and row.result == AssessmentResult.FAIL
         for row in active_assessments(assessments, revisions)
@@ -646,19 +965,19 @@ def build_repair_resolution(
     success_gate = (
         result.status == WorkItemStatus.COMPLETED
         and passed_review
-        and (same_context or identical_input)
+        and (same_context or identical_input or overlay_ok)
         and downstream_completed
         and no_active_blocker
     )
     if success_gate:
         status = RepairResolutionStatus.RESOLVED
-        rationale = "The same-input retry completed and the recomputed subgraph passed independent review."
+        rationale = "The repair revision completed and the recomputed subgraph passed independent review."
     elif exhausted:
         status = RepairResolutionStatus.EXHAUSTED
         rationale = "The bounded project repair budget was exhausted without satisfying the success gate."
     else:
         status = RepairResolutionStatus.UNRESOLVED
-        rationale = "The retry did not satisfy the typed result, identical-input and independent-review gates."
+        rationale = "The repair did not satisfy the typed result, overlay, identical-input and independent-review gates."
     after = project_snapshot_digest(
         plan=plan,
         results=results,
@@ -708,8 +1027,13 @@ def _frozen_context_unchanged(project: ResearchProjectSpec, rerun_item: WorkItem
 
 
 __all__ = [
+    "CLAIM_DOWNGRADE_POLICY_RULE",
     "DATASET_SWITCH_POLICY_RULE",
     "DOMAIN_REPAIR_POLICY",
+    "EVIDENCE_EXCLUSION_POLICY_RULE",
+    "EVIDENCE_SUPPLEMENT_POLICY_RULE",
+    "FINDING_TO_ACTION",
+    "OVERLAY_ACTIONS",
     "build_fork_revision",
     "fork_affected_item_ids",
     "REPAIR_POLICY_VERSION",
@@ -717,6 +1041,7 @@ __all__ = [
     "active_item_ids",
     "build_plan_revision",
     "build_repair_resolution",
+    "chain_final_replacement",
     "canonical_sha256",
     "classify_exception",
     "effective_plan",

@@ -64,7 +64,18 @@ typed transient failure
 
 自动修复必须同时满足：模块 side-effect-free、replay-safe、声明 `same_input_retry`、输入 digest 不变且仍在预算内。checkpointed/supervised 模式要求对精确 trigger snapshot 批准；过期 digest 被拒绝。旧 result/assessment/artifact 不删除；当前 runtime 的 finalize 与 release digest 使用逻辑 active item 集，API ledger 仍返回全部历史记录并额外给出 active item IDs，尚无 WorkItemHead/ArtifactHead。
 
-已实现同上下文数据集切换修复：Reviewer 对首选数据集给出 blocking FAIL 时，确定性策略生成类型化 SWITCH_DATASET_SAME_CONTEXT 指令（不改变冻结 TaskSpec，仅替换 preferred/excluded accession），重建受影响子图并强制重新评审，具备端到端验收测试。尚未完成：科学方法改变、跨证据补证、上下文拆分和从自由 Reviewer 文本直接生成修复；系统明确不执行这些动作。
+已实现同上下文数据集切换修复：Reviewer 对首选数据集给出 blocking FAIL 时，确定性策略生成类型化 SWITCH_DATASET_SAME_CONTEXT 指令（不改变冻结 TaskSpec，仅替换 preferred/excluded accession），重建受影响子图并强制重新评审，具备端到端验收测试。
+
+已实现类型化领域 finding 驱动的完整修复策略（R0–R3）：
+
+- R0 声明降级（causal_overreach）：Reviewer 判定某条派生 Claim 因果越界时，自动生成 DOWNGRADE_CLAIM overlay，将 claim_class 降为 INFERRED 并写入 `causal_interpretation_removed`，无需人工审批；
+- R1 同范围补证（coverage_gap）：证据引用缺失但证据集内存在候选时，自动生成 SUPPLEMENT_EVIDENCE overlay，只追加已存在的证据引用，不新造证据；
+- R2 证据排除（context_mismatch）：上下文不匹配或冲突证据必须经 checkpoint 审批后生成 EXCLUDE_EVIDENCE overlay，仅从引用层移除、不删除来源证据；
+- R3 越界拒绝：`unsupported_claim`、真值/阈值/范围改动等类别不在 FINDING_TO_ACTION 白名单内，策略层永不提议，只能由人类决策处理；
+- overlay 全部由确定性 `DomainOverlayModule` 在派生层执行：保留源结果、只写 `domain_overlay.json` 审计文件，并将已解决的 finding 标记为 `finding_status=resolved`，Reviewer 不再重复触发；
+- 多个 finding 形成链式 overlay 时，早期 repair 的 Resolution 会跟随最终 active 链升级为 RESOLVED，仓库完整性校验按链末 active 项复核，避免“修好了但永远显示 unresolved”。
+
+仍未完成/明确不做：从自由 Reviewer 文本直接生成修复（只接受类型化 finding）、上下文拆分与科学依赖失效的自动修复；系统明确不执行这些动作。
 
 ### 2.3 Review 与发布
 
@@ -117,13 +128,13 @@ typed transient failure
 - Reviewer LoRA 在模板一致的 30 条 held-out 集上通过合同测试，但这不代表开放世界 Reviewer 水平；
 - 当前项目修复的远程完整验收已经覆盖自动相同输入重跑、checkpointed 精确快照批准、逻辑 active item 集、release decision marker 重绑定、HTTP/MCP 和 benchmark ledger 修正；最终精确提交的验收结果以验证报告最后一节为准；
 - 远程 HTTP 端到端冒烟通过：创建项目 → 审批计划 → 真实工具执行（GEO 检索、组学分析、Europe PMC、Open Targets、ClinicalTrials）→ 终态 `completed_with_gaps` → 事件/产物/项目列表完整；
-- 全量回归 283 passed / 2 skipped（含 9 项持久内核测试）；远程内核守护进程冒烟通过：start → exec → status → stop。
+- 全量回归 288 passed / 2 skipped（含 9 项持久内核测试与 5 项领域 finding 修复策略测试：自动 R0/R1、checkpointed R2、越界拒绝、overlay revision 与链式 resolution）；远程内核守护进程冒烟通过：start → exec → status → stop。
 
 ## 6. 仍未完成
 
 - WorkItemHead/ArtifactVersion/ReviewTarget 的完整 active-head 模型；
 - 所有中断边界恢复（WorkerLease 与 WorkAttempt 台账已实现，尚缺 heartbeat 与跨进程 CAS 全场景）；
-- 类型化领域修复、同上下文数据集替换和科学依赖失效；
+- 从自由 Reviewer 文本直接生成修复（当前只接受类型化 finding）；上下文拆分与科学依赖失效的自动修复；
 - 真实 fine-mapping/coloc 重算和广泛适用的扰动 Oracle；
 - 大规模、多疾病、独立专家审核的 alignment 数据；
 - 外部隐藏疾病盲测与独立专家仲裁；

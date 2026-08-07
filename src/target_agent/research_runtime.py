@@ -13,7 +13,8 @@ from .llm import StepClient
 from .research_contracts import (
     AssessmentDimension, AssessmentLevel, AssessmentRecord, AssessmentResult, AutonomyMode, DataContract,
     DecisionAction, DecisionEvent, FailureClass, ForkMode, PlanBranch, PlanBranchStatus, ProjectState,
-    ProjectStatus, RepairAction, RepairAuthorization, ResearchPlan, ResearchProjectSpec,
+    ProjectStatus, RepairAction, RepairAuthorization, RepairResolutionStatus, ResearchPlan,
+    ResearchProjectSpec,
     TERMINAL_WORK_ITEM_STATUSES,
     WorkAttempt, WorkAttemptStatus, WorkItemResult, WorkItemSpec, WorkItemStatus, WorkerLease,
 )
@@ -22,6 +23,7 @@ from .research_modules import ModuleContext, ResearchModuleRegistry, default_res
 from .research_planner import ResearchPlanner
 from .research_projection import DomainActivityProjection
 from .research_repair import (
+    OVERLAY_ACTIONS,
     active_assessments,
     active_item_ids,
     build_fork_revision,
@@ -273,6 +275,8 @@ class ResearchProjectRuntime:
             descriptor = self.registry.get(root.module).descriptor
             if request.action == RepairAction.SWITCH_DATASET_SAME_CONTEXT:
                 allowed_modes = {"same_input_retry", "alternate_dataset"}
+            elif request.action in OVERLAY_ACTIONS:
+                allowed_modes = {request.action.value}
             else:
                 allowed_modes = {"same_input_retry"}
             if not (
@@ -357,6 +361,10 @@ class ResearchProjectRuntime:
         store.append_event("work_item_started", "running", work_item_id=item.item_id,
                            detail={"module": item.module, "attempt": attempt_number})
         active_results = {item_id: row for item_id, row in results.items() if item_id in active_ids}
+        if item.module == "domain_overlay" and item.rerun_of_item_id is not None:
+            source_result = results.get(item.rerun_of_item_id)
+            if source_result is not None and source_result.item_id not in active_results:
+                active_results[source_result.item_id] = source_result
         referenced_artifact_ids = {
             artifact_id for result in active_results.values() for artifact_id in result.artifact_ids
         }
@@ -855,7 +863,10 @@ class ResearchProjectRuntime:
         artifacts = store.read_artifacts()
         requests = store.read_repair_requests()
         resolutions = store.read_repair_resolutions()
-        resolved_request_ids = {row.repair_request_id for row in resolutions}
+        resolved_request_ids = {
+            row.repair_request_id for row in resolutions
+            if row.status in {RepairResolutionStatus.RESOLVED, RepairResolutionStatus.EXHAUSTED}
+        }
 
         repair_revision_count = sum(1 for row in revisions if row.fork_branch_id is None)
         for revision in revisions:
@@ -874,19 +885,36 @@ class ResearchProjectRuntime:
                 exhausted=repair_revision_count >= project.max_replans,
             )
             if resolution is not None:
-                store.append_repair_resolution(resolution)
-                store.append_event(
-                    "repair_resolved",
-                    resolution.status.value,
-                    work_item_id=request.target_work_item_id,
-                    detail={
-                        "repair_request_id": request.repair_request_id,
-                        "revision_id": revision.revision_id,
-                        "after_snapshot_digest": resolution.after_snapshot_digest,
-                    },
+                existing_resolution = next(
+                    (row for row in resolutions
+                     if row.repair_request_id == request.repair_request_id),
+                    None,
                 )
-                resolutions.append(resolution)
-                resolved_request_ids.add(request.repair_request_id)
+                if existing_resolution is not None and existing_resolution.status != resolution.status:
+                    store.replace_repair_resolution(resolution, existing_resolution.resolution_id)
+                    resolutions = [
+                        row for row in resolutions
+                        if row.repair_request_id != request.repair_request_id
+                    ]
+                    resolutions.append(resolution)
+                elif existing_resolution is None:
+                    store.append_repair_resolution(resolution)
+                    resolutions.append(resolution)
+                if existing_resolution is None or existing_resolution.status != resolution.status:
+                    store.append_event(
+                        "repair_resolved",
+                        resolution.status.value,
+                        work_item_id=request.target_work_item_id,
+                        detail={
+                            "repair_request_id": request.repair_request_id,
+                            "revision_id": revision.revision_id,
+                            "after_snapshot_digest": resolution.after_snapshot_digest,
+                        },
+                    )
+                if resolution.status in {
+                    RepairResolutionStatus.RESOLVED, RepairResolutionStatus.EXHAUSTED,
+                }:
+                    resolved_request_ids.add(request.repair_request_id)
 
         request = propose_transient_repair(
             project=project,
@@ -930,7 +958,12 @@ class ResearchProjectRuntime:
                         project_id=project.project_id,
                         work_item_id=request.target_work_item_id,
                         operation=request.action,
-                        subject_key="dataset_selection",
+                        subject_key={
+                            "switch_dataset_same_context": "dataset_selection",
+                            "downgrade_claim": "derived_claims",
+                            "supplement_evidence": "evidence_refs",
+                            "exclude_evidence": "evidence_refs",
+                        }.get(request.action.value, "derived_layer"),
                         payload=request.directive_payload,
                         expected_risk=request.risk,
                         expected_authorization=request.authorization,

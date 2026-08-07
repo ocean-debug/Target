@@ -352,7 +352,10 @@ class TargetDiscoveryModule:
         input_types=("TaskSpec@2.2.0",), output_types=("TargetCard[]", "DiseaseTargetReport"),
         execution_policy="typed_domain_workflow", network_access=True,
         side_effect_free=True, replay_safe=True,
-        repair_modes=("same_input_retry", "alternate_dataset"),
+        repair_modes=(
+            "same_input_retry", "alternate_dataset",
+            "supplement_evidence", "exclude_evidence", "downgrade_claim",
+        ),
     )
 
     def execute(self, context: ModuleContext) -> ModuleExecution:
@@ -469,6 +472,11 @@ class TargetDiscoveryModule:
                                "deliverables_complete": deliverables_complete,
                                "domain_activity_projection_complete": projection_complete,
                                "dataset_candidates": self._read_dataset_candidates(run_dir),
+                               "derived_claims": self._read_jsonl(run_dir / "claims.jsonl", limit=200),
+                               "evidence_items": self._read_jsonl(run_dir / "evidence_items.jsonl", limit=200),
+                               "domain_findings": self._normalize_domain_findings(
+                                   run_dir / "reviewer_findings.jsonl", limit=50,
+                               ),
                            },
                            error=child_error,
                            failure_class=child_failure_class or (
@@ -608,6 +616,49 @@ class TargetDiscoveryModule:
         ))
 
 
+    @staticmethod
+    def _read_jsonl(path: Path, limit: int = 200) -> list[dict[str, Any]]:
+        """Read capped JSON Lines rows from a durable child-run file."""
+        if not path.is_file():
+            return []
+        rows: list[dict[str, Any]] = []
+        try:
+            with path.open("r", encoding="utf-8") as handle:
+                for line in handle:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        row = json.loads(line)
+                    except ValueError:
+                        continue
+                    if isinstance(row, dict):
+                        rows.append(row)
+                        if len(rows) >= limit:
+                            break
+        except OSError:
+            return []
+        return rows
+
+    @staticmethod
+    def _normalize_domain_findings(path: Path, limit: int = 50) -> list[dict[str, Any]]:
+        """Normalize child Reviewer findings into the project-level finding shape."""
+        normalized: list[dict[str, Any]] = []
+        for row in TargetDiscoveryModule._read_jsonl(path, limit=limit):
+            related = row.get("related_ids")
+            if not isinstance(related, list):
+                related = []
+            normalized.append({
+                "finding_id": str(row.get("finding_id") or row.get("id") or ""),
+                "category": str(row.get("category") or ""),
+                "severity": str(row.get("severity") or "major"),
+                "related_ids": [str(value) for value in related if value],
+                "subject": row.get("subject") if isinstance(row.get("subject"), dict) else {},
+                "message": str(row.get("message") or row.get("required_action") or ""),
+            })
+        return normalized
+
+
 class IndependentReviewModule:
     descriptor = ModuleDescriptor(
         name="independent_review",
@@ -711,15 +762,154 @@ class ResearchReportModule:
         )
 
 
+class DomainOverlayModule:
+    """Deterministic derived-layer overlay applied after an approved domain repair.
+
+    It reads the source work-item result and emits a corrected derived result
+    (claim downgrade, evidence supplement or exclusion) without touching source
+    evidence, tools or the frozen TaskSpec. It is the only module a
+    downgrade/supplement/exclusion repair revision may execute.
+    """
+
+    descriptor = ModuleDescriptor(
+        name="domain_overlay",
+        description=(
+            "Apply an approved deterministic derived-layer overlay to a research result: "
+            "downgrade a claim, supplement evidence references, or exclude ineligible evidence."
+        ),
+        input_types=("object",), output_types=("object",),
+        execution_policy="deterministic_policy", side_effect_free=True, replay_safe=True,
+        repair_modes=("supplement_evidence", "exclude_evidence", "downgrade_claim"),
+    )
+
+    def execute(self, context: ModuleContext) -> ModuleExecution:
+        source_id = str(context.item.inputs.get("source_item_id") or context.item.rerun_of_item_id or "")
+        source = context.prior_results.get(source_id)
+        overlay = context.item.inputs.get("domain_overlay")
+        if source is None or not isinstance(overlay, dict):
+            return ModuleExecution(result=_result(
+                context.item, WorkItemStatus.FAILED,
+                "The domain overlay cannot be applied because its source result is missing.",
+                failure_class=FailureClass.MISSING_INPUT,
+            ))
+        operation = str(overlay.get("operation") or "")
+        outputs = json.loads(json.dumps(source.outputs))
+        evidence_refs = list(source.evidence_refs or [])
+        applied: list[dict[str, Any]] = []
+        problems: list[str] = []
+        if operation == "downgrade_claim":
+            claim_id = str(overlay.get("claim_id") or "")
+            claims = [
+                dict(row) for row in (outputs.get("derived_claims") or [])
+                if isinstance(row, dict)
+            ]
+            matched = False
+            for row in claims:
+                if str(row.get("claim_id") or "") == claim_id:
+                    row["claim_class"] = str(overlay.get("to_class") or "INFERRED")
+                    row["causal_interpretation_removed"] = True
+                    row["overlay_finding_id"] = overlay.get("finding_id")
+                    matched = True
+            if not matched:
+                problems.append("The downgrade target claim is not present in derived claims.")
+            else:
+                outputs["derived_claims"] = claims
+                applied.append({
+                    "operation": operation,
+                    "claim_id": claim_id,
+                    "to_class": overlay.get("to_class"),
+                    "finding_id": overlay.get("finding_id"),
+                })
+        elif operation == "supplement_evidence":
+            known = {
+                str(row.get("evidence_id") or "")
+                for row in (outputs.get("evidence_items") or []) if isinstance(row, dict)
+            }
+            requested = [str(value) for value in (overlay.get("evidence_ids") or []) if value]
+            unknown = [eid for eid in requested if eid not in known]
+            eligible = [eid for eid in requested if eid in known and eid not in evidence_refs]
+            if unknown:
+                problems.append("Supplement references evidence ids absent from the derived evidence set.")
+            if not eligible:
+                if not problems:
+                    problems.append("No new eligible evidence was supplied by the overlay.")
+            else:
+                evidence_refs = [*evidence_refs, *eligible]
+                applied.append({
+                    "operation": operation,
+                    "evidence_ids": eligible,
+                    "lane": overlay.get("lane"),
+                    "finding_id": overlay.get("finding_id"),
+                })
+        elif operation == "exclude_evidence":
+            known = set(evidence_refs)
+            excluded = [str(value) for value in (overlay.get("evidence_refs") or []) if str(value) in known]
+            if not excluded:
+                problems.append("Exclusion references no evidence present in the result.")
+            else:
+                excluded_set = set(excluded)
+                evidence_refs = [eid for eid in evidence_refs if eid not in excluded_set]
+                applied.append({
+                    "operation": operation,
+                    "evidence_refs": excluded,
+                    "reason": overlay.get("reason"),
+                    "finding_id": overlay.get("finding_id"),
+                })
+        else:
+            problems.append(f"Unknown domain overlay operation: {operation or '<empty>'}")
+        if applied and not problems:
+            resolved_finding_id = str(overlay.get("finding_id") or "")
+            findings_out = outputs.get("domain_findings")
+            if isinstance(findings_out, list) and resolved_finding_id:
+                for row in findings_out:
+                    if (isinstance(row, dict)
+                            and str(row.get("finding_id") or "") == resolved_finding_id):
+                        row["finding_status"] = "resolved"
+                        row["resolved_by_operation"] = operation
+                outputs["domain_findings"] = findings_out
+
+        overlay_applied = bool(applied) and not problems
+        outputs["domain_overlay_applied"] = overlay_applied
+        outputs["domain_overlay_operations"] = applied
+        outputs["domain_overlay_problems"] = problems
+        summary = "Applied deterministic domain overlay: " + (
+            ", ".join(row["operation"] for row in applied) or "none"
+        ) + "."
+        if problems:
+            summary += " Overlay could not be fully applied."
+        overlay_payload = {
+            "applied": overlay_applied,
+            "operations": applied,
+            "problems": problems,
+            "source_item_id": source_id,
+            "source_result_digest": work_item_result_digest(source),
+        }
+        path = context.output_dir / "domain_overlay.json"
+        _write_json(path, overlay_payload)
+        return ModuleExecution(
+            result=_result(
+                context.item,
+                WorkItemStatus.COMPLETED if overlay_applied else WorkItemStatus.COMPLETED_WITH_GAPS,
+                summary,
+                outputs=outputs,
+                evidence_refs=evidence_refs,
+                limitations=problems,
+            ),
+            artifacts=[PendingArtifact(path, "domain_overlay", "application/json")],
+        )
+
+
 def default_research_registry(settings: Settings) -> ResearchModuleRegistry:
     return ResearchModuleRegistry([
         ProjectBriefModule(), LiteratureSearchModule(), HypothesisGenerationModule(StepClient.from_settings(settings)),
         TargetDiscoveryModule(), IndependentReviewModule(), ResearchReportModule(),
+        DomainOverlayModule(),
     ])
 
 
 __all__ = [
-    "IndependentReviewModule", "LiteratureSearchModule", "ModuleContext", "ModuleDescriptor",
-    "ModuleExecution", "PendingArtifact", "ProjectBriefModule", "ResearchModuleRegistry",
-    "ResearchReportModule", "TargetDiscoveryModule", "default_research_registry",
+    "DomainOverlayModule", "IndependentReviewModule", "LiteratureSearchModule",
+    "ModuleContext", "ModuleDescriptor", "ModuleExecution", "PendingArtifact",
+    "ProjectBriefModule", "ResearchModuleRegistry", "ResearchReportModule",
+    "TargetDiscoveryModule", "default_research_registry",
 ]

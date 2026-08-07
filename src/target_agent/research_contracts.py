@@ -485,6 +485,29 @@ class AssessmentRecord(ResearchContract):
     created_at: str = Field(default_factory=utc_now)
 
 
+class DomainFinding(ResearchContract):
+    """Typed domain finding that may trigger a bounded derived-layer repair.
+
+    Findings are recorded by the deterministic project Reviewer (or normalized
+    from the vertical child Reviewer) and consumed only by the policy layer.
+    They never rewrite source evidence; at most they produce an append-only
+    overlay that supersedes derived claims or adjusts evidence references.
+    """
+
+    finding_id: str = Field(default_factory=lambda: new_id("finding"))
+    project_id: str
+    target_work_item_id: str
+    category: Literal[
+        "causal_overreach", "coverage_gap", "context_mismatch",
+        "conflicting_evidence", "dataset_ineligibility", "unsupported_claim",
+    ]
+    severity: Literal["blocking", "major", "minor"]
+    subject: dict[str, Any] = Field(default_factory=dict)
+    message: str = Field(min_length=1)
+    source: str = Field(default="deterministic_reviewer", min_length=1)
+    created_at: str = Field(default_factory=utc_now)
+
+
 class DecisionEvent(ResearchContract):
     decision_id: str = Field(default_factory=lambda: new_id("decision"))
     project_id: str
