@@ -5,6 +5,7 @@ import argparse
 import importlib.util
 import json
 import shutil
+import sys
 import subprocess
 from pathlib import Path
 
@@ -84,6 +85,18 @@ def _doctor(settings: Settings) -> dict:
             "rscript_available": bool(rscript),
             "limma_package_available": limma_package,
             "ready": settings.enable_limma and bool(rscript) and limma_package,
+        },
+        "kernels": {
+            "enabled": settings.kernel_enabled,
+            "python": {
+                "backend": sys.executable,
+                "ready": True,
+            },
+            "r": {
+                "backend": shutil.which(settings.kernel_r_bin or "Rscript"),
+                "ready": bool(shutil.which(settings.kernel_r_bin or "Rscript")),
+                "jsonlite_required": True,
+            },
         },
         "enabled_tools": registry.names,
         "registry_contract_valid": True,
@@ -196,6 +209,23 @@ def main() -> None:
     skills_search.add_argument("--top-k", type=int, default=5)
     skills_show = skills_sub.add_parser("show", help="Print the full SKILL.md body for one skill")
     skills_show.add_argument("--id", required=True)
+
+    kernel_cmd = sub.add_parser("kernel", help="Manage persistent Python/R analysis kernels")
+    kernel_sub = kernel_cmd.add_subparsers(dest="kernel_command", required=True)
+    kernel_start = kernel_sub.add_parser("start", help="Start a persistent kernel")
+    kernel_start.add_argument("--language", choices=["python", "r"], default="python")
+    kernel_start.add_argument("--cwd", type=Path, help="Working directory (default: projects dir)")
+    kernel_exec_cmd = kernel_sub.add_parser("exec", help="Execute code in a running kernel")
+    kernel_exec_cmd.add_argument("--kernel-id", required=True)
+    kernel_exec_cmd.add_argument("--code", required=True)
+    kernel_exec_cmd.add_argument("--timeout", type=float, help="Override the execution timeout in seconds")
+    kernel_status = kernel_sub.add_parser("status", help="Show one kernel or all kernels")
+    kernel_status.add_argument("--kernel-id")
+    kernel_stop = kernel_sub.add_parser("stop", help="Stop one kernel")
+    kernel_stop.add_argument("--kernel-id", required=True)
+    kernel_sub.add_parser("stop-all", help="Stop every running kernel")
+    kernel_serve = kernel_sub.add_parser("serve", help="Run the localhost kernel daemon in the foreground")
+    kernel_serve.add_argument("--port", type=int, default=None, help="Override TARGET_AGENT_KERNEL_PORT")
     run_disease.add_argument("--disease", required=True,
                              help="Comma-separated disease ids, names or synonyms (e.g. uc,ra,ad)")
     run_disease.add_argument("--kind", choices=["normal", "missing_context", "conflicting_evidence", "trap"],
@@ -412,6 +442,32 @@ def main() -> None:
             print(loaded["description"])
             print()
             print(loaded["content"])
+    elif args.command == "kernel":
+        from .kernel import (
+            KernelDaemon, KernelDaemonClient, KernelDisabledError,
+            KernelNotFoundError, KernelTimeoutError, KernelUnavailableError,
+        )
+
+        try:
+            if args.kernel_command == "serve":
+                KernelDaemon(settings).run(port=args.port)
+            else:
+                client = KernelDaemonClient(settings)
+                if args.kernel_command == "start":
+                    info = client.start(language=args.language, cwd=args.cwd)
+                    print(json.dumps(info, indent=2, ensure_ascii=False))
+                elif args.kernel_command == "exec":
+                    result = client.execute(args.kernel_id, args.code, timeout=args.timeout)
+                    print(json.dumps(result, indent=2, ensure_ascii=False))
+                elif args.kernel_command == "status":
+                    print(json.dumps(client.status(args.kernel_id), indent=2, ensure_ascii=False))
+                elif args.kernel_command == "stop":
+                    print(json.dumps(client.stop(args.kernel_id), indent=2, ensure_ascii=False))
+                elif args.kernel_command == "stop-all":
+                    print(json.dumps({"stopped": client.stop_all()}, indent=2, ensure_ascii=False))
+        except (KernelDisabledError, KernelNotFoundError, KernelUnavailableError,
+                KernelTimeoutError) as exc:
+            raise SystemExit(f"{exc.__class__.__name__}: {exc}")
     elif args.command == "serve":
         runtime_cls = LangGraphRuntime if args.runtime == "langgraph" else TargetDiscoveryRuntime
         runtime = runtime_cls(runs_dir=args.runs_dir, cache_dir=args.cache_dir, settings=settings)

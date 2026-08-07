@@ -11,6 +11,10 @@ from flask import Flask, Response, jsonify, request, send_file, send_from_direct
 from pydantic import ValidationError
 
 from .contracts import CONTRACT_VERSION, TaskSpec, new_id
+from .kernel import (
+    KernelConfigError, KernelDisabledError, KernelManager, KernelNotConfiguredError,
+    KernelNotFoundError, KernelTimeoutError, KernelUnavailableError,
+)
 from .legacy import parse_task_spec
 from .research_contracts import (
     RESEARCH_CONTRACT_VERSION, ProjectStatus, ResearchProjectSpec,
@@ -64,6 +68,7 @@ def create_app(
         runtime = LangGraphRuntime()
     research_runtime = research_runtime or ResearchProjectRuntime(settings=runtime.settings)
     research_service = ResearchProjectService(research_runtime)
+    kernel_manager = KernelManager(runtime.settings)
     static_dir = Path(__file__).with_name("web") / "static"
     app = Flask(__name__, static_folder=str(static_dir), static_url_path="/static")
     pool = BoundedExecutor(runtime.settings.web_workers, runtime.settings.web_queue_size)
@@ -103,6 +108,7 @@ def create_app(
             "tools": runtime.registry.public_capabilities(),
             "research_modules": research_runtime.registry.public_capabilities(),
             "skills": research_runtime.skill_catalog.public_summary(),
+            "kernels": kernel_manager.capabilities(),
             "analysis_backends": {
                 "pydeseq2": bool(importlib.util.find_spec("pydeseq2")),
                 "gseapy": bool(importlib.util.find_spec("gseapy")),
@@ -127,6 +133,61 @@ def create_app(
         if loaded is None:
             return jsonify({"error": "skill not found"}), 404
         return jsonify(loaded)
+
+    @app.get("/api/kernels")
+    def kernels_list():
+        return jsonify({
+            "kernels": [info.to_dict() for info in kernel_manager.list()],
+            "capabilities": kernel_manager.capabilities(),
+        })
+
+    @app.post("/api/kernels")
+    def kernels_create():
+        body = request.get_json(silent=True) or {}
+        language = str(body.get("language") or "python")
+        cwd = body.get("cwd")
+        if not isinstance(cwd, str):
+            cwd = None
+        try:
+            info = kernel_manager.create(language=language, cwd=cwd)
+        except (KernelDisabledError, KernelNotConfiguredError, KernelConfigError) as exc:
+            return jsonify({"error": exc.__class__.__name__, "detail": str(exc)}), 400
+        return jsonify(info.to_dict()), 201
+
+    @app.get("/api/kernels/<kernel_id>")
+    def kernels_get(kernel_id: str):
+        try:
+            return jsonify(kernel_manager.get(kernel_id).to_dict())
+        except KernelNotFoundError as exc:
+            return jsonify({"error": exc.__class__.__name__, "detail": str(exc)}), 404
+
+    @app.post("/api/kernels/<kernel_id>/exec")
+    def kernels_exec(kernel_id: str):
+        body = request.get_json(silent=True) or {}
+        code = body.get("code")
+        if not isinstance(code, str) or not code.strip():
+            return jsonify({"error": "invalid_code", "detail": "code must be a non-empty string"}), 400
+        timeout = body.get("timeout")
+        if timeout is not None and (not isinstance(timeout, (int, float)) or timeout <= 0):
+            return jsonify({"error": "invalid_timeout", "detail": "timeout must be a positive number"}), 400
+        try:
+            result = kernel_manager.execute(kernel_id, code, timeout=timeout)
+        except KernelNotFoundError as exc:
+            return jsonify({"error": exc.__class__.__name__, "detail": str(exc)}), 404
+        except KernelUnavailableError as exc:
+            return jsonify({"error": exc.__class__.__name__, "detail": str(exc)}), 409
+        except KernelTimeoutError as exc:
+            return jsonify({"error": exc.__class__.__name__, "detail": str(exc)}), 408
+        except KernelConfigError as exc:
+            return jsonify({"error": exc.__class__.__name__, "detail": str(exc)}), 400
+        return jsonify(result.to_dict())
+
+    @app.delete("/api/kernels/<kernel_id>")
+    def kernels_stop(kernel_id: str):
+        try:
+            return jsonify(kernel_manager.stop(kernel_id).to_dict())
+        except KernelNotFoundError as exc:
+            return jsonify({"error": exc.__class__.__name__, "detail": str(exc)}), 404
 
     @app.get("/api/diseases")
     def diseases():

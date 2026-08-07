@@ -55,7 +55,8 @@
 - [x] Skills 目录化与渐进加载（借鉴 OpenScience/Wisp）：skills/*/SKILL.md + SkillCatalog（SHA-256）+ CLI/Web 查询 + Planner skill_hints 渐进披露
 - [x] 项目文件树与报告/产物在线预览：GET /api/projects/<id>/files + files/preview + 工作台面板
 - [x] P1 首轮验收：274 passed / 2 skipped（证据图、技能库、文件预览、同上下文数据集切换修复）
-- 持久 Python/R 执行内核（借鉴 OpenAI4S/Wisp，作为可选用后端）
+- [x] P1 二轮验收：283 passed / 2 skipped（持久内核 + 工作台内核控制台）
+- [x] 持久 Python/R 执行内核（借鉴 OpenAI4S/Wisp，作为可选用后端）：KernelManager + 守护进程 + CLI/Web 控制台 + 9 项内核测试
 - [x] 同上下文数据集切换：SWITCH_DATASET_SAME_CONTEXT 类型化指令（不改变冻结 TaskSpec）+ 端到端验收
 - 领域 finding 驱动的补证 / 排除 / 降级全策略（R0–R3 剩余项）
 

@@ -59,3 +59,12 @@ main{max-width:1480px;margin:auto;padding:0 46px 90px}.section{margin:0 0 22px;p
 .file-row small{color:var(--muted)}
 .file-preview{background:rgba(13,27,45,.9);border:1px solid var(--line);border-radius:14px;padding:14px;min-height:240px;overflow:auto}
 .file-preview-content{white-space:pre-wrap;word-break:break-word;font:12px/1.55 Consolas,"Courier New",monospace;color:#d5e5f7;margin:0}
+
+.status-badge.go{background:rgba(66,211,146,.14)!important;color:#42d392!important}
+.status-badge.danger{background:rgba(255,107,122,.14)!important;color:#ff6b7a!important}
+button:disabled{opacity:.45;cursor:not-allowed}
+.kernel-console{background:rgba(13,27,45,.9);border:1px solid var(--line);border-radius:14px;padding:14px;display:grid;gap:12px}
+.kernel-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.kernel-code-label{display:grid;gap:6px;font-size:12px;color:var(--muted)}
+.kernel-code-label textarea{background:#08141f;border:1px solid var(--line);border-radius:10px;padding:10px;color:#d5e5f7;font:12px/1.5 Consolas,"Courier New",monospace;resize:vertical}
+.kernel-output{white-space:pre-wrap;word-break:break-word;background:#08141f;border:1px solid var(--line);border-radius:10px;padding:12px;font:12px/1.55 Consolas,"Courier New",monospace;color:#d5e5f7;min-height:120px;max-height:320px;overflow:auto;margin:0}

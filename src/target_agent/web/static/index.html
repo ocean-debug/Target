@@ -116,6 +116,23 @@
           <div id="file-preview" class="file-preview"><p class="muted">选择文件查看内容</p></div>
         </div>
       </section>
+
+      <section class="section">
+        <div class="section-head compact"><div><span class="section-no">08</span><h2>持久分析内核</h2></div><p>显式创建的 Python/R 会话，状态跨执行保留；LLM 不自动执行代码，仅限人工或注册工具使用。</p></div>
+        <div class="kernel-console">
+          <div class="kernel-toolbar">
+            <span id="kernel-status" class="status-badge">无内核</span>
+            <button id="kernel-start" class="ghost">启动 Python 内核</button>
+            <button id="kernel-stop" class="ghost" disabled>停止内核</button>
+          </div>
+          <label class="kernel-code-label">代码<textarea id="kernel-code" rows="6" placeholder="print('hello'); __kernel_result__ = 1 + 1"></textarea></label>
+          <div class="mode-row">
+            <label>超时（秒）<input id="kernel-timeout" type="number" value="30" min="1"></label>
+            <button id="kernel-run" class="primary" disabled>运行</button>
+          </div>
+          <pre id="kernel-output" class="kernel-output">尚未运行。</pre>
+        </div>
+      </section>
     </section>
   </main>
 

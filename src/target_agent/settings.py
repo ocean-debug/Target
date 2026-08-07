@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -65,6 +66,23 @@ class Settings(BaseSettings):
         default=3, alias="TARGET_AGENT_SKILL_HINT_TOP_K", ge=0, le=8,
     )
 
+    kernel_enabled: bool = Field(default=True, alias="TARGET_AGENT_KERNEL_ENABLED")
+    kernel_idle_timeout_seconds: int = Field(
+        default=600, alias="TARGET_AGENT_KERNEL_IDLE_TIMEOUT_SECONDS", ge=0, le=86400,
+    )
+    kernel_exec_timeout_seconds: float = Field(
+        default=60.0, alias="TARGET_AGENT_KERNEL_EXEC_TIMEOUT_SECONDS", ge=1.0, le=600.0,
+    )
+    kernel_max_output_chars: int = Field(
+        default=20000, alias="TARGET_AGENT_KERNEL_MAX_OUTPUT_CHARS", ge=1000, le=200000,
+    )
+    kernel_max_code_chars: int = Field(
+        default=100000, alias="TARGET_AGENT_KERNEL_MAX_CODE_CHARS", ge=1000, le=1000000,
+    )
+    kernel_python_bin: str = Field(default="", alias="TARGET_AGENT_KERNEL_PYTHON")
+    kernel_r_bin: str = Field(default="", alias="TARGET_AGENT_KERNEL_R")
+    kernel_port: int = Field(default=8765, alias="TARGET_AGENT_KERNEL_PORT", ge=1024, le=65535)
+
     @property
     def step_configured(self) -> bool:
         return bool(self.step_api_key and self.step_api_key.get_secret_value().strip() and self.step_model.strip())
@@ -99,6 +117,11 @@ class Settings(BaseSettings):
             "pattern_few_shot_top_k": self.pattern_few_shot_top_k,
             "skill_catalog_configured": bool(self.skill_catalog_path and self.skill_catalog_path.is_dir()),
             "skill_hint_top_k": self.skill_hint_top_k,
+            "kernel_enabled": self.kernel_enabled,
+            "kernel_backends": {
+                "python": True,
+                "r": bool(shutil.which(self.kernel_r_bin or "Rscript")),
+            },
             "runs_dir_writable": _writable_parent(self.runs_dir),
             "projects_dir_writable": _writable_parent(self.projects_dir),
             "cache_dir_writable": _writable_parent(self.cache_dir),

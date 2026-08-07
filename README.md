@@ -111,6 +111,16 @@ target-agent skills search --lanes genetics
 target-agent skills show --id experiment-planning
 ```
 
+7. 管理持久分析内核（Python/R 会话，状态跨执行保留；仅供人工或注册工具使用，LLM 不自动执行代码）：
+
+```bash
+target-agent kernel start --language python
+target-agent kernel status
+target-agent kernel exec --kernel-id <id> --code "x = 5; __kernel_result__ = x * 7"
+target-agent kernel stop --kernel-id <id>
+target-agent kernel stop-all
+```
+
 ## Install
 
 Python 3.11 is the acceptance runtime.

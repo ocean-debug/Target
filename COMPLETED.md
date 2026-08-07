@@ -74,6 +74,15 @@ typed transient failure
 - release decision marker 绑定当前 active project snapshot SHA-256，而不是只绑定 plan ID；
 - 输入或修复导致快照变化时，旧 marker 不再适用；当前尚无独立 `ReleaseRecord`、专家签名或认证发布包。
 
+### 2.4 持久 Python/R 分析内核（借鉴 OpenAI4S/Wisp）
+
+- 显式创建/停止的持久会话，Python（默认）与 R（Rscript + jsonlite，可选）双后端，状态跨执行保留；
+- 换行 JSON 协议，stdout/stderr/traceback 截断标记，超时终止会话并保留 FAILED 原因；空闲会话按策略回收；
+- 本地守护进程自动拉起（日志在 cache/kernel-daemon.log）；CLI 提供 kernel start/exec/status/stop/stop-all/serve；
+- Web API：GET/POST /api/kernels、GET/DELETE /api/kernels/<id>、POST /api/kernels/<id>/exec；工作台第 08 节内核控制台（启动/运行/停止，能力栏显示内核开/关）；
+- 明确边界：LLM 不自动执行代码，仅人工或注册工具使用；doctor 区分必需依赖与可选分析后端；
+- 9 项内核测试：状态持久、错误恢复、超时杀死、输出截断、默认目录自动创建、禁用、R 未装、空闲回收、Web API 生命周期。
+
 ## 3. 已完成的产品接口
 
 - CLI：创建、运行、状态、事件、活动、checkpoint、repair queue 和 repair decision；
@@ -85,6 +94,7 @@ typed transient failure
 - 模型供应商抽象：`LLM_PROVIDER=step|openai`，openai 模式走任意 OpenAI 兼容 Chat Completions 端点；
 - 科研工作区：`GET /api/projects/<id>/graph` 证据图（工作项依赖 + 产物溯源 DAG）、`GET /api/projects/<id>/files` 项目文件树、`GET /api/projects/<id>/files/preview` 文本预览（路径越界/密钥文件/超大文件拒绝），Web 工作台新增证据图与文件预览面板；
 - 技能库：skills/ 下 6 个 SKILL.md（文献证据抽取、bulk RNA 受控分析、单细胞 pseudobulk、遗传审计、TargetCard Review、可证伪实验设计），SkillCatalog 扫描并以 SHA-256 校验、确定性检索；CLI `skills list/search/show`、Web `GET /api/skills` 与 `GET /api/skills/<id>`、`/api/capabilities.skills`；Planner 只接收 id/name/description/evidence_lanes 渐进提示，完整正文按需加载且不作为任务证据；
+- 持久分析内核：CLI kernel 子命令、Web /api/kernels 生命周期接口与工作台内核控制台（能力栏显示内核开关）；
 - stdio MCP：十一项类型化工具，全部调用同一 `ResearchProjectService`；
 - Web 与 MCP 不建立第二套状态语义；
 - 决策已持久化但后台队列已满时，接口区分“决定已接受”和“是否成功排队”。
@@ -107,7 +117,7 @@ typed transient failure
 - Reviewer LoRA 在模板一致的 30 条 held-out 集上通过合同测试，但这不代表开放世界 Reviewer 水平；
 - 当前项目修复的远程完整验收已经覆盖自动相同输入重跑、checkpointed 精确快照批准、逻辑 active item 集、release decision marker 重绑定、HTTP/MCP 和 benchmark ledger 修正；最终精确提交的验收结果以验证报告最后一节为准；
 - 远程 HTTP 端到端冒烟通过：创建项目 → 审批计划 → 真实工具执行（GEO 检索、组学分析、Europe PMC、Open Targets、ClinicalTrials）→ 终态 `completed_with_gaps` → 事件/产物/项目列表完整；
-- 全量回归 274 passed / 2 skipped。
+- 全量回归 283 passed / 2 skipped（含 9 项持久内核测试）；远程内核守护进程冒烟通过：start → exec → status → stop。
 
 ## 6. 仍未完成
 

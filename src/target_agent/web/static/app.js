@@ -4,6 +4,7 @@ const $ = (id) => document.getElementById(id);
 let currentProjectId = null;
 let currentSnapshot = null;
 let pollTimer = null;
+let kernelId = null;
 
 async function api(path, options) {
   const response = await fetch(path, options);
@@ -85,9 +86,129 @@ async function refreshCapabilities() {
     const caps = await api('/api/capabilities');
     const backends = Object.entries(caps.analysis_backends || {})
       .filter(([, enabled]) => enabled).map(([name]) => name).join(', ') || '无';
-    $('capability').textContent = `研究合同 ${caps.research_contract_version || '?'} · 后端 ${backends} · 技能库 ${(caps.skills && caps.skills.count) || 0}`;
+    const kernelOn = !!(caps.kernels && caps.kernels.enabled);
+    $('capability').textContent = `研究合同 ${caps.research_contract_version || '?'} · 后端 ${backends} · 技能库 ${(caps.skills && caps.skills.count) || 0} · 内核 ${kernelOn ? '开' : '关'}`;
   } catch (error) {
     $('capability').textContent = '系统能力不可用';
+  }
+}
+
+
+// ---------- persistent analysis kernel ----------
+
+async function refreshKernels() {
+  const badge = $('kernel-status');
+  const startBtn = $('kernel-start');
+  const stopBtn = $('kernel-stop');
+  const runBtn = $('kernel-run');
+  try {
+    const page = await api('/api/kernels');
+    const list = page.kernels || [];
+    const active = list.find((k) => k.status === 'ready' || k.status === 'busy') || null;
+    const lastFailed = list.length && !active ? list[list.length - 1] : null;
+    kernelId = active ? active.kernel_id : null;
+    if (kernelId) {
+      badge.textContent = active.language + ' 内核 ' + active.status + (active.exec_count ? ' · 已执行 ' + active.exec_count + ' 次' : '');
+      badge.className = 'status-badge ' + (active.status === 'busy' ? 'blue' : 'go');
+      startBtn.disabled = true;
+      stopBtn.disabled = false;
+      runBtn.disabled = false;
+    } else if (lastFailed && lastFailed.status === 'failed') {
+      badge.textContent = '内核失败' + (lastFailed.error ? '：' + lastFailed.error : '');
+      badge.className = 'status-badge danger';
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+      runBtn.disabled = true;
+    } else {
+      badge.textContent = '无内核';
+      badge.className = 'status-badge';
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+      runBtn.disabled = true;
+    }
+  } catch (error) {
+    badge.textContent = '内核不可用';
+    badge.className = 'status-badge danger';
+    startBtn.disabled = true;
+    stopBtn.disabled = true;
+    runBtn.disabled = true;
+    toast(error.message, 'error');
+  }
+}
+
+async function startKernel() {
+  const badge = $('kernel-status');
+  try {
+    $('kernel-start').disabled = true;
+    badge.textContent = '正在启动 Python 内核…';
+    badge.className = 'status-badge blue';
+    const info = await api('/api/kernels', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ language: 'python' }),
+    });
+    kernelId = info.kernel_id;
+    badge.textContent = 'Python 内核 ' + info.status;
+    badge.className = 'status-badge go';
+    $('kernel-stop').disabled = false;
+    $('kernel-run').disabled = false;
+    toast('内核已启动');
+  } catch (error) {
+    badge.textContent = '启动失败';
+    badge.className = 'status-badge danger';
+    $('kernel-start').disabled = false;
+    toast(error.message, 'error');
+  }
+}
+
+async function runKernelCode() {
+  if (!kernelId) { toast('请先启动内核', 'error'); return; }
+  const code = $('kernel-code').value;
+  if (!code.trim()) { toast('请输入代码', 'error'); return; }
+  const timeout = Number($('kernel-timeout').value) || 30;
+  const output = $('kernel-output');
+  output.textContent = '运行中…';
+  try {
+    const result = await api('/api/kernels/' + kernelId + '/exec', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, timeout }),
+    });
+    const parts = [];
+    if (result.stdout) parts.push(result.stdout);
+    if (result.stderr) parts.push('stderr:\n' + result.stderr);
+    if (result.traceback) parts.push('traceback:\n' + result.traceback);
+    if (result.ok) {
+      parts.push('result: ' + (result.result === undefined || result.result === null ? 'null' : JSON.stringify(result.result)));
+    } else {
+      parts.push('error: ' + (result.error || result.message || '执行失败'));
+    }
+    parts.push('[' + result.duration_ms + ' ms]' + (result.output_truncated ? '（输出已截断）' : ''));
+    output.textContent = parts.join('\n\n');
+    if (result.ok) toast('执行完成'); else toast('执行失败', 'error');
+    refreshKernels();
+  } catch (error) {
+    output.textContent = '请求失败：' + error.message;
+    toast(error.message, 'error');
+    refreshKernels();
+  }
+}
+
+async function stopKernel() {
+  if (!kernelId) return;
+  const id = kernelId;
+  kernelId = null;
+  try {
+    await api('/api/kernels/' + id, { method: 'DELETE' });
+    $('kernel-status').textContent = '已停止';
+    $('kernel-status').className = 'status-badge';
+    $('kernel-start').disabled = false;
+    $('kernel-stop').disabled = true;
+    $('kernel-run').disabled = true;
+    toast('内核已停止');
+  } catch (error) {
+    toast(error.message, 'error');
+    refreshKernels();
   }
 }
 
@@ -527,6 +648,10 @@ async function init() {
   $('fork-mode').addEventListener('change', () => {
     if (currentSnapshot) renderForkAttempts(currentSnapshot);
   });
+  $('kernel-start').addEventListener('click', startKernel);
+  $('kernel-stop').addEventListener('click', stopKernel);
+  $('kernel-run').addEventListener('click', runKernelCode);
+  refreshKernels();
 }
 
 document.addEventListener('DOMContentLoaded', init);
