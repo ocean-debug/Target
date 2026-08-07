@@ -557,7 +557,14 @@ class ResearchProjectService:
             artifact_versions=store.read_artifact_versions(),
             review_targets=store.read_review_targets(),
             worker_leases=store.read_leases(),
+            work_item_heads=store.read_work_item_heads(),
+            artifact_heads=store.read_artifact_heads(),
             active_work_item_ids=sorted(active_item_ids(plan, revisions)) if plan is not None else [],
+            active_artifact_ids=sorted(
+                head.artifact_id
+                for head in store.read_artifact_heads()
+                if plan is not None and head.work_item_id in active_item_ids(plan, revisions)
+            ),
             release_snapshot_digest=self._release_snapshot(store, plan) if plan is not None else None,
             next_actions=self._next_actions(store),
         ).model_dump(mode="json")

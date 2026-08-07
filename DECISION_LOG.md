@@ -2,6 +2,15 @@
 
 Cross-module contracts, workflow choices, model boundaries and scientific-safety decisions are recorded here. Accepted decisions must not be changed silently in a feature branch.
 
+## 2026-08-08 - WorkItemHead/ArtifactHead CAS 与确定性恢复
+
+- **Status:** accepted
+- WorkItemHead 是工作项当前已提交结果的权威指针（attempt + result digest + CAS version），result.json 只是镜像；执行顺序固定为“不可变结果快照 → attempt 行 → head CAS → 镜像”，中断恢复从 durable head 重建，不依赖 Trace 猜测。
+- 产物注册同时写 ArtifactVersion 不可变版本行与 ArtifactHead（CAS active 指针）；旧版本保留且可读，Reviewer 只读取 active artifact 集。
+- 每次评审提交写 ReviewTarget，snapshot digest 只包含评审项输入闭包（结果/评审/产物），下游报告完成后 digest 不漂移，恢复可幂等重建缺失 target。
+- Worker lease 增加 heartbeat 续期与过期回收；孤儿/过期 lease（含 RUNNING attempt 行）恢复时回收并重试，中断 attempt 保留审计。
+- 验收（gpu03/agenttest）：新增 6 项测试覆盖 CAS 冲突、幂等重放、版本台账、heartbeat、镜像修复不重跑、过期 lease 回收、ReviewTarget 重建；全套测试通过。
+
 ## 2026-08-08 - Product-speed cache layers
 
 - **Status:** accepted

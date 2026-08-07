@@ -1,7 +1,7 @@
 """Durable LangGraph runtime for project-level life-science research."""
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, TypedDict
 from uuid import uuid4
@@ -14,9 +14,10 @@ from .research_contracts import (
     AssessmentDimension, AssessmentLevel, AssessmentRecord, AssessmentResult, AutonomyMode, DataContract,
     DecisionAction, DecisionEvent, FailureClass, ForkMode, PlanBranch, PlanBranchStatus, ProjectState,
     ProjectStatus, RepairAction, RepairAuthorization, RepairResolutionStatus, ResearchPlan,
-    ResearchProjectSpec,
+    ResearchProjectSpec, ReviewTarget,
     TERMINAL_WORK_ITEM_STATUSES,
-    WorkAttempt, WorkAttemptStatus, WorkItemResult, WorkItemSpec, WorkItemStatus, WorkerLease,
+    WorkAttempt, WorkAttemptStatus, WorkItemHead, WorkItemResult, WorkItemSpec, WorkItemStatus,
+    WorkerLease,
 )
 from .paper_strategy import pattern_store_from_path
 from .research_modules import ModuleContext, ResearchModuleRegistry, default_research_registry
@@ -35,14 +36,13 @@ from .research_repair import (
     project_snapshot_digest,
     propose_domain_repair,
     propose_transient_repair,
+    review_target_snapshot_digest,
     work_item_result_digest,
 )
-from .research_store import ProjectBusyError, ResearchProjectStore
+from .research_store import LEASE_DURATION, ProjectBusyError, ResearchProjectStore
 from .skill_catalog import SkillCatalog
 from .settings import Settings, load_settings
 
-
-LEASE_DURATION = timedelta(hours=4)
 
 
 class ResearchRuntimeState(TypedDict, total=False):
@@ -173,6 +173,9 @@ class ResearchProjectRuntime:
             store.create(project)
         prior_state = store.load_state()
         store.assert_integrity()
+        recovered = store.recover_work_item_results()
+        self._reconcile_artifact_heads(store, recovered)
+        self._reconcile_review_targets(store, recovered)
         terminal = prior_state and prior_state.status in {
             ProjectStatus.COMPLETED, ProjectStatus.COMPLETED_WITH_GAPS,
             ProjectStatus.FAILED, ProjectStatus.CANCELLED,
@@ -180,7 +183,7 @@ class ResearchProjectRuntime:
         if terminal and state.get("resume"):
             store.assert_integrity()
             return {"project": project, "store": store, "early_terminal": True,
-                    "results": store.load_work_item_results()}
+                    "results": recovered}
         if terminal:
             raise ValueError("project already reached a terminal state; use resume to inspect it")
         if prior_state is not None and not state.get("resume"):
@@ -194,7 +197,7 @@ class ResearchProjectRuntime:
         store.save_state(next_state)
         store.append_event("state_transition", "intake", detail={"resume": bool(state.get("resume"))})
         return {"project": project, "store": store, "early_terminal": False,
-                "results": store.load_work_item_results() if state.get("resume") else {}}
+                "results": recovered if state.get("resume") else {}}
 
     def _plan(self, state: ResearchRuntimeState) -> dict[str, Any]:
         store, project = state["store"], state["project"]
@@ -351,7 +354,7 @@ class ResearchProjectRuntime:
             return {"results": results, "execution_done": active_ids.issubset(results),
                     "execution_paused": False}
         lease = self._acquire_lease(store, item, attempts.get(item.item_id, 0))
-        attempt_number = attempts.get(item.item_id, 0) + 1
+        attempt_number = len(store.read_attempts(item.item_id)) + 1
         attempt_id = lease.attempt_id
         attempts[item.item_id] = attempt_number
         store.save_state(ProjectState(
@@ -360,6 +363,7 @@ class ResearchProjectRuntime:
         ))
         store.append_event("work_item_started", "running", work_item_id=item.item_id,
                            detail={"module": item.module, "attempt": attempt_number})
+        store.heartbeat_lease(lease.lease_id)
         active_results = {item_id: row for item_id, row in results.items() if item_id in active_ids}
         if item.module == "domain_overlay" and item.rerun_of_item_id is not None:
             source_result = results.get(item.rerun_of_item_id)
@@ -496,15 +500,22 @@ class ResearchProjectRuntime:
                 limitations=["Inspect the project event ledger before retrying."],
             )
         try:
+            store.heartbeat_lease(lease.lease_id)
+            self._persist_attempt(
+                store, item, attempt_id, attempt_number, lease, result, effective_input_digest,
+            )
             store.save_work_item_result(result)
             results[item.item_id] = result
             store.append_event("work_item_finished", result.status.value, work_item_id=item.item_id, detail={
                 "module": item.module, "artifact_ids": result.artifact_ids,
                 "limitations": result.limitations, "error": result.error,
             })
-            self._persist_attempt(
-                store, item, attempt_id, attempt_number, lease, result, effective_input_digest,
-            )
+            if item.module == "independent_review":
+                head = store.read_work_item_head(item.item_id)
+                if head is not None:
+                    self._record_review_target(
+                        store, plan, revisions, item, head, results, active_ids,
+                    )
         finally:
             store.release_lease(lease.lease_id)
         return {"results": results, "execution_done": active_ids.issubset(results),
@@ -521,6 +532,111 @@ class ResearchProjectRuntime:
     @staticmethod
     def _new_contract_id(prefix: str) -> str:
         return f"{prefix}-{uuid4().hex[:24]}"
+
+    @staticmethod
+    def _reconcile_artifact_heads(
+        store: ResearchProjectStore,
+        results: dict[str, WorkItemResult],
+    ) -> None:
+        """Backfill active artifact heads for results referenced by committed work."""
+        referenced = {
+            artifact_id for result in results.values() for artifact_id in result.artifact_ids
+        }
+        store.reconcile_artifact_heads(referenced)
+
+    def _reconcile_review_targets(
+        self,
+        store: ResearchProjectStore,
+        results: dict[str, WorkItemResult],
+    ) -> None:
+        """Restore missing ReviewTarget records for already committed reviews.
+
+        A crash between the review attempt/head commit and the ReviewTarget
+        write leaves no business ambiguity: the durable head is the anchor and
+        the target is appended idempotently from it.
+        """
+        base_plan = store.load_plan()
+        if base_plan is None:
+            return
+        revisions = store.read_plan_revisions()
+        plan = effective_plan(base_plan, revisions)
+        active = active_item_ids(plan, revisions)
+        pending: list[tuple[Any, WorkItemHead]] = []
+        for item in plan.items:
+            if item.module != "independent_review" or item.item_id not in active:
+                continue
+            head = store.read_work_item_head(item.item_id)
+            result = results.get(item.item_id)
+            if head is None or result is None or head.result_digest != work_item_result_digest(result):
+                continue
+            pending.append((item, head))
+        if not pending:
+            return
+        assessments = store.read_assessments()
+        artifacts = store.read_artifacts()
+        for item, head in pending:
+            snapshot_digest = review_target_snapshot_digest(
+                plan=plan, review_item_id=item.item_id, results=results,
+                assessments=assessments, artifacts=artifacts, revisions=revisions,
+            )
+            if self._has_review_target(store, item.item_id, snapshot_digest):
+                continue
+            self._append_review_target(store, item, head, active, snapshot_digest)
+
+    def _record_review_target(
+        self,
+        store: ResearchProjectStore,
+        plan: ResearchPlan,
+        revisions: list,
+        item: WorkItemSpec,
+        head: WorkItemHead,
+        results: dict[str, WorkItemResult],
+        active_ids: set[str],
+    ) -> None:
+        """Persist the immutable set of result/artifact digests one review assessed."""
+        snapshot_digest = review_target_snapshot_digest(
+            plan=plan, review_item_id=item.item_id, results=results,
+            assessments=store.read_assessments(), artifacts=store.read_artifacts(),
+            revisions=revisions,
+        )
+        if self._has_review_target(store, item.item_id, snapshot_digest):
+            return
+        self._append_review_target(store, item, head, active_ids, snapshot_digest)
+
+    @staticmethod
+    def _append_review_target(
+        store: ResearchProjectStore,
+        item: WorkItemSpec,
+        head: WorkItemHead,
+        active_ids: set[str],
+        snapshot_digest: str,
+    ) -> None:
+        store.append_review_target(ReviewTarget(
+            review_target_id=ResearchProjectRuntime._new_contract_id("review-target"),
+            project_id=store.project_id,
+            scope="work_item",
+            work_item_id=item.item_id,
+            result_digests={item.item_id: head.result_digest},
+            artifact_ids=sorted(
+                row.artifact_id for row in store.read_artifact_heads()
+                if row.work_item_id in active_ids
+            ),
+            snapshot_digest=snapshot_digest,
+            reason=f"Independent review committed by attempt {head.attempt_id}.",
+        ))
+        store.append_event("review_target_recorded", "recorded", work_item_id=item.item_id,
+                           detail={"review_target_digest": snapshot_digest, "attempt_id": head.attempt_id})
+
+    @staticmethod
+    def _has_review_target(
+        store: ResearchProjectStore,
+        work_item_id: str,
+        snapshot_digest: str,
+    ) -> bool:
+        return any(
+            row.work_item_id == work_item_id and row.snapshot_digest == snapshot_digest
+            for row in store.read_review_targets()
+        )
 
     def _reconcile_attempt_ledger(
         self, store: ResearchProjectStore, item: WorkItemSpec, state_attempts: int,
@@ -558,19 +674,27 @@ class ResearchProjectRuntime:
         """Claim the next attempt lease, reclaiming orphan or expired leases."""
         self._reconcile_attempt_ledger(store, item, state_attempts)
         existing = store.read_leases(item.item_id)
+        now = datetime.now(timezone.utc)
         for row in existing:
             if row.released_at is not None:
                 continue
+            expired = False
+            try:
+                expired = now > datetime.fromisoformat(row.expires_at)
+            except ValueError:
+                expired = True
             attempt = next(
                 (record for record in store.read_attempts(item.item_id)
                  if record.attempt_id == row.attempt_id),
                 None,
             )
-            if attempt is not None and attempt.status in {WorkAttemptStatus.PENDING, WorkAttemptStatus.RUNNING}:
+            if (attempt is not None
+                    and attempt.status in {WorkAttemptStatus.PENDING, WorkAttemptStatus.RUNNING}
+                    and not expired):
                 raise ProjectBusyError(f"work item {item.item_id} is leased by {row.worker_id}")
             store.release_lease(row.lease_id)
             store.append_event("lease_reclaimed", "released", work_item_id=item.item_id,
-                               detail={"lease_id": row.lease_id, "worker_id": row.worker_id})
+                               detail={"lease_id": row.lease_id, "worker_id": row.worker_id, "expired": expired})
         attempt_id = self._new_contract_id("attempt")
         lease = WorkerLease(
             lease_id=self._new_contract_id("lease"),
@@ -623,8 +747,18 @@ class ResearchProjectRuntime:
             started_at=lease.acquired_at,
             completed_at=utc_now(),
         )
-        store.append_attempt(attempt)
         store.save_attempt_result(attempt, result)
+        store.append_attempt(attempt)
+        current_head = store.read_work_item_head(item.item_id)
+        store.update_work_item_head(WorkItemHead(
+            project_id=store.project_id,
+            work_item_id=item.item_id,
+            attempt_id=attempt.attempt_id,
+            result_digest=attempt.output_digest,
+            status=result.status,
+            version=(current_head.version + 1) if current_head is not None else 1,
+            supersedes_head_id=current_head.head_id if current_head is not None else None,
+        ), expected_version=current_head.version if current_head is not None else None)
         store.append_event("work_attempt_recorded", result.status.value, work_item_id=item.item_id,
                            detail={"attempt_id": attempt_id, "attempt_number": attempt_number})
 

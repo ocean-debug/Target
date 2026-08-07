@@ -13,7 +13,7 @@ from target_agent.research_contracts import (
     DecisionAction, DecisionEvent, FailureClass, ProjectState, ProjectStatus,
     RepairResolutionStatus, ResearchGoal,
     ResearchProjectSpec,
-    WorkAttempt, WorkItemResult, WorkItemStatus, WorkerLease,
+    WorkAttempt, WorkAttemptStatus, WorkItemHead, WorkItemResult, WorkItemStatus, WorkerLease,
 )
 from target_agent.research_modules import (
     ModuleDescriptor,
@@ -973,3 +973,94 @@ def test_read_dataset_candidates_dedupes_across_report_and_trace(tmp_path):
     # tool_results take precedence for the duplicate accession
     assert by_accession["GSE1"]["decision"] == "selected"
     assert by_accession["GSE3"]["status"] == "candidate"
+
+def test_committed_head_recovers_missing_result_mirror_without_reexecution(tmp_path):
+    runtime, calls = fake_research_runtime(tmp_path)
+    project = research_project("project-head-recovery")
+    store = ResearchProjectStore(runtime.projects_dir, project.project_id)
+    terminal = runtime.run(project)
+    assert terminal["status"] == ProjectStatus.COMPLETED.value
+    heads = store.read_work_item_heads()
+    assert {head.work_item_id for head in heads} == set(BASELINE_MODULES)
+    assert calls == Counter({name: 1 for name in BASELINE_MODULES})
+
+    # Simulate the narrow crash window: attempt/head committed, result.json
+    # mirror lost before the next durable write.
+    for item_id in BASELINE_MODULES:
+        (store.project_dir / "work_items" / item_id / "result.json").unlink()
+
+    terminal = runtime.run(project, resume=True)
+    assert terminal["status"] == ProjectStatus.COMPLETED.value
+    # No completed step is re-executed; recovery repairs the mirror from the head.
+    assert calls == Counter({name: 1 for name in BASELINE_MODULES})
+    results = store.load_work_item_results()
+    assert set(results) == set(BASELINE_MODULES)
+    for head in store.read_work_item_heads():
+        assert work_item_result_digest(results[head.work_item_id]) == head.result_digest
+    store.assert_integrity()
+
+
+def test_expired_lease_with_running_attempt_is_reclaimed_on_resume(tmp_path):
+    runtime, _ = fake_research_runtime(tmp_path)
+    project = research_project("project-expired-lease")
+    store = ResearchProjectStore(runtime.projects_dir, project.project_id)
+    store.create(project)
+    plan = runtime.planner.deterministic(project)
+    store.save_plan(plan)
+    store.save_state(ProjectState(
+        project_id=project.project_id, status=ProjectStatus.RUNNING,
+    ))
+    orphan_attempt_id = ResearchProjectRuntime._new_contract_id("attempt")
+    orphan = WorkerLease(
+        lease_id=ResearchProjectRuntime._new_contract_id("lease"),
+        project_id=project.project_id,
+        work_item_id="literature_search",
+        attempt_id=orphan_attempt_id,
+        worker_id="crashed-worker",
+        expires_at="2000-01-01T00:00:00+00:00",
+    )
+    store.append_lease(orphan)
+    store.append_attempt(WorkAttempt(
+        attempt_id=orphan_attempt_id,
+        project_id=project.project_id,
+        work_item_id="literature_search",
+        attempt_number=1,
+        status=WorkAttemptStatus.RUNNING,
+        input_digest="0" * 64,
+        started_at="2026-01-01T00:00:00+00:00",
+    ))
+
+    terminal = runtime.run(project, resume=True)
+    assert terminal["status"] == ProjectStatus.COMPLETED.value
+    assert any(row.event_type == "lease_reclaimed" for row in store.read_events())
+    attempts = store.read_attempts("literature_search")
+    assert [row.attempt_number for row in attempts] == [1, 2]
+    # the interrupted running attempt stays auditable; the retry commits a result
+    assert attempts[0].status.value == "running" and attempts[0].output_digest is None
+    assert attempts[1].output_digest is not None
+    assert all(row.released_at is not None for row in store.read_leases())
+    store.assert_integrity()
+
+
+def test_review_target_recorded_and_reconciled_after_interruption(tmp_path):
+    runtime, calls = fake_research_runtime(tmp_path)
+    project = research_project("project-review-target")
+    store = ResearchProjectStore(runtime.projects_dir, project.project_id)
+    terminal = runtime.run(project)
+    assert terminal["status"] == ProjectStatus.COMPLETED.value
+    review_item = "independent_review"
+    targets = store.read_review_targets()
+    assert len(targets) == 1
+    assert targets[0].work_item_id == review_item
+    assert len(targets[0].snapshot_digest) == 64
+    expected_digest = targets[0].snapshot_digest
+
+    # Simulate a crash after the review head committed but before the target row.
+    (store.project_dir / "review_targets.jsonl").unlink()
+    terminal = runtime.run(project, resume=True)
+    assert terminal["status"] == ProjectStatus.COMPLETED.value
+    targets = store.read_review_targets()
+    assert len(targets) == 1
+    assert targets[0].snapshot_digest == expected_digest
+    assert calls == Counter({name: 1 for name in BASELINE_MODULES})
+    store.assert_integrity()

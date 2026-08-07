@@ -328,6 +328,7 @@ class ArtifactVersion(ResearchContract):
     version_id: str = Field(pattern=r"^artifact-version-[a-f0-9]{24}$")
     project_id: str
     artifact_id: str = Field(pattern=r"^artifact-[a-f0-9]{24}$")
+    record_id: str = Field(pattern=r"^artifact-[a-f0-9]{12,24}$")
     version: int = Field(ge=1)
     sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     size_bytes: int = Field(ge=0)
@@ -440,6 +441,49 @@ class WorkerLease(ResearchContract):
     expires_at: str = Field(min_length=1)
     heartbeat_at: str = Field(default_factory=utc_now)
     released_at: str | None = None
+
+
+class WorkItemHead(ResearchContract):
+    """Durable CAS-updated pointer to the committed result of one work item.
+
+    The head is authoritative: the working result.json is only a mirror of
+    the immutable attempt snapshot it references, so recovery never guesses
+    business state from Trace events. Replaying the same committed attempt is
+    an idempotent no-op.
+    """
+
+    head_id: str = Field(default_factory=lambda: new_id("head"), pattern=r"^head-[a-f0-9]{12}$")
+    project_id: str
+    work_item_id: str
+    attempt_id: str = Field(pattern=r"^attempt-[a-f0-9]{24}$")
+    result_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
+    status: WorkItemStatus
+    version: int = Field(default=1, ge=1)
+    supersedes_head_id: str | None = Field(default=None, pattern=r"^head-[a-f0-9]{12}$")
+    updated_at: str = Field(default_factory=utc_now)
+
+
+class ArtifactHead(ResearchContract):
+    """Durable CAS-updated pointer to the active version of one logical artifact.
+
+    Version rows in artifact_versions.jsonl remain immutable and auditable;
+    this head only states which version is current for consumers such as the
+    Reviewer, so old versions are never lost.
+    """
+
+    artifact_id: str = Field(pattern=r"^artifact-[a-f0-9]{24}$")
+    project_id: str
+    work_item_id: str
+    logical_name: str = Field(min_length=1)
+    version_id: str = Field(pattern=r"^artifact-version-[a-f0-9]{24}$")
+    record_id: str = Field(pattern=r"^artifact-[a-f0-9]{12,24}$")
+    version: int = Field(ge=1)
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    size_bytes: int = Field(ge=0)
+    media_type: str = "application/octet-stream"
+    uri: str = Field(pattern=r"^project://")
+    updated_by_attempt_id: str | None = Field(default=None, pattern=r"^attempt-[a-f0-9]{24}$")
+    updated_at: str = Field(default_factory=utc_now)
 
 
 class WorkAttempt(ResearchContract):
@@ -794,7 +838,10 @@ class ResearchProjectSnapshot(ResearchContract):
     artifact_versions: list[ArtifactVersion] = Field(default_factory=list)
     review_targets: list[ReviewTarget] = Field(default_factory=list)
     worker_leases: list[WorkerLease] = Field(default_factory=list)
+    work_item_heads: list[WorkItemHead] = Field(default_factory=list)
+    artifact_heads: list[ArtifactHead] = Field(default_factory=list)
     active_work_item_ids: list[str] = Field(default_factory=list)
+    active_artifact_ids: list[str] = Field(default_factory=list)
     release_snapshot_digest: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     next_actions: list[dict[str, Any]] = Field(default_factory=list)
 
@@ -805,6 +852,8 @@ class ResearchProjectSnapshot(ResearchContract):
             *self.artifacts, *self.assessments, *self.decisions, *self.repair_requests,
             *self.plan_revisions, *self.repair_resolutions, *self.fork_directives,
             *self.plan_branches,
+            *self.work_item_heads,
+            *self.artifact_heads,
         ]
         if self.state is not None:
             project_records.append(self.state)
@@ -826,7 +875,8 @@ TERMINAL_WORK_ITEM_STATUSES = frozenset({
 
 
 __all__ = [
-    "RESEARCH_CONTRACT_VERSION", "ArtifactRecord", "ArtifactVersion", "AssessmentDimension",
+    "RESEARCH_CONTRACT_VERSION", "ArtifactHead", "ArtifactRecord", "ArtifactVersion",
+    "AssessmentDimension",
     "AssessmentLevel", "AssessmentRecord", "AssessmentResult", "AutonomyMode", "DataContract",
     "DecisionAction", "DecisionEvent", "DomainActivityPage", "DomainActivityRecord",
     "DomainActivityStatus", "DomainStage", "FailureClass", "ProjectEvent", "ProjectState",
@@ -834,6 +884,6 @@ __all__ = [
     "RepairQueueSnapshot", "RepairRequest", "RepairResolution", "RepairResolutionStatus",
     "RepairRisk", "ResearchGoal", "ResearchPlan", "ResearchPlanRevision",
     "ResearchProjectSnapshot", "ResearchProjectSpec", "ReviewTarget", "TERMINAL_WORK_ITEM_STATUSES",
-    "WorkAttempt", "WorkAttemptStatus", "WorkItemResult", "WorkItemSpec", "WorkItemStatus",
-    "WorkerLease",
+    "WorkAttempt", "WorkAttemptStatus", "WorkItemHead", "WorkItemResult", "WorkItemSpec",
+    "WorkItemStatus", "WorkerLease",
 ]

@@ -7,6 +7,7 @@ from target_agent.research_contracts import (
     AssessmentDimension,
     WorkAttempt,
     WorkAttemptStatus,
+    WorkItemHead,
     WorkerLease,
     AssessmentLevel,
     AssessmentRecord,
@@ -359,3 +360,88 @@ def test_attempt_ledger_is_immutable_and_contiguous(tmp_path):
             input_digest="0" * 64,
             completed_at="2026-08-08T00:00:00+00:00",
         )
+
+def test_work_item_head_cas_idempotent_and_conflict(tmp_path):
+    store = initialized_store(tmp_path)
+    first = WorkItemHead(
+        head_id="head-" + "a" * 12,
+        project_id="project-test",
+        work_item_id="literature",
+        attempt_id="attempt-" + "a" * 24,
+        result_digest="0" * 64,
+        status=WorkItemStatus.COMPLETED,
+        version=1,
+    )
+    committed = store.update_work_item_head(first, expected_version=None)
+    assert committed == first
+    # replaying the same committed attempt is an idempotent no-op
+    assert store.update_work_item_head(first, expected_version=1) == first
+    # a stale writer cannot overwrite a newer commit
+    with pytest.raises(ValueError, match="CAS conflict|must follow"):
+        store.update_work_item_head(first.model_copy(update={
+            "head_id": "head-" + "b" * 12,
+            "attempt_id": "attempt-" + "b" * 24,
+            "result_digest": "1" * 64,
+        }), expected_version=1)
+    # a second attempt bumps the head and records the superseded head
+    second = store.update_work_item_head(WorkItemHead(
+        head_id="head-" + "b" * 12,
+        project_id="project-test",
+        work_item_id="literature",
+        attempt_id="attempt-" + "b" * 24,
+        result_digest="1" * 64,
+        status=WorkItemStatus.COMPLETED_WITH_GAPS,
+        version=2,
+    ), expected_version=1)
+    assert second.version == 2
+    assert second.supersedes_head_id == first.head_id
+    assert store.read_work_item_head("literature").result_digest == "1" * 64
+    assert [row.head_id for row in store.read_work_item_heads()] == [second.head_id]
+
+
+def test_artifact_registration_writes_version_ledger_and_active_head(tmp_path):
+    store = initialized_store(tmp_path)
+    work_file = store.project_dir / "work_items" / "literature" / "report.md"
+    work_file.parent.mkdir(parents=True)
+    work_file.write_text("version one\n", encoding="utf-8")
+
+    first = store.register_artifact(work_file, "literature", "report", "text/markdown")
+    work_file.write_text("version two\n", encoding="utf-8")
+    second = store.register_artifact(work_file, "literature", "report", "text/markdown")
+    duplicate = store.register_artifact(work_file, "literature", "report", "text/markdown")
+
+    assert duplicate == second
+    versions = store.read_artifact_versions()
+    assert [row.version for row in versions] == [1, 2]
+    assert versions[0].artifact_id == versions[1].artifact_id
+    assert versions[1].supersedes_version_id == versions[0].version_id
+    assert versions[1].record_id == second.artifact_id
+    heads = store.read_artifact_heads()
+    assert len(heads) == 1
+    assert heads[0].artifact_id == versions[1].artifact_id
+    assert heads[0].version_id == versions[1].version_id
+    assert heads[0].version == 2
+    assert heads[0].record_id == second.artifact_id
+    # old versions are preserved and remain readable
+    assert store.artifact_path(first).read_text(encoding="utf-8") == "version one\n"
+    assert store.artifact_path(second).read_text(encoding="utf-8") == "version two\n"
+    store.assert_integrity()
+
+
+def test_lease_heartbeat_refreshes_expiry(tmp_path):
+    store = initialized_store(tmp_path)
+    lease = WorkerLease(
+        lease_id="lease-" + "a" * 24,
+        project_id="project-test",
+        work_item_id="literature",
+        attempt_id="attempt-" + "a" * 24,
+        worker_id="worker-a",
+        expires_at="2000-01-01T00:00:00+00:00",
+    )
+    store.append_lease(lease)
+    refreshed = store.heartbeat_lease(lease.lease_id)
+    assert refreshed.released_at is None
+    assert refreshed.expires_at > "2000-01-01T00:00:00+00:00"
+    assert refreshed.heartbeat_at >= lease.heartbeat_at
+    store.release_lease(lease.lease_id)
+    assert store.heartbeat_lease(lease.lease_id).released_at is not None

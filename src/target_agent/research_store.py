@@ -15,12 +15,15 @@ import shutil
 import tempfile
 import threading
 from contextlib import contextmanager
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, TypeVar
+from uuid import uuid4
 
 from pydantic import BaseModel
 
 from .research_contracts import (
+    ArtifactHead,
     ArtifactRecord,
     ArtifactVersion,
     AssessmentRecord,
@@ -47,6 +50,7 @@ from .research_contracts import (
     ReviewTarget,
     WorkAttempt,
     WorkAttemptStatus,
+    WorkItemHead,
     WorkItemResult,
     WorkItemStatus,
     WorkerLease,
@@ -73,6 +77,9 @@ class ProjectBusyError(RuntimeError):
     pass
 
 
+LEASE_DURATION = timedelta(hours=4)
+
+
 class ResearchProjectStore:
     """Filesystem-backed store for one research project."""
 
@@ -89,6 +96,10 @@ class ResearchProjectStore:
         if not _SAFE_COMPONENT.fullmatch(value):
             raise ValueError(f"unsafe {label}: {value!r}")
         return value
+
+    @staticmethod
+    def _new_contract_id(prefix: str) -> str:
+        return f"{prefix}-{uuid4().hex[:24]}"
 
     @staticmethod
     def _payload(value: BaseModel | dict[str, Any] | list[Any]) -> Any:
@@ -325,6 +336,66 @@ class ResearchProjectStore:
             results[item_id] = result
         return results
 
+    def update_work_item_head(
+        self,
+        head: WorkItemHead,
+        *,
+        expected_version: int | None = None,
+    ) -> WorkItemHead:
+        """CAS-update the committed head of one work item.
+
+        The caller passes the next version it intends to write; the store
+        verifies it against the durable head so a stale writer can never
+        silently overwrite a newer commit. Replaying the already committed
+        attempt/digest is an idempotent no-op.
+        """
+        if head.project_id != self.project_id:
+            raise ValueError("work item head project id does not match store project id")
+        item_id = self._safe_component(head.work_item_id, "work item id")
+        with self._lock:
+            current = self.read_work_item_head(item_id)
+            if (current is not None
+                    and current.attempt_id == head.attempt_id
+                    and current.result_digest == head.result_digest):
+                return current
+            expected = current.version if (current is not None and expected_version is None) else expected_version
+            if current is None:
+                if expected_version not in (None, 1) or head.version != 1:
+                    raise ValueError("first work item head must be version 1")
+            else:
+                if current.version != expected:
+                    raise ValueError(
+                        f"work item head CAS conflict: expected version {expected}, found {current.version}"
+                    )
+                if head.version != current.version + 1:
+                    raise ValueError(
+                        f"work item head version must follow the current head: "
+                        f"expected {current.version + 1}, got {head.version}"
+                    )
+            committed = head.model_copy(update={
+                "supersedes_head_id": current.head_id if current is not None else None,
+            })
+            self._write_json_atomic(
+                self.project_dir / "work_items" / item_id / "head.json", committed,
+            )
+            return committed
+
+    def read_work_item_head(self, work_item_id: str) -> WorkItemHead | None:
+        item_id = self._safe_component(work_item_id, "work item id")
+        return self._read_model(self.project_dir / "work_items" / item_id / "head.json", WorkItemHead)
+
+    def read_work_item_heads(self) -> list[WorkItemHead]:
+        root = self.project_dir / "work_items"
+        if not root.exists():
+            return []
+        heads: list[WorkItemHead] = []
+        for path in sorted(root.glob("*/head.json")):
+            head = WorkItemHead.model_validate_json(path.read_text(encoding="utf-8"))
+            if head.work_item_id != path.parent.name:
+                raise ValueError("work item head path/id mismatch")
+            heads.append(head)
+        return heads
+
     def append_attempt(self, attempt: WorkAttempt) -> None:
         if attempt.project_id != self.project_id:
             raise ValueError("attempt project id does not match store project id")
@@ -389,6 +460,54 @@ class ResearchProjectStore:
             return None
         return WorkItemResult.model_validate_json(path.read_text(encoding="utf-8"))
 
+    def recover_work_item_results(self) -> dict[str, WorkItemResult]:
+        """Return the authoritative committed results after an interrupted run.
+
+        Heads are the deterministic recovery anchor: terminal attempts backfill
+        missing heads (legacy projects and crash windows), and each committed
+        head repairs the working result.json mirror from its immutable attempt
+        snapshot. Business state is never guessed from Trace events. Items
+        without any attempt (legacy manual saves) are returned unchanged.
+        """
+        with self._lock:
+            results = self.load_work_item_results()
+            attempts = self.read_attempts()
+            latest_by_item: dict[str, WorkAttempt] = {}
+            for attempt in attempts:
+                if attempt.output_digest is None:
+                    continue
+                current = latest_by_item.get(attempt.work_item_id)
+                if current is None or attempt.attempt_number > current.attempt_number:
+                    latest_by_item[attempt.work_item_id] = attempt
+            for item_id, attempt in sorted(latest_by_item.items()):
+                current_head = self.read_work_item_head(item_id)
+                if current_head is not None and current_head.attempt_id == attempt.attempt_id:
+                    continue
+                if current_head is not None and current_head.result_digest == attempt.output_digest:
+                    continue
+                snapshot = self.load_attempt_result(attempt.attempt_id)
+                if snapshot is None:
+                    continue
+                self.update_work_item_head(WorkItemHead(
+                    project_id=self.project_id,
+                    work_item_id=item_id,
+                    attempt_id=attempt.attempt_id,
+                    result_digest=attempt.output_digest,
+                    status=snapshot.status,
+                    version=(current_head.version + 1) if current_head else 1,
+                    supersedes_head_id=current_head.head_id if current_head is not None else None,
+                ), expected_version=current_head.version if current_head else None)
+            for head in self.read_work_item_heads():
+                snapshot = self.load_attempt_result(head.attempt_id)
+                if snapshot is None:
+                    continue
+                path = self.project_dir / "work_items" / head.work_item_id / "result.json"
+                existing = self._read_model(path, WorkItemResult)
+                if existing is None or work_item_result_digest(existing) != head.result_digest:
+                    self._write_json_atomic(path, snapshot)
+                results[head.work_item_id] = snapshot
+            return results
+
     def append_lease(self, lease: WorkerLease) -> None:
         if lease.project_id != self.project_id:
             raise ValueError("lease project id does not match store project id")
@@ -438,6 +557,26 @@ class ResearchProjectStore:
             )
             return released
 
+    def heartbeat_lease(self, lease_id: str) -> WorkerLease:
+        """Refresh a live worker lease heartbeat and its expiry window."""
+        safe_lease = self._safe_component(lease_id, "lease id")
+        with self._lock:
+            target = next((row for row in self.read_leases() if row.lease_id == safe_lease), None)
+            if target is None:
+                raise ValueError("lease not found")
+            if target.released_at is not None:
+                return target
+            now = datetime.now(timezone.utc)
+            refreshed = target.model_copy(update={
+                "heartbeat_at": now.isoformat(),
+                "expires_at": (now + LEASE_DURATION).isoformat(),
+            })
+            self._append_jsonl(
+                self.project_dir / "work_items" / target.work_item_id / "leases.jsonl",
+                refreshed,
+            )
+            return refreshed
+
     def append_artifact_version(self, version: ArtifactVersion) -> None:
         if version.project_id != self.project_id:
             raise ValueError("artifact version project id does not match store project id")
@@ -460,6 +599,53 @@ class ResearchProjectStore:
     def current_artifact_version(self, artifact_id: str) -> ArtifactVersion | None:
         records = self.read_artifact_versions(artifact_id)
         return records[-1] if records else None
+
+    def update_artifact_head(
+        self,
+        head: ArtifactHead,
+        *,
+        expected_version: int | None = None,
+    ) -> ArtifactHead:
+        """CAS-update the active version head of one logical artifact.
+
+        Rows are append-only so head transitions remain auditable; the latest
+        row per artifact id is the active head. Replaying the already active
+        version is an idempotent no-op.
+        """
+        if head.project_id != self.project_id:
+            raise ValueError("artifact head project id does not match store project id")
+        with self._lock:
+            current = self.current_artifact_head(head.artifact_id)
+            if current is not None and current.version_id == head.version_id:
+                return current
+            expected = current.version if (current is not None and expected_version is None) else expected_version
+            if current is None:
+                if expected_version not in (None, 1) or head.version != 1:
+                    raise ValueError("first artifact head must be version 1")
+            else:
+                if current.version != expected:
+                    raise ValueError(
+                        f"artifact head CAS conflict: expected version {expected}, found {current.version}"
+                    )
+                if head.version != current.version + 1:
+                    raise ValueError(
+                        f"artifact head version must follow the current head: "
+                        f"expected {current.version + 1}, got {head.version}"
+                    )
+            self._append_jsonl("artifact_heads.jsonl", head)
+            return head
+
+    def read_artifact_heads(self) -> list[ArtifactHead]:
+        """Return the active head per logical artifact (append-only rows are history)."""
+        records = self._read_jsonl("artifact_heads.jsonl", ArtifactHead)
+        latest: dict[str, ArtifactHead] = {}
+        for row in records:
+            latest[row.artifact_id] = row
+        return [latest[key] for key in sorted(latest)]
+
+    def current_artifact_head(self, artifact_id: str) -> ArtifactHead | None:
+        records = self._read_jsonl("artifact_heads.jsonl", ArtifactHead)
+        return next((row for row in reversed(records) if row.artifact_id == artifact_id), None)
 
     def append_review_target(self, target: ReviewTarget) -> None:
         if target.project_id != self.project_id:
@@ -703,6 +889,7 @@ class ResearchProjectStore:
             ]
             for existing in reversed(matching):
                 if existing.sha256 == digest:
+                    self._ensure_artifact_versioned(existing)
                     return existing
             record = ArtifactRecord(
                 project_id=self.project_id,
@@ -715,7 +902,66 @@ class ResearchProjectStore:
                 version=max((item.version for item in matching), default=0) + 1,
             )
             self._append_jsonl("artifacts.jsonl", record)
+            self._ensure_artifact_versioned(record)
             return record
+
+    def _ensure_artifact_versioned(self, record: ArtifactRecord) -> None:
+        """Append the typed immutable version row and CAS-update the active head.
+
+        Idempotent across crash windows: a content-addressed record whose
+        version row already exists is only bound to the head, never duplicated.
+        """
+        versions = [
+            row for row in self.read_artifact_versions()
+            if row.work_item_id == record.work_item_id and row.logical_name == record.logical_name
+        ]
+        existing_row = next((row for row in versions if row.record_id == record.artifact_id), None)
+        if existing_row is None:
+            logical_id = versions[0].artifact_id if versions else self._new_contract_id("artifact")
+            previous = versions[-1] if versions else None
+            existing_row = ArtifactVersion(
+                version_id=self._new_contract_id("artifact-version"),
+                project_id=self.project_id,
+                artifact_id=logical_id,
+                record_id=record.artifact_id,
+                version=record.version,
+                sha256=record.sha256,
+                size_bytes=record.size_bytes,
+                work_item_id=record.work_item_id,
+                logical_name=record.logical_name,
+                media_type=record.media_type,
+                uri=record.uri,
+                supersedes_version_id=previous.version_id if previous else None,
+            )
+            self._append_jsonl("artifact_versions.jsonl", existing_row)
+        current_head = self.current_artifact_head(existing_row.artifact_id)
+        if current_head is not None and current_head.version_id == existing_row.version_id:
+            return
+        self.update_artifact_head(ArtifactHead(
+            artifact_id=existing_row.artifact_id,
+            project_id=self.project_id,
+            work_item_id=record.work_item_id,
+            logical_name=record.logical_name,
+            version_id=existing_row.version_id,
+            record_id=record.artifact_id,
+            version=(current_head.version + 1) if current_head else 1,
+            sha256=record.sha256,
+            size_bytes=record.size_bytes,
+            media_type=record.media_type,
+            uri=record.uri,
+            updated_by_attempt_id=None,
+        ), expected_version=current_head.version if current_head else None)
+
+    def reconcile_artifact_heads(self, referenced_artifact_ids: set[str]) -> None:
+        """Backfill version rows and active heads for legacy content-addressed records.
+
+        New registrations always write the typed ledger; this makes an older
+        project's artifacts addressable by the same active-set contract after
+        an upgrade, without duplicating or rewriting stored bytes.
+        """
+        for record in self.read_artifacts():
+            if record.artifact_id in referenced_artifact_ids:
+                self._ensure_artifact_versioned(record)
 
     def read_artifacts(self) -> list[ArtifactRecord]:
         return self._read_jsonl("artifacts.jsonl", ArtifactRecord)
@@ -877,6 +1123,47 @@ class ResearchProjectStore:
                     raise ValueError("work attempt result snapshot item id mismatch")
                 if work_item_result_digest(snapshot) != attempt.output_digest:
                     raise ValueError("work attempt result snapshot digest mismatch")
+
+        heads = self.read_work_item_heads()
+        self._unique(heads, "head_id", "work item head")
+        if len({head.work_item_id for head in heads}) != len(heads):
+            raise ValueError("work item head is not unique per work item")
+        for head in heads:
+            if head.project_id != self.project_id:
+                raise ValueError("work item head project id mismatch")
+            if known_items and head.work_item_id not in known_items:
+                raise ValueError(f"work item head references unknown work item: {head.work_item_id}")
+            attempt = next((row for row in attempts if row.attempt_id == head.attempt_id), None)
+            if attempt is None or attempt.output_digest != head.result_digest:
+                raise ValueError(f"work item head references a mismatched attempt: {head.attempt_id}")
+            if attempt.work_item_id != head.work_item_id:
+                raise ValueError("work item head attempt binding mismatch")
+            snapshot = self.load_attempt_result(attempt.attempt_id)
+            if snapshot is None or work_item_result_digest(snapshot) != head.result_digest:
+                raise ValueError(f"work item head result snapshot mismatch: {head.attempt_id}")
+            if head.status != snapshot.status:
+                raise ValueError(f"work item head status mismatch: {head.work_item_id}")
+
+        artifact_versions = self.read_artifact_versions()
+        artifact_heads = self.read_artifact_heads()
+        records_by_id = {record.artifact_id: record for record in artifacts}
+        for head in artifact_heads:
+            if head.project_id != self.project_id:
+                raise ValueError("artifact head project id mismatch")
+            version_row = next(
+                (row for row in artifact_versions if row.version_id == head.version_id),
+                None,
+            )
+            if version_row is None or version_row.artifact_id != head.artifact_id:
+                raise ValueError("artifact head references a missing version row")
+            record = records_by_id.get(head.record_id)
+            if record is None or record.sha256 != head.sha256:
+                raise ValueError("artifact head references a missing or mismatched record")
+        for row in artifact_versions:
+            if row.project_id != self.project_id:
+                raise ValueError("artifact version project id mismatch")
+            if row.record_id not in records_by_id:
+                raise ValueError(f"artifact version references a missing record: {row.version_id}")
 
         branch_by_id = {row.branch_id: row for row in branches}
         directive_by_id = {row.fork_directive_id: row for row in fork_directives}

@@ -14,11 +14,11 @@ from .contracts import (
     ToolResult, TraceEvent,
 )
 from .research_contracts import (
-    ArtifactRecord, ArtifactVersion, AssessmentRecord, DataContract, DecisionEvent,
+    ArtifactHead, ArtifactRecord, ArtifactVersion, AssessmentRecord, DataContract, DecisionEvent,
     DomainActivityPage, DomainActivityRecord, ForkDirective, PlanBranch, ProjectEvent,
     ProjectState, RepairDirective, RepairQueueSnapshot, RepairRequest, RepairResolution,
     ResearchGoal, ResearchPlan, ResearchPlanRevision, ResearchProjectSnapshot,
-    ResearchProjectSpec, ReviewTarget, WorkAttempt, WorkItemResult, WorkItemSpec,
+    ResearchProjectSpec, ReviewTarget, WorkAttempt, WorkItemHead, WorkItemResult, WorkItemSpec,
     WorkerLease,
 )
 from .blind_benchmark import BlindBenchmarkManifest, BlindLabelSet
@@ -71,6 +71,8 @@ MODELS = {
     "research_artifact_version": ArtifactVersion,
     "research_review_target": ReviewTarget,
     "research_worker_lease": WorkerLease,
+    "research_work_item_head": WorkItemHead,
+    "research_artifact_head": ArtifactHead,
     "research_repair_resolution": RepairResolution,
     "research_repair_queue": RepairQueueSnapshot,
     "research_project_snapshot": ResearchProjectSnapshot,

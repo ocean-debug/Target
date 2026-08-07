@@ -16,6 +16,7 @@ import requests
 from pydantic import BaseModel
 
 from .research_contracts import (
+    ArtifactRecord,
     AssessmentRecord,
     AssessmentResult,
     AutonomyMode,
@@ -184,6 +185,64 @@ def project_snapshot_digest(
             if row.target_id in active_targets
         ],
         "active_artifacts": active_artifacts,
+    }
+    return canonical_sha256(payload)
+
+
+def review_target_snapshot_digest(
+    *,
+    plan: ResearchPlan,
+    review_item_id: str,
+    results: dict[str, WorkItemResult],
+    assessments: Iterable[AssessmentRecord],
+    artifacts: Iterable[ArtifactRecord],
+    revisions: Iterable[ResearchPlanRevision],
+) -> str:
+    """Digest of the exact active result/artifact set one review item assessed.
+
+    Only the review item's transitive input closure is included, so recovery
+    reproduces the same digest regardless of later downstream work; the digest
+    never drifts just because the report finished afterwards.
+    """
+    by_id = {item.item_id: item for item in plan.items}
+    closure = {review_item_id}
+    changed = True
+    while changed:
+        changed = False
+        for item_id in list(closure):
+            for dependency in by_id[item_id].dependencies:
+                if dependency not in closure:
+                    closure.add(dependency)
+                    changed = True
+    active_ids = active_item_ids(plan, revisions)
+    review_active = closure & active_ids
+    review_results = {
+        item_id: result
+        for item_id, result in sorted(results.items())
+        if item_id in review_active
+    }
+    review_artifact_ids = {
+        artifact_id for result in review_results.values() for artifact_id in result.artifact_ids
+    }
+    review_targets = review_active | review_artifact_ids
+    payload = {
+        "base_plan_id": plan.plan_id,
+        "revision_digests": [row.revision_digest for row in revisions],
+        "review_item_id": review_item_id,
+        "active_results": {
+            key: value.model_dump(mode="json") for key, value in review_results.items()
+        },
+        "active_assessments": [
+            row.model_dump(mode="json")
+            for row in active_assessments(assessments, revisions)
+            if row.target_id in review_targets
+        ],
+        "active_artifacts": [
+            row.model_dump(mode="json")
+            for row in artifacts
+            if getattr(row, "work_item_id", None) in review_active
+            and getattr(row, "artifact_id", None) in review_artifact_ids
+        ],
     }
     return canonical_sha256(payload)
 

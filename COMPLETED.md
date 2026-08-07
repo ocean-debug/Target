@@ -70,7 +70,7 @@ typed transient failure
 -> new release snapshot digest
 ```
 
-自动修复必须同时满足：模块 side-effect-free、replay-safe、声明 `same_input_retry`、输入 digest 不变且仍在预算内。checkpointed/supervised 模式要求对精确 trigger snapshot 批准；过期 digest 被拒绝。旧 result/assessment/artifact 不删除；当前 runtime 的 finalize 与 release digest 使用逻辑 active item 集，API ledger 仍返回全部历史记录并额外给出 active item IDs，尚无 WorkItemHead/ArtifactHead。
+自动修复必须同时满足：模块 side-effect-free、replay-safe、声明 `same_input_retry`、输入 digest 不变且仍在预算内。checkpointed/supervised 模式要求对精确 trigger snapshot 批准；过期 digest 被拒绝。旧 result/assessment/artifact 不删除；当前 runtime 的 finalize 与 release digest 使用逻辑 active item 集，API ledger 仍返回全部历史记录并额外给出 active item IDs 与 active artifact IDs；WorkItemHead/ArtifactHead 是 active 视图的权威指针（见 2.5）。
 
 已实现同上下文数据集切换修复：Reviewer 对首选数据集给出 blocking FAIL 时，确定性策略生成类型化 SWITCH_DATASET_SAME_CONTEXT 指令（不改变冻结 TaskSpec，仅替换 preferred/excluded accession），重建受影响子图并强制重新评审，具备端到端验收测试。
 
@@ -106,6 +106,15 @@ typed transient failure
 - Web API：GET/POST /api/kernels、GET/DELETE /api/kernels/<id>、POST /api/kernels/<id>/exec；工作台第 08 节内核控制台（启动/运行/停止，能力栏显示内核开/关）；
 - 明确边界：LLM 不自动执行代码，仅人工或注册工具使用；doctor 区分必需依赖与可选分析后端；
 - 9 项内核测试：状态持久、错误恢复、超时杀死、输出截断、默认目录自动创建、禁用、R 未装、空闲回收、Web API 生命周期。
+
+### 2.5 工作尝试、产物版本与 CAS 头
+
+- WorkAttempt 永久不可变（append-only，结果快照按 digest 绑定）；WorkItemHead 以 CAS 更新并记录 attempt/result digest，重放同一提交是幂等 no-op；
+- 每条工作项执行顺序固定为：不可变结果快照 -> attempt 行 -> head CAS -> result.json 镜像；中断恢复以 head 为权威，不通过 Trace 猜测业务状态；
+- 产物注册同时写入 artifact_versions.jsonl（不可变版本行）与 artifact_heads.jsonl（CAS active 指针），旧版本内容寻址保留、可审计可读取；
+- Reviewer 只接收当前 active artifact 集；每次评审提交生成 ReviewTarget，绑定评审时刻的输入闭包 snapshot digest、result digest 与 active artifact 逻辑 ID；
+- worker lease 支持 heartbeat 续期与过期回收；孤儿/过期 lease（含 RUNNING attempt 行）恢复时被回收并重试，中断的 attempt 行保留为审计记录；
+- 中断边界验收：attempt/head/review 任一边界模拟中断后恢复，已完成步骤不重复执行、旧版本不丢失，缺失的 ReviewTarget 由恢复逻辑幂等重建。
 
 ## 3. 已完成的产品接口
 
