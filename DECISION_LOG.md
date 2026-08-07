@@ -2,6 +2,20 @@
 
 Cross-module contracts, workflow choices, model boundaries and scientific-safety decisions are recorded here. Accepted decisions must not be changed silently in a feature branch.
 
+## 2026-08-07 - Context-relation benchmark uses scoped contrastive labels
+
+- Added a disease-disjoint relationship benchmark spanning disease, target,
+  tissue, cell type and disease stage.
+- Disease-target positives reuse the curated, evidence-graded anchors in
+  `configs/disease_library.yaml`; they are explicitly bounded as ranking sanity
+  anchors rather than cell-specific causal facts.
+- Tissue/stage swaps are labelled as mismatches against the curated benchmark
+  context, not as universal biological negatives. Cross-disease target swaps
+  are excluded because pleiotropy makes those negatives unsafe without
+  publication-level review.
+- Context donors are restricted to the same split, and every case for one
+  disease stays in a single split.
+
 ## 2026-08-01 - Versioned schemas are module boundaries
 
 - **Status:** accepted
