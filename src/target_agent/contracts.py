@@ -792,7 +792,7 @@ class TraceEvent(ContractModel):
     event_type: Literal[
         "state_transition", "plan", "tool_call", "tool_result", "review",
         "replan", "checkpoint", "ranking", "report", "degradation", "refusal",
-        "evidence_superseded",
+        "evidence_superseded", "planner_pattern_hints", "planner_paper_evidence",
     ]
     state: str
     detail: dict[str, Any] = Field(default_factory=dict)

@@ -152,3 +152,31 @@ def test_langgraph_resume_mid_pipeline_matches_legacy_fresh_run(tmp_path):
     # resume adds one extra intake trace; compare everything else
     assert {key: value for key, value in left.items() if key != "trace_topology"} == \
            {key: value for key, value in right.items() if key != "trace_topology"}
+
+
+class HintedPlanner:
+    """Deterministic planner wrapper that reports pattern/paper hints like the Step planner."""
+
+    def __init__(self, base):
+        self._base = base
+        self.last_pattern_hints = [{"pattern_id": "pattern-1"}]
+        self.last_paper_evidence = [{"chunk_id": "chunk-1", "pmid": "12345"}]
+
+    def create_plan(self, task):
+        return self._base.create_plan(task)
+
+
+def test_langgraph_trace_records_pattern_and_paper_hints(tmp_path):
+    runtime = LangGraphRuntime(
+        runs_dir=tmp_path / "runs", cache_dir=tmp_path / "cache",
+        planner=HintedPlanner(Planner(None)),
+        registry=ToolRegistry([FakeGenericOmics(), FakeOpenTargets(), FakeLiterature()]),
+    )
+    status = runtime.run(uc_task(), run_id="run-hints")
+    assert status["terminal_status"] == "completed"
+    trace = _jsonl(tmp_path / "runs" / "run-hints" / "trace.jsonl")
+    types = [event["event_type"] for event in trace]
+    assert "planner_pattern_hints" in types
+    assert "planner_paper_evidence" in types
+    pattern_event = next(event for event in trace if event["event_type"] == "planner_pattern_hints")
+    assert pattern_event["detail"]["pattern_ids"] == ["pattern-1"]
