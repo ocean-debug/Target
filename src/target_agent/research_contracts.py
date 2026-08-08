@@ -276,6 +276,10 @@ class ResearchPlan(ResearchContract):
     items: list[WorkItemSpec] = Field(min_length=1)
     planner_backend: str
     rationale: str
+    # Deterministic evidence-strategy hints distilled from recent CNS papers
+    # (see paper_strategy.PlannerFewShotBuilder). They are strategy hints for
+    # evidence order and stop rules, never evidence for the current task.
+    evidence_strategy_patterns: list[dict[str, Any]] = Field(default_factory=list)
     created_at: str = Field(default_factory=utc_now)
 
     @model_validator(mode="after")

@@ -364,6 +364,7 @@ class ResearchPlanner:
                 items=payload.items,
                 planner_backend=backend,
                 rationale=payload.rationale,
+                evidence_strategy_patterns=evidence_strategy_patterns,
             )
             self._validate(project, plan, canonical_template=template)
             return plan

@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import os
 import shutil
 import sys
 import subprocess
@@ -193,6 +194,17 @@ def main() -> None:
     pattern_add = pattern_sub.add_parser("add", help="Add one pattern from a JSON or YAML file")
     pattern_add.add_argument("--input", type=Path, required=True)
     pattern_add.add_argument("--store", type=Path)
+    corpus_cmd = pattern_sub.add_parser("corpus", help="Maintain the PubMed candidate corpus for pattern distillation")
+    corpus_sub = corpus_cmd.add_subparsers(dest="paper_corpus_command", required=True)
+    corpus_refresh = corpus_sub.add_parser("refresh", help="Fetch and append E-utilities candidate records")
+    corpus_refresh.add_argument("--store", type=Path, default=Path("paper_strategy") / "corpus" / "corpus.jsonl")
+    corpus_refresh.add_argument("--email", default="", help="NCBI E-utilities contact email (or NCBI_EMAIL env)")
+    corpus_refresh.add_argument("--retmax", type=int, default=8, help="Records per journal per query bucket")
+    corpus_refresh.add_argument("--max-candidates", type=int, default=200)
+    corpus_refresh.add_argument("--year-min", type=int, default=2021)
+    corpus_refresh.add_argument("--year-max", type=int, default=2026)
+    corpus_status = corpus_sub.add_parser("status", help="Show candidate corpus counts")
+    corpus_status.add_argument("--store", type=Path, default=Path("paper_strategy") / "corpus" / "corpus.jsonl")
 
     diseases_cmd = sub.add_parser("diseases", help="List the OLS-verified disease library")
     diseases_cmd.add_argument("--json", action="store_true", help="Emit machine-readable JSON")
@@ -356,6 +368,31 @@ def main() -> None:
                 "pattern_id": payload.get("pattern_id") if isinstance(payload, dict) else None,
                 "path": str(store.path),
             }, indent=2, ensure_ascii=False))
+        elif args.pattern_command == "corpus":
+            from .paper_corpus import CorpusStore, RequestsEutilsClient, fetch_candidates
+
+            if args.paper_corpus_command == "refresh":
+                client = RequestsEutilsClient(
+                    email=args.email or os.environ.get("NCBI_EMAIL") or None,
+                    api_key=os.environ.get("NCBI_API_KEY") or None,
+                )
+                records = fetch_candidates(
+                    client,
+                    year_min=args.year_min,
+                    year_max=args.year_max,
+                    retmax_per_query=args.retmax,
+                    max_candidates=args.max_candidates,
+                )
+                store = CorpusStore(args.store)
+                result = store.add_many(records)
+                manifest = store.write_manifest()
+                print(json.dumps({
+                    **result,
+                    "manifest_count": manifest["count"],
+                    "card": store.corpus_card(),
+                }, indent=2, ensure_ascii=False))
+            else:
+                print(json.dumps(CorpusStore(args.store).corpus_card(), indent=2, ensure_ascii=False))
     elif args.command == "diseases":
         from .diseases import load_library
 

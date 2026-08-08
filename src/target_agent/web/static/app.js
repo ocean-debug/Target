@@ -351,6 +351,7 @@ function renderSnapshot(snap) {
   renderNextActions(snap);
   renderContext(snap);
   renderPlan(snap);
+  renderStrategyPatterns(snap);
   renderResults(snap);
   renderBranches(snap);
   renderArtifacts(snap);
@@ -474,6 +475,27 @@ function renderPlan(snap) {
       <span class="status-badge ${resultStatusClass(status)}">${esc(status)} · ${attempts} 次尝试</span>
     </article>`;
   }).join('');
+}
+
+function renderStrategyPatterns(snap) {
+  const patterns = (snap.plan && snap.plan.evidence_strategy_patterns) || [];
+  const count = $('strategy-pattern-count');
+  const host = $('strategy-patterns');
+  if (!count || !host) return;
+  count.textContent = patterns.length
+    ? `命中 ${patterns.length} 个模式 · 来自近5年 CNS 论文，仅作策略提示`
+    : '未命中论文模式（确定性流程不受影响）';
+  host.innerHTML = patterns.length ? patterns.map((p) => `
+    <article class="plan-step">
+      <div>
+        <b>${esc(p.name)}</b>
+        <small>${esc(p.pattern_id)} · ${esc(p.validation_level)} · 起点 ${esc(p.chosen_start)} · 得分 ${esc(p.score)}</small>
+        <i>证据顺序: ${esc((p.ordered_lanes || []).join(' → ') || '无')}</i>
+        <i>为什么这个顺序: ${esc(p.why_this_order || '')}</i>
+        <small>停止/降级规则: ${esc((p.stop_rules || []).join('; ') || '无')}</small>
+        <small class="muted">策略提示非证据 · ${esc((p.matched_reason || []).join('; '))}</small>
+      </div>
+    </article>`).join('') : '<p class="muted empty">暂无模式</p>';
 }
 
 function renderResults(snap) {

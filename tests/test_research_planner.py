@@ -108,6 +108,63 @@ def test_vertical_product_always_plans_target_discovery_even_when_input_is_missi
     target = next(item for item in plan.items if item.module == "target_discovery")
     assert target.dependencies == ["project_brief"]
 
+def test_step_plan_persists_evidence_strategy_patterns(tmp_path):
+    from target_agent.paper_strategy import (
+        EvidenceLink, PatternStore, SourcePaper, StrategyPattern,
+    )
+
+    store_path = tmp_path / "patterns.jsonl"
+    store = PatternStore(store_path)
+    store.add(StrategyPattern(
+        pattern_id="pattern-test-ibd",
+        name="IBD genetics-first strategy",
+        disease_class="inflammatory bowel disease",
+        disease_keywords=["crohn", "colitis", "ibd"],
+        applicability=["disease with gwas and omics data"],
+        evidence_start_lane="genetics",
+        ordered_lanes=["genetics", "omics", "literature", "drug"],
+        required_lanes=["genetics", "omics"],
+        optional_lanes=["perturbation"],
+        evidence_links=[EvidenceLink(
+            link_id="genetics-to-omics", source_lane="genetics", target_lane="omics",
+            link_type="colocalization", evidence_used=["gwas"], decision_rule="coloc>=0.8",
+            why_this_link="Genetics anchors causality; omics resolves cell context.",
+        )],
+        stop_downgrade_rules=["no candidate without genetics support"],
+        mixed_method_rationale="Genetics first, then context-resolved omics.",
+        source_papers=[SourcePaper(title="IBD GWAS study", journal="Nature Genetics", year=2022)],
+    ))
+
+    modules = registry(StubModule("target_discovery"))
+    base = ResearchPlanner(modules).deterministic(project(domain="disease_target_discovery"))
+    client = FakeClient({
+        "items": [item.model_dump(mode="json") for item in base.items],
+        "rationale": "Genetics-first evidence strategy.",
+    })
+    spec = project(
+        domain="disease_target_discovery",
+        context={
+            "target_task_spec": {
+                "task_type": "disease_to_target",
+                "context": {
+                    "disease": "Crohn disease",
+                    "gwas_available": True,
+                    "preferred_dataset_accessions": ["GSE99999"],
+                },
+            }
+        },
+    )
+    planner = ResearchPlanner(modules, client=client, pattern_store=store)
+
+    plan = planner.create_plan(spec)
+
+    assert plan.evidence_strategy_patterns
+    assert plan.evidence_strategy_patterns[0]["pattern_id"] == "pattern-test-ibd"
+    assert plan.evidence_strategy_patterns[0]["chosen_start"] == "genetics"
+    assert plan.planner_backend.endswith("+pattern-fewshot:1")
+    sent = json.loads(client.calls[0][1])
+    assert sent["evidence_strategy_patterns"][0]["pattern_id"] == "pattern-test-ibd"
+
 
 def test_step_plan_uses_live_registry_descriptors_and_strict_payload():
     modules = registry(StubModule("dataset_analysis"))

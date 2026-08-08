@@ -33,6 +33,32 @@ def item(item_id: str, dependencies: list[str] | None = None) -> WorkItemSpec:
             schema_id="TestResult", required_fields=["count"], field_types={"count": "integer"},
         ),
     )
+def test_research_plan_round_trips_evidence_strategy_patterns():
+    patterns = [
+        {
+            "pattern_id": "pattern-test-ibd",
+            "name": "IBD genetics-first",
+            "chosen_start": "genetics",
+            "ordered_lanes": ["genetics", "omics"],
+            "why_this_order": "Genetics anchors causality.",
+            "stop_rules": ["no candidate without genetics support"],
+            "strategy_hint_not_evidence": True,
+            "score": 1.0,
+        }
+    ]
+    plan = ResearchPlan(
+        project_id=project().project_id, planner_backend="step:test", rationale="ok",
+        items=[item("one")],
+        evidence_strategy_patterns=patterns,
+    )
+    restored = ResearchPlan.model_validate_json(plan.model_dump_json())
+    assert restored.evidence_strategy_patterns == patterns
+
+    legacy = ResearchPlan(
+        project_id=project().project_id, planner_backend="deterministic", rationale="legacy",
+        items=[item("one")],
+    )
+    assert legacy.evidence_strategy_patterns == []
 
 
 def test_research_plan_rejects_unknown_dependencies_and_cycles():
