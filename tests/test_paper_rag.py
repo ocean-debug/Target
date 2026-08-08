@@ -52,11 +52,11 @@ def _chunk(overrides: dict | None = None) -> PaperChunk:
 
 def test_chunk_text_respects_size_and_produces_overlap():
     text = " ".join(f"sentence number {i}" for i in range(30))
-    chunks = chunk_text(text, chunk_size=120, overlap=20)
+    chunks = chunk_text(text, chunk_size=200, overlap=20)
     assert len(chunks) >= 2
     assert all(chunks)
-    assert all(len(chunk) <= 130 for chunk in chunks)
-    assert chunk_text("", chunk_size=120, overlap=20) == []
+    assert all(len(chunk) <= 210 for chunk in chunks)
+    assert chunk_text("", chunk_size=200, overlap=20) == []
     with pytest.raises(ValueError):
         chunk_text(text, chunk_size=50, overlap=20)
 
