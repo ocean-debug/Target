@@ -106,6 +106,7 @@ def offline(entries: list[dict], store: PatternStore, rag_store=None, paper_top_
             plan_ok = False
             plan_detail = {"error": f"{exc.__class__.__name__}: {exc}"}
             plan_failures.append(entry["id"])
+        context = _context(entry["task"])
         paper_evidence: list[dict] = []
         if rag_builder is not None:
             paper_evidence = rag_builder.build_paper_evidence(
