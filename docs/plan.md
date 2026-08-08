@@ -452,7 +452,7 @@ Pattern 中的 `data_integration` 将被转换为 `EvidenceLink` 建议，供 `e
 
 ## 当前实现状态（2026-08-08）
 
-### 已完成（P0/P1 首批）
+### 已完成（P0/P1/P2）
 
 1. 冻结 Paper-to-Strategy 合同：`ObservedWorkflow` / `EvidenceLink` / `StrategyPattern` / `BestPracticePattern`，位于 `src/target_agent/paper_strategy.py`。
 2. 建成 PatternStore：append-only JSONL、不可变 digest、确定性词法检索，支持按疾病/数据可得性过滤，不依赖模型或网络。
@@ -462,6 +462,9 @@ Pattern 中的 `data_integration` 将被转换为 `EvidenceLink` 建议，供 `e
 6. 新增 `tests/test_paper_strategy.py`（合同校验、store 不可变、检索排序、数据可得性惩罚、few-shot 输出）。
 7. 候选语料管线：`paper_corpus.py` + `scripts/build_paper_corpus.py`，通过 NCBI E-utilities 按 4 个查询桶 × 10 个期刊白名单检索，确定性过滤（期刊归一化/年份/标题排除 review 与 methods-only），append-only `CorpusStore` 按 PMID 去重并逐条 SHA-256；远程真实刷新得到 200 条候选池（含 Science/Cell/Nature 及子刊），CLI `pattern corpus refresh|status`。
 8. 证据策略可见性：ResearchPlan 持久化 `evidence_strategy_patterns`，项目快照与 Web 工作台展示“论文模式 → 策略 → 执行”链路，前端明确标注“策略提示非证据”。
+9. 抽取工具链（P2）：`src/target_agent/pattern_extraction.py` 提供 append-only Gold 标注台账（`pattern curate`）、Europe PMC 摘要/Methods 有界提取、StrategyPattern 严格校验与 append-only 抽取审计（`pattern extract`），全程不存全文；专家评审以 `pattern review` 追加式台账完成，模式记录保持不可变。
+10. 垂直子工作流注入：LangGraphRuntime 的域内 Planner 现在从配置的模式库构建 few-shot 提示并持久化命中 trace（`planner_pattern_hints`）；项目级 Planner 沿用原注入路径。
+11. 消融回归：`benchmark/pattern_ablation.py` 在公开疾病金标准上离线度量模式覆盖率与确定性计划有效性，并支持 `--llm` 对比真实 Step Planner 在有/无模式提示下的计划形状；新增 benchmark 单元检查 BM-12。
 
 ### 延后（P3，按团队决定最后再做）
 
@@ -470,6 +473,7 @@ Pattern 中的 `data_integration` 将被转换为 `EvidenceLink` 建议，供 `e
 
 ### 下一步
 
-- 从 200 条候选池人工挑选 30-50 篇做 Gold 标注基线，并批量抽取 WorkflowPattern（LLM 结构化抽取 + 科学与工程双人复核）。
-- 盲测靶点排名回归：确认加入模式库后已知参考靶点恢复率不下降。
-- 以 Pattern 库为来源生成对齐数据（Planner SFT / Reviewer 偏好对），按团队决定放在最后阶段。
+1. 人工挑选 30-50 篇 Gold 论文：`target-agent pattern curate --pmid <PMID> --status gold --rationale "..." --role life_science|engineering`，科学+工程双人标注。
+2. 批量抽取：`target-agent pattern extract`（需配置 Step 提供商），随后 `target-agent pattern review` 完成双人复核；每条抽取失败记录进入 `paper_strategy/extractions.jsonl` 供复盘。
+3. 盲测回归：`python benchmark/pattern_ablation.py` 建立当前覆盖率基线（10 条种子 ≈ 5/18 疾病），模式库扩充后重跑，确保计划有效性不下降；可选 `--llm --limit N` 对比真实规划形状。
+4. 对齐数据生成与 Planner/Reviewer 小模型训练：按团队决定最后再做，来源为已复核的 Pattern 库。

@@ -58,6 +58,18 @@ class Settings(BaseSettings):
     pattern_few_shot_top_k: int = Field(
         default=3, alias="TARGET_AGENT_PATTERN_FEW_SHOT_TOP_K", ge=0, le=8,
     )
+    pattern_curation_path: Path = Field(
+        default=PROJECT_ROOT / "paper_strategy" / "corpus" / "curation.jsonl",
+        alias="TARGET_AGENT_PATTERN_CURATION",
+    )
+    pattern_review_ledger_path: Path = Field(
+        default=PROJECT_ROOT / "paper_strategy" / "reviews.jsonl",
+        alias="TARGET_AGENT_PATTERN_REVIEW_LEDGER",
+    )
+    pattern_extraction_audit_path: Path = Field(
+        default=PROJECT_ROOT / "paper_strategy" / "extractions.jsonl",
+        alias="TARGET_AGENT_PATTERN_EXTRACTION_AUDIT",
+    )
     skill_catalog_path: Path = Field(
         default=PROJECT_ROOT / "skills",
         alias="TARGET_AGENT_SKILL_CATALOG",

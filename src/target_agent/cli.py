@@ -194,6 +194,25 @@ def main() -> None:
     pattern_add = pattern_sub.add_parser("add", help="Add one pattern from a JSON or YAML file")
     pattern_add.add_argument("--input", type=Path, required=True)
     pattern_add.add_argument("--store", type=Path)
+    pattern_curate = pattern_sub.add_parser("curate", help="Mark a corpus PMID as gold or rejected for pattern extraction")
+    pattern_curate.add_argument("--pmid", required=True)
+    pattern_curate.add_argument("--status", choices=["gold", "rejected"], required=True)
+    pattern_curate.add_argument("--rationale", required=True)
+    pattern_curate.add_argument("--role", choices=["life_science", "engineering", "lead"], default="lead")
+    pattern_curate.add_argument("--curation", type=Path)
+
+    pattern_extract = pattern_sub.add_parser("extract", help="Distill gold corpus papers into validated strategy patterns")
+    pattern_extract.add_argument("--pmids", default="", help="Comma-separated PMIDs; defaults to all gold records")
+    pattern_extract.add_argument("--corpus", type=Path, default=Path("paper_strategy") / "corpus" / "corpus.jsonl")
+    pattern_extract.add_argument("--curation", type=Path)
+    pattern_extract.add_argument("--store", type=Path)
+    pattern_extract.add_argument("--audit", type=Path)
+
+    pattern_review = pattern_sub.add_parser("review", help="Append an expert review decision for a pattern")
+    pattern_review.add_argument("--pattern-id", required=True)
+    pattern_review.add_argument("--role", choices=["life_science", "engineering"], required=True)
+    pattern_review.add_argument("--status", choices=["approved", "rejected"], required=True)
+    pattern_review.add_argument("--ledger", type=Path)
     corpus_cmd = pattern_sub.add_parser("corpus", help="Maintain the PubMed candidate corpus for pattern distillation")
     corpus_sub = corpus_cmd.add_subparsers(dest="paper_corpus_command", required=True)
     corpus_refresh = corpus_sub.add_parser("refresh", help="Fetch and append E-utilities candidate records")
@@ -339,7 +358,82 @@ def main() -> None:
         print(json.dumps(_smoke_test(settings), indent=2, ensure_ascii=False))
     elif args.command == "pattern":
         store_path = args.store or settings.pattern_store_path
-        if args.pattern_command == "search":
+        ledger_path = settings.pattern_review_ledger_path
+        if args.pattern_command == "curate":
+            from .pattern_extraction import CurationRecord, CurationStore
+
+            curation_path = args.curation or settings.pattern_curation_path
+            store = CurationStore(curation_path)
+            added = store.add(CurationRecord(
+                pmid=args.pmid,
+                status=args.status,
+                rationale=args.rationale,
+                annotator_role=args.role,
+            ))
+            print(json.dumps({
+                "added": added,
+                "pmid": args.pmid,
+                "status": args.status,
+                "latest_status": store.latest_status(args.pmid),
+                "path": str(store.path),
+            }, indent=2, ensure_ascii=False))
+        elif args.pattern_command == "extract":
+            from .llm import StepClient
+            from .paper_corpus import CorpusStore
+            from .pattern_extraction import (
+                CurationStore, EuropePmcMetaFetcher, ExtractionAuditStore,
+                PatternExtractor, run_extraction,
+            )
+            from .paper_strategy import PatternStore as PatternStoreForExtraction
+
+            client = StepClient.from_settings(settings)
+            if client is None:
+                raise SystemExit("Step API is not configured; pattern extraction requires a structured LLM backend")
+            pattern_path = args.store or settings.pattern_store_path
+            curation_path = args.curation or settings.pattern_curation_path
+            audit_path = args.audit or settings.pattern_extraction_audit_path
+            all_papers = CorpusStore(args.corpus).all()
+            gold = set(CurationStore(curation_path).gold_pmids())
+            pmid_values = [value.strip() for value in args.pmids.split(",") if value.strip()]
+            if pmid_values:
+                wanted = set(pmid_values)
+                selected = [row for row in all_papers if row.pmid in wanted]
+            else:
+                selected = [row for row in all_papers if row.pmid in gold]
+            extractor = PatternExtractor(
+                backend=client,
+                meta_fetcher=EuropePmcMetaFetcher(),
+                pattern_store=PatternStoreForExtraction(pattern_path),
+            )
+            result = run_extraction(
+                papers=selected,
+                pattern_store=extractor.store,
+                extractor=extractor,
+                audit_store=ExtractionAuditStore(audit_path),
+            )
+            print(json.dumps({
+                **result,
+                "gold_available": sorted(gold),
+                "audit_card": ExtractionAuditStore(audit_path).card(),
+                "pattern_card": PatternStoreForExtraction(pattern_path).corpus_card(),
+            }, indent=2, ensure_ascii=False))
+        elif args.pattern_command == "review":
+            from .paper_strategy import ReviewEntry, ReviewLedger
+
+            review_path = args.ledger or ledger_path
+            ledger = ReviewLedger(review_path)
+            added = ledger.add(ReviewEntry(
+                pattern_id=args.pattern_id,
+                role=args.role,
+                status=args.status,
+            ))
+            print(json.dumps({
+                "added": added,
+                "pattern_id": args.pattern_id,
+                "status": ledger.status(args.pattern_id),
+                "path": str(review_path),
+            }, indent=2, ensure_ascii=False))
+        elif args.pattern_command == "search":
             lanes = {item.strip().lower() for item in args.lanes.split(",") if item.strip()}
             hits = PatternStore(store_path).search(
                 query=args.query, disease=args.disease,
@@ -358,7 +452,7 @@ def main() -> None:
                 for hit in hits
             ], indent=2, ensure_ascii=False))
         elif args.pattern_command == "list":
-            print(json.dumps(PatternStore(store_path).corpus_card(), indent=2, ensure_ascii=False))
+            print(json.dumps(PatternStore(store_path, review_ledger_path=ledger_path).corpus_card(), indent=2, ensure_ascii=False))
         elif args.pattern_command == "add":
             payload = yaml.safe_load(args.input.read_text(encoding="utf-8"))
             store = PatternStore(store_path)

@@ -202,3 +202,54 @@ def test_planner_injects_few_shot_patterns(tmp_path):
     assert avail is not None
     assert avail["omics"] is True
     assert avail["genetics"] is False
+
+def test_domain_planner_injects_pattern_hints(tmp_path):
+    import json
+
+    from target_agent.contracts import TaskSpec
+    from target_agent.planner import Planner
+    from target_agent.tools.base import ToolRegistry
+
+    from fakes import FakeGenericOmics, FakeLiterature, FakeOpenTargets
+
+    store = PatternStore(tmp_path / "patterns.jsonl")
+    store.add(_base_pattern({
+        "pattern_id": "pattern-test-ibd",
+        "name": "IBD genetics-first test pattern",
+        "disease_class": "ulcerative colitis",
+        "disease_keywords": ["colitis", "ibd"],
+    }))
+
+    class FakeClient:
+        model = "step-test"
+        last_request_meta: dict = {}
+
+        def __init__(self):
+            self.last_user = ""
+
+        def json_completion(self, system: str, user: str) -> dict:
+            self.last_user = user
+            payload = json.loads(user)
+            return payload["required_template"]
+
+    client = FakeClient()
+    registry = ToolRegistry([FakeGenericOmics(), FakeOpenTargets(), FakeLiterature()])
+    planner = Planner(client, registry, pattern_store=store, few_shot_top_k=2)
+    task = TaskSpec(
+        task_type="disease_to_target",
+        question="Discover traceable targets for ulcerative colitis",
+        context={"disease": "ulcerative colitis", "tissue": "rectum", "cell_type": "T cell"},
+    )
+    plan = planner.create_plan(task)
+    assert planner.last_pattern_hints
+    assert planner.last_pattern_hints[0]["pattern_id"] == "pattern-test-ibd"
+    assert "+pattern-fewshot:1" in plan.planner_backend
+    sent = json.loads(client.last_user)
+    assert sent["pattern_hints"][0]["strategy_hint_not_evidence"] is True
+    assert "pattern_hints" in sent
+
+    # without a store the domain planner emits no hints and stays deterministic-safe
+    plain = Planner(client, registry, pattern_store=None)
+    plain.create_plan(task)
+    assert plain.last_pattern_hints == []
+

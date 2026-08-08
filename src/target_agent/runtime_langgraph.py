@@ -37,6 +37,7 @@ from .contracts import (
 from .graphs import build_mechanistic_graph
 from .llm import StepClient
 from .legacy import migrate_current_contract
+from .paper_strategy import pattern_store_from_path
 from .planner import Planner
 from .ranking import RankedTarget, rank_targets
 from .repair import latest_tool_results, repair_transient_connector_failures
@@ -115,7 +116,14 @@ class LangGraphRuntime:
         self.runs_dir = runs_dir or self.settings.runs_dir
         self.cache_dir = cache_dir or self.settings.cache_dir
         self.registry = registry or default_registry(self.settings)
-        self.planner = planner or Planner(StepClient.from_settings(self.settings), self.registry)
+        if planner is None:
+            planner = Planner(
+                StepClient.from_settings(self.settings),
+                self.registry,
+                pattern_store=pattern_store_from_path(self.settings.pattern_store_path),
+                few_shot_top_k=self.settings.pattern_few_shot_top_k,
+            )
+        self.planner = planner
         self.trace_observer = trace_observer
         self.trace_observer_errors: list[str] = []
         if self.planner.registry is None:
@@ -227,6 +235,13 @@ class LangGraphRuntime:
         else:
             plan = self.planner.create_plan(task)
             store.save_plan(plan)
+            hints = getattr(self.planner, "last_pattern_hints", None) or []
+            if hints:
+                pattern_ids = [str(hint.get("pattern_id")) for hint in hints if hint.get("pattern_id")]
+                self._trace(store, state["run_id"], task, "planner_pattern_hints", "planned", {
+                    "count": len(hints),
+                    "pattern_ids": pattern_ids,
+                }, related_ids=pattern_ids)
         completed_steps, candidate_genes, tool_calls = restore_checkpoint_state(
             task=task,
             plan=plan,

@@ -129,10 +129,41 @@ def unit_schema_export_valid() -> str | None:
     return None
 
 
+
+def unit_pattern_ablation_offline() -> str | None:
+    import subprocess
+
+    with tempfile.TemporaryDirectory() as tmp:
+        cmd = [
+            sys.executable, str(ROOT / "benchmark" / "pattern_ablation.py"),
+            "--goldset", str(ROOT / "benchmark" / "goldset_diseases.jsonl"),
+            "--store", str(ROOT / "paper_strategy" / "patterns.jsonl"),
+            "--out", tmp,
+        ]
+        try:
+            completed = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+        except Exception as exc:
+            return f"pattern ablation crashed: {exc.__class__.__name__}: {exc}"
+        if completed.returncode != 0:
+            return f"pattern ablation failed: {completed.stdout[-400:]}{completed.stderr[-400:]}"
+        try:
+            payload = json.loads(completed.stdout)
+        except Exception as exc:
+            return f"pattern ablation returned invalid JSON: {exc}"
+        if payload.get("diseases_total", 0) < 10:
+            return "pattern ablation considered too few diseases"
+        if payload.get("diseases_with_hints", 0) < 3:
+            return "pattern ablation coverage below the seed floor (3 diseases)"
+        if payload.get("plan_valid", 0) != payload.get("diseases_total"):
+            return "pattern ablation produced invalid deterministic plans"
+    return None
+
+
 UNIT_CHECKS = {
     "contract_version_gate": unit_contract_version_gate,
     "planner_whitelist": unit_planner_whitelist,
     "schema_export_valid": unit_schema_export_valid,
+    "pattern_ablation_offline": unit_pattern_ablation_offline,
 }
 
 

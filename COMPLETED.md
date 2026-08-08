@@ -189,3 +189,21 @@ typed transient failure
 - 自动湿实验、临床决策或自修改系统。
 
 后续优先级与验收标准见 [PRD.md](PRD.md)，可视化状态页见 [product_status.html](product_status.html)。
+
+
+## 7. 论文策略模式：Gold 标注、抽取、评审与消融回归（P2，2026-08-08）
+
+### 7.1 已完成
+
+- **Gold 标注台账**：`CurationStore` append-only，记录 gold/rejected、理由、标注角色与 digest；CLI `target-agent pattern curate`。
+- **抽取工具链**：`pattern_extraction.py` 提供 Europe PMC 元数据 + 摘要/Methods 有界文本（`EuropePmcMetaFetcher`），LLM 结构化输出必须通过 StrategyPattern 完整合同校验并含至少一条 observed_workflows；每次尝试写入 append-only 审计 `extractions.jsonl`（状态、来源材料级别、提示版本、错误），全程不落盘全文；CLI `target-agent pattern extract`。
+- **专家评审台账**：`ReviewLedger` 追加式记录 life_science/engineering 双人评审，`PatternStore.corpus_card` 汇总有效评审状态；模式记录保持不可变；CLI `target-agent pattern review`。
+- **垂直子工作流注入**：LangGraphRuntime 域内 Planner 自动从配置模式库构建 few-shot 提示，命中以 `planner_pattern_hints` trace 持久化；项目级 Planner 保持原有注入。
+- **消融回归**：`benchmark/pattern_ablation.py` 离线度量 18 个公开疾病（normal 桶）的模式覆盖率与确定性计划有效性，支持 `--llm` 真实 Step 对比；benchmark 新增 BM-12 单元检查。当前基线：10 条种子模式覆盖约 5/18 疾病，计划有效性 18/18。
+- **配置**：settings 新增 `TARGET_AGENT_PATTERN_CURATION`、`TARGET_AGENT_PATTERN_REVIEW_LEDGER`、`TARGET_AGENT_PATTERN_EXTRACTION_AUDIT`。
+
+### 7.2 已确认边界
+
+- 当前种子模式库（10 条）覆盖率低，属于预期状态；覆盖率提升依赖人工 Gold 标注与批量抽取，不做虚高门槛。
+- 抽取采用摘要或 Methods 有界文本，不保证覆盖论文全部细节；`source_material` 与提示版本留痕。
+- 对齐数据生成与 Planner/Reviewer 小模型训练按团队决定延后，模式库作为其未来数据来源。

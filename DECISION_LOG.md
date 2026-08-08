@@ -2,6 +2,16 @@
 
 Cross-module contracts, workflow choices, model boundaries and scientific-safety decisions are recorded here. Accepted decisions must not be changed silently in a feature branch.
 
+## 2026-08-08 - Gold 标注、抽取工具链与模式消融回归（P2）
+
+- **Status:** accepted
+- 决策：Gold 标注使用 append-only 台账（`CurationStore`，gold/rejected + 理由 + 标注角色），同一 PMID 可追加新状态但历史记录不可改写；抽取只允许 candidate 记录，只读取 Europe PMC 公开元数据与摘要或 Methods 有界文本，绝不落盘全文。
+- 决策：抽取结果必须通过 StrategyPattern 完整合同校验（lane 顺序、required/optional 子集、证据链接、停止规则、至少一条 observed_workflows），失败进入 append-only 抽取审计（`extractions.jsonl`）供复盘，不允许半成品入库。
+- 决策：专家评审使用 `ReviewLedger` 追加式台账（life_science + engineering 双人），模式 JSONL 记录保持不可变；`pattern review` 通过 CLI 写入，`PatternStore.corpus_card` 汇总有效评审状态。
+- 决策：垂直子工作流（LangGraphRuntime 域内 Planner）与项目级 Planner 统一从模式库构建 few-shot；提示明确标注“策略提示非证据”，命中以 `planner_pattern_hints` trace 持久化，便于审计。
+- 决策：盲测回归先以离线覆盖率和确定性计划有效性为质量门（BM-12），`--llm` 真实 Step 对比仅作为可选内部回归；覆盖率不表述为生物学成功率。
+- 决策：对齐数据生成与 Planner/Reviewer 小模型训练（P3）按用户要求延后到最终阶段，模式库作为其数据来源；训练前不自动发布模型。
+
 ## 2026-08-08 - 论文模式语料管线与策略可见性（P1）
 
 - **Status:** accepted

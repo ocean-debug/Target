@@ -42,6 +42,97 @@ class ReviewGate(BaseModel):
     engineering_review: Literal["pending", "approved", "rejected"] = "pending"
 
 
+class ReviewEntry(BaseModel):
+    """One expert review decision for a pattern (append-only ledger)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    pattern_id: str = Field(pattern=r"^pattern-[a-z0-9][a-z0-9-]*$")
+    role: Literal["life_science", "engineering"]
+    status: Literal["approved", "rejected"]
+    reviewed_at: str = Field(default_factory=utc_now)
+    digest: str = ""
+
+    @model_validator(mode="after")
+    def _finalize(self) -> "ReviewEntry":
+        computed = self.compute_digest()
+        if not self.digest:
+            self.digest = computed
+        elif self.digest != computed:
+            raise ValueError(f"review entry digest mismatch for {self.pattern_id}")
+        return self
+
+    def compute_digest(self) -> str:
+        payload = self.model_dump(mode="json", exclude={"digest", "reviewed_at"})
+        encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        return hashlib.sha256(encoded).hexdigest()
+
+
+class ReviewLedger:
+    """Append-only expert review ledger.
+
+    Pattern records stay immutable; review approvals are layered on top so
+    later status changes never rewrite history.
+    """
+
+    def __init__(self, path: Path | str):
+        self.path = Path(path).expanduser().resolve()
+
+    def _load(self) -> list[ReviewEntry]:
+        if not self.path.is_file():
+            return []
+        rows: list[ReviewEntry] = []
+        with self.path.open("r", encoding="utf-8") as handle:
+            for line_number, line in enumerate(handle, start=1):
+                if not line.strip():
+                    continue
+                try:
+                    rows.append(ReviewEntry.model_validate_json(line))
+                except Exception as exc:
+                    raise ValueError(f"invalid review entry at line {line_number}: {exc}") from exc
+        return rows
+
+    def add(self, entry: ReviewEntry) -> bool:
+        if entry.digest != entry.compute_digest():
+            raise ValueError("review entry digest is not self-consistent")
+        if any(existing.digest == entry.digest for existing in self._load()):
+            return False
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        with self.path.open("a", encoding="utf-8", newline="\n") as handle:
+            handle.write(entry.model_dump_json() + "\n")
+        return True
+
+    def status(self, pattern_id: str) -> dict[str, Literal["approved", "rejected"]]:
+        latest: dict[str, Literal["approved", "rejected"]] = {}
+        for row in self._load():
+            if row.pattern_id == pattern_id:
+                latest[row.role] = row.status
+        return latest
+
+    def effective_gate(self, pattern: StrategyPattern) -> ReviewGate:
+        merged = pattern.review.model_copy()
+        latest = self.status(pattern.pattern_id)
+        if "life_science" in latest:
+            merged.life_science_review = latest["life_science"]
+        if "engineering" in latest:
+            merged.engineering_review = latest["engineering"]
+        return merged
+
+    def pending_count(self, patterns: Iterable[StrategyPattern]) -> int:
+        return sum(
+            1 for pattern in patterns
+            if self.effective_gate(pattern).life_science_review != "approved"
+            or self.effective_gate(pattern).engineering_review != "approved"
+        )
+
+    def card(self) -> dict[str, Any]:
+        rows = self._load()
+        by_role = {"life_science": {"approved": 0, "rejected": 0}, "engineering": {"approved": 0, "rejected": 0}}
+        for row in rows:
+            by_role[row.role][row.status] += 1
+        return {"path": str(self.path), "entries": len(rows), "by_role": by_role}
+
+
 class DataAvailability(BaseModel):
     model_config = ConfigDict(extra="forbid")
     lane: str = Field(min_length=1)
@@ -237,8 +328,9 @@ class PatternStore:
     not a claim about the current task.
     """
 
-    def __init__(self, path: Path | str):
+    def __init__(self, path: Path | str, review_ledger_path: Path | str | None = None):
         self.path = Path(path).expanduser().resolve()
+        self.review_ledger = ReviewLedger(review_ledger_path) if review_ledger_path else None
 
     def _load(self) -> list[StrategyPattern]:
         if not self.path.is_file():
@@ -300,6 +392,14 @@ class PatternStore:
         scored.sort(key=lambda hit: (-hit.score, hit.pattern.pattern_id))
         return scored[: max(0, top_k)]
 
+    def _pending_review_count(self, rows: list[StrategyPattern]) -> int:
+        if self.review_ledger is not None:
+            return self.review_ledger.pending_count(rows)
+        return sum(
+            1 for row in rows
+            if row.review.life_science_review != "approved" or row.review.engineering_review != "approved"
+        )
+
     def corpus_card(self) -> dict[str, Any]:
         rows = self._load()
         return {
@@ -310,10 +410,8 @@ class PatternStore:
                 level: sum(1 for row in rows if row.validation_level == level)
                 for level in ("discovery_pattern", "best_practice")
             },
-            "review_pending": sum(
-                1 for row in rows
-                if row.review.life_science_review != "approved" or row.review.engineering_review != "approved"
-            ),
+            "review_pending": self._pending_review_count(rows),
+            "review_ledger_configured": self.review_ledger is not None,
         }
 
 
@@ -407,6 +505,7 @@ def pattern_store_from_path(path: Path | str | None) -> PatternStore | None:
 __all__ = [
     "PATTERN_CONTRACT_VERSION", "BestPracticePattern", "DataAvailability",
     "EvidenceLink", "ObservedStep", "ObservedWorkflow", "PatternHit",
-    "PatternStore", "PlannerFewShotBuilder", "ReviewGate", "SourcePaper",
-    "StrategyPattern", "infer_data_availability", "pattern_store_from_path",
+    "PatternStore", "PlannerFewShotBuilder", "ReviewEntry", "ReviewGate",
+    "ReviewLedger", "SourcePaper", "StrategyPattern", "infer_data_availability",
+    "pattern_store_from_path",
 ]

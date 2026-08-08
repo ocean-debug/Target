@@ -9,13 +9,27 @@ cross-validate and stop, then store that as a conditional strategy pattern.
 - Contracts: `ObservedWorkflow`, `EvidenceLink`, `StrategyPattern`,
   `BestPracticePattern` in `src/target_agent/paper_strategy.py`.
 - PatternStore: append-only JSONL + deterministic lexical retrieval that
-  respects task data availability.
+  respects task data availability; an optional append-only expert ReviewLedger
+  overlays approval status without rewriting immutable pattern records.
 - Planner few-shot: `PlannerFewShotBuilder` injects top-k patterns with
-  `why_this_order` rationale into the project Planner when Step is used.
-- Seed corpus: 10 curated discovery patterns in `patterns.jsonl`
-  (`MANIFEST.json` has per-line checksums).
+  `why_this_order` rationale into the project Planner and the vertical
+  domain Planner (LangGraph runtime) when Step is used. The prompt labels the
+  hints as strategy-only, never evidence.
+- Candidate corpus: 200 metadata-only PubMed records
+  (`corpus/corpus.jsonl`, per-record checksums and manifest).
+- Curation/extraction toolchain
+  (`src/target_agent/pattern_extraction.py`): append-only curation ledger
+  (gold/rejected), Europe PMC abstract or bounded methods extraction, strict
+  StrategyPattern validation, append-only extraction audit. No full text is
+  stored.
+- CLI: `target-agent pattern curate|extract|review|search|list` and
+  `pattern corpus refresh|status`.
+- Regression: `benchmark/pattern_ablation.py` measures offline coverage and
+  deterministic plan validity on the public disease gold set; optional
+  `--llm` mode compares real Step planner output with and without hints.
 - Deferred (P3, per team decision): alignment-data generation and
-  Planner/Reviewer small-model training.
+  Planner/Reviewer small-model training stay last; curated patterns are the
+  future training source.
 
 ## Rules
 
@@ -28,4 +42,20 @@ cross-validate and stop, then store that as a conditional strategy pattern.
 ## Rebuild
 
 Run `python scripts/build_seed_patterns.py` on the remote test environment to
-validate and normalize the corpus and refresh the manifest.
+validate and normalize the pattern library and refresh the manifest.
+
+## Curated extraction workflow
+
+1. Refresh the candidate corpus: `target-agent pattern corpus refresh`.
+2. Mark gold papers: `target-agent pattern curate --pmid <PMID> --status gold --rationale "..."
+   --role life_science|engineering|lead`.
+3. Extract patterns: `target-agent pattern extract` (all gold) or
+   `target-agent pattern extract --pmids <PMID1>,<PMID2>`. Requires a
+   configured Step provider; each paper is validated against the pattern
+   schema before it is appended, and every attempt is recorded in
+   `extractions.jsonl`.
+4. Review: `target-agent pattern review --pattern-id <id> --role life_science|engineering
+   --status approved|rejected`. Approvals are layered from
+   `reviews.jsonl`; pattern records are never rewritten.
+5. Regress: `python benchmark/pattern_ablation.py` (offline) or
+   `python benchmark/pattern_ablation.py --llm --limit 4` (real Step calls).
