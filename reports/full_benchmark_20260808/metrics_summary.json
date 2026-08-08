@@ -1,0 +1,3811 @@
+{
+  "disease_benchmark": {
+    "summary": {
+      "assertions": 234,
+      "assertions_passed": 234,
+      "categories": {
+        "disease_library_conflicting_evidence": {
+          "assertions": 54,
+          "passed": 54,
+          "score": 1.0
+        },
+        "disease_library_missing_context": {
+          "assertions": 54,
+          "passed": 54,
+          "score": 1.0
+        },
+        "disease_library_normal": {
+          "assertions": 54,
+          "passed": 54,
+          "score": 1.0
+        },
+        "disease_library_trap": {
+          "assertions": 72,
+          "passed": 72,
+          "score": 1.0
+        }
+      },
+      "goldset": "benchmark\\goldset_diseases.jsonl",
+      "live": false,
+      "score": 1.0,
+      "tasks": 72,
+      "tasks_passed": 72
+    },
+    "tasks": [
+      {
+        "category": "disease_library_normal",
+        "elapsed_s": 2.27,
+        "id": "BM-DL-N-uc",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "ulcerative colitis (normal)"
+      },
+      {
+        "category": "disease_library_missing_context",
+        "elapsed_s": 2.47,
+        "id": "BM-DL-MC-uc",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "ulcerative colitis (missing_context)"
+      },
+      {
+        "category": "disease_library_conflicting_evidence",
+        "elapsed_s": 2.38,
+        "id": "BM-DL-CE-uc",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "ulcerative colitis (conflicting_evidence)"
+      },
+      {
+        "category": "disease_library_trap",
+        "elapsed_s": 2.4,
+        "id": "BM-DL-T-uc",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "no_causal_claims"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "ulcerative colitis (trap)"
+      },
+      {
+        "category": "disease_library_normal",
+        "elapsed_s": 1.4,
+        "id": "BM-DL-N-crohn",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "Crohn disease (normal)"
+      },
+      {
+        "category": "disease_library_missing_context",
+        "elapsed_s": 1.33,
+        "id": "BM-DL-MC-crohn",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "Crohn disease (missing_context)"
+      },
+      {
+        "category": "disease_library_conflicting_evidence",
+        "elapsed_s": 1.33,
+        "id": "BM-DL-CE-crohn",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "Crohn disease (conflicting_evidence)"
+      },
+      {
+        "category": "disease_library_trap",
+        "elapsed_s": 1.45,
+        "id": "BM-DL-T-crohn",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "no_causal_claims"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "Crohn disease (trap)"
+      },
+      {
+        "category": "disease_library_normal",
+        "elapsed_s": 1.39,
+        "id": "BM-DL-N-ra",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "rheumatoid arthritis (normal)"
+      },
+      {
+        "category": "disease_library_missing_context",
+        "elapsed_s": 1.44,
+        "id": "BM-DL-MC-ra",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "rheumatoid arthritis (missing_context)"
+      },
+      {
+        "category": "disease_library_conflicting_evidence",
+        "elapsed_s": 1.34,
+        "id": "BM-DL-CE-ra",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "rheumatoid arthritis (conflicting_evidence)"
+      },
+      {
+        "category": "disease_library_trap",
+        "elapsed_s": 1.29,
+        "id": "BM-DL-T-ra",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "no_causal_claims"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "rheumatoid arthritis (trap)"
+      },
+      {
+        "category": "disease_library_normal",
+        "elapsed_s": 1.22,
+        "id": "BM-DL-N-sle",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "systemic lupus erythematosus (normal)"
+      },
+      {
+        "category": "disease_library_missing_context",
+        "elapsed_s": 1.32,
+        "id": "BM-DL-MC-sle",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "systemic lupus erythematosus (missing_context)"
+      },
+      {
+        "category": "disease_library_conflicting_evidence",
+        "elapsed_s": 1.22,
+        "id": "BM-DL-CE-sle",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "systemic lupus erythematosus (conflicting_evidence)"
+      },
+      {
+        "category": "disease_library_trap",
+        "elapsed_s": 1.24,
+        "id": "BM-DL-T-sle",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "no_causal_claims"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "systemic lupus erythematosus (trap)"
+      },
+      {
+        "category": "disease_library_normal",
+        "elapsed_s": 1.19,
+        "id": "BM-DL-N-ms",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "multiple sclerosis (normal)"
+      },
+      {
+        "category": "disease_library_missing_context",
+        "elapsed_s": 1.22,
+        "id": "BM-DL-MC-ms",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "multiple sclerosis (missing_context)"
+      },
+      {
+        "category": "disease_library_conflicting_evidence",
+        "elapsed_s": 1.29,
+        "id": "BM-DL-CE-ms",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "multiple sclerosis (conflicting_evidence)"
+      },
+      {
+        "category": "disease_library_trap",
+        "elapsed_s": 1.23,
+        "id": "BM-DL-T-ms",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "no_causal_claims"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "multiple sclerosis (trap)"
+      },
+      {
+        "category": "disease_library_normal",
+        "elapsed_s": 1.23,
+        "id": "BM-DL-N-t1d",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "type 1 diabetes mellitus (normal)"
+      },
+      {
+        "category": "disease_library_missing_context",
+        "elapsed_s": 1.16,
+        "id": "BM-DL-MC-t1d",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "type 1 diabetes mellitus (missing_context)"
+      },
+      {
+        "category": "disease_library_conflicting_evidence",
+        "elapsed_s": 1.2,
+        "id": "BM-DL-CE-t1d",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "type 1 diabetes mellitus (conflicting_evidence)"
+      },
+      {
+        "category": "disease_library_trap",
+        "elapsed_s": 1.34,
+        "id": "BM-DL-T-t1d",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "no_causal_claims"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "type 1 diabetes mellitus (trap)"
+      },
+      {
+        "category": "disease_library_normal",
+        "elapsed_s": 1.13,
+        "id": "BM-DL-N-psoriasis",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "psoriasis (normal)"
+      },
+      {
+        "category": "disease_library_missing_context",
+        "elapsed_s": 1.15,
+        "id": "BM-DL-MC-psoriasis",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "psoriasis (missing_context)"
+      },
+      {
+        "category": "disease_library_conflicting_evidence",
+        "elapsed_s": 1.21,
+        "id": "BM-DL-CE-psoriasis",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "psoriasis (conflicting_evidence)"
+      },
+      {
+        "category": "disease_library_trap",
+        "elapsed_s": 1.34,
+        "id": "BM-DL-T-psoriasis",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "no_causal_claims"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "psoriasis (trap)"
+      },
+      {
+        "category": "disease_library_normal",
+        "elapsed_s": 1.14,
+        "id": "BM-DL-N-ad",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "Alzheimer disease (normal)"
+      },
+      {
+        "category": "disease_library_missing_context",
+        "elapsed_s": 1.12,
+        "id": "BM-DL-MC-ad",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "Alzheimer disease (missing_context)"
+      },
+      {
+        "category": "disease_library_conflicting_evidence",
+        "elapsed_s": 1.18,
+        "id": "BM-DL-CE-ad",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "Alzheimer disease (conflicting_evidence)"
+      },
+      {
+        "category": "disease_library_trap",
+        "elapsed_s": 1.25,
+        "id": "BM-DL-T-ad",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "no_causal_claims"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "Alzheimer disease (trap)"
+      },
+      {
+        "category": "disease_library_normal",
+        "elapsed_s": 1.27,
+        "id": "BM-DL-N-pd",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "Parkinson disease (normal)"
+      },
+      {
+        "category": "disease_library_missing_context",
+        "elapsed_s": 1.15,
+        "id": "BM-DL-MC-pd",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "Parkinson disease (missing_context)"
+      },
+      {
+        "category": "disease_library_conflicting_evidence",
+        "elapsed_s": 1.18,
+        "id": "BM-DL-CE-pd",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "Parkinson disease (conflicting_evidence)"
+      },
+      {
+        "category": "disease_library_trap",
+        "elapsed_s": 1.23,
+        "id": "BM-DL-T-pd",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "no_causal_claims"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "Parkinson disease (trap)"
+      },
+      {
+        "category": "disease_library_normal",
+        "elapsed_s": 1.14,
+        "id": "BM-DL-N-als",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "amyotrophic lateral sclerosis (normal)"
+      },
+      {
+        "category": "disease_library_missing_context",
+        "elapsed_s": 1.23,
+        "id": "BM-DL-MC-als",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "amyotrophic lateral sclerosis (missing_context)"
+      },
+      {
+        "category": "disease_library_conflicting_evidence",
+        "elapsed_s": 1.18,
+        "id": "BM-DL-CE-als",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "amyotrophic lateral sclerosis (conflicting_evidence)"
+      },
+      {
+        "category": "disease_library_trap",
+        "elapsed_s": 1.23,
+        "id": "BM-DL-T-als",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "no_causal_claims"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "amyotrophic lateral sclerosis (trap)"
+      },
+      {
+        "category": "disease_library_normal",
+        "elapsed_s": 1.11,
+        "id": "BM-DL-N-luad",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "lung adenocarcinoma (normal)"
+      },
+      {
+        "category": "disease_library_missing_context",
+        "elapsed_s": 1.18,
+        "id": "BM-DL-MC-luad",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "lung adenocarcinoma (missing_context)"
+      },
+      {
+        "category": "disease_library_conflicting_evidence",
+        "elapsed_s": 1.26,
+        "id": "BM-DL-CE-luad",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "lung adenocarcinoma (conflicting_evidence)"
+      },
+      {
+        "category": "disease_library_trap",
+        "elapsed_s": 1.21,
+        "id": "BM-DL-T-luad",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "no_causal_claims"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "lung adenocarcinoma (trap)"
+      },
+      {
+        "category": "disease_library_normal",
+        "elapsed_s": 1.15,
+        "id": "BM-DL-N-brca",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "breast carcinoma (normal)"
+      },
+      {
+        "category": "disease_library_missing_context",
+        "elapsed_s": 1.21,
+        "id": "BM-DL-MC-brca",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "breast carcinoma (missing_context)"
+      },
+      {
+        "category": "disease_library_conflicting_evidence",
+        "elapsed_s": 1.18,
+        "id": "BM-DL-CE-brca",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "breast carcinoma (conflicting_evidence)"
+      },
+      {
+        "category": "disease_library_trap",
+        "elapsed_s": 1.32,
+        "id": "BM-DL-T-brca",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "no_causal_claims"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "breast carcinoma (trap)"
+      },
+      {
+        "category": "disease_library_normal",
+        "elapsed_s": 1.17,
+        "id": "BM-DL-N-crc",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "colorectal cancer (normal)"
+      },
+      {
+        "category": "disease_library_missing_context",
+        "elapsed_s": 1.16,
+        "id": "BM-DL-MC-crc",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "colorectal cancer (missing_context)"
+      },
+      {
+        "category": "disease_library_conflicting_evidence",
+        "elapsed_s": 1.18,
+        "id": "BM-DL-CE-crc",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "colorectal cancer (conflicting_evidence)"
+      },
+      {
+        "category": "disease_library_trap",
+        "elapsed_s": 1.38,
+        "id": "BM-DL-T-crc",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "no_causal_claims"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "colorectal cancer (trap)"
+      },
+      {
+        "category": "disease_library_normal",
+        "elapsed_s": 1.15,
+        "id": "BM-DL-N-melanoma",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "melanoma (normal)"
+      },
+      {
+        "category": "disease_library_missing_context",
+        "elapsed_s": 1.15,
+        "id": "BM-DL-MC-melanoma",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "melanoma (missing_context)"
+      },
+      {
+        "category": "disease_library_conflicting_evidence",
+        "elapsed_s": 1.21,
+        "id": "BM-DL-CE-melanoma",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "melanoma (conflicting_evidence)"
+      },
+      {
+        "category": "disease_library_trap",
+        "elapsed_s": 1.25,
+        "id": "BM-DL-T-melanoma",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "no_causal_claims"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "melanoma (trap)"
+      },
+      {
+        "category": "disease_library_normal",
+        "elapsed_s": 1.23,
+        "id": "BM-DL-N-t2d",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "type 2 diabetes mellitus (normal)"
+      },
+      {
+        "category": "disease_library_missing_context",
+        "elapsed_s": 1.14,
+        "id": "BM-DL-MC-t2d",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "type 2 diabetes mellitus (missing_context)"
+      },
+      {
+        "category": "disease_library_conflicting_evidence",
+        "elapsed_s": 1.15,
+        "id": "BM-DL-CE-t2d",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "type 2 diabetes mellitus (conflicting_evidence)"
+      },
+      {
+        "category": "disease_library_trap",
+        "elapsed_s": 1.23,
+        "id": "BM-DL-T-t2d",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "no_causal_claims"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "type 2 diabetes mellitus (trap)"
+      },
+      {
+        "category": "disease_library_normal",
+        "elapsed_s": 1.18,
+        "id": "BM-DL-N-nash",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "non-alcoholic steatohepatitis (normal)"
+      },
+      {
+        "category": "disease_library_missing_context",
+        "elapsed_s": 1.27,
+        "id": "BM-DL-MC-nash",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "non-alcoholic steatohepatitis (missing_context)"
+      },
+      {
+        "category": "disease_library_conflicting_evidence",
+        "elapsed_s": 1.23,
+        "id": "BM-DL-CE-nash",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "non-alcoholic steatohepatitis (conflicting_evidence)"
+      },
+      {
+        "category": "disease_library_trap",
+        "elapsed_s": 1.21,
+        "id": "BM-DL-T-nash",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "no_causal_claims"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "non-alcoholic steatohepatitis (trap)"
+      },
+      {
+        "category": "disease_library_normal",
+        "elapsed_s": 1.17,
+        "id": "BM-DL-N-asthma",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "asthma (normal)"
+      },
+      {
+        "category": "disease_library_missing_context",
+        "elapsed_s": 1.19,
+        "id": "BM-DL-MC-asthma",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "asthma (missing_context)"
+      },
+      {
+        "category": "disease_library_conflicting_evidence",
+        "elapsed_s": 1.35,
+        "id": "BM-DL-CE-asthma",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "asthma (conflicting_evidence)"
+      },
+      {
+        "category": "disease_library_trap",
+        "elapsed_s": 1.2,
+        "id": "BM-DL-T-asthma",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "no_causal_claims"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "asthma (trap)"
+      },
+      {
+        "category": "disease_library_normal",
+        "elapsed_s": 1.24,
+        "id": "BM-DL-N-copd",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "chronic obstructive pulmonary disease (normal)"
+      },
+      {
+        "category": "disease_library_missing_context",
+        "elapsed_s": 1.19,
+        "id": "BM-DL-MC-copd",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "chronic obstructive pulmonary disease (missing_context)"
+      },
+      {
+        "category": "disease_library_conflicting_evidence",
+        "elapsed_s": 1.3,
+        "id": "BM-DL-CE-copd",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "chronic obstructive pulmonary disease (conflicting_evidence)"
+      },
+      {
+        "category": "disease_library_trap",
+        "elapsed_s": 1.19,
+        "id": "BM-DL-T-copd",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "no_causal_claims"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "chronic obstructive pulmonary disease (trap)"
+      }
+    ]
+  },
+  "disease_runtime": {
+    "by_bucket": {
+      "disease_library_conflicting_evidence": {
+        "mean_s": 1.298,
+        "median_s": 1.215,
+        "p95_s": 1.504
+      },
+      "disease_library_missing_context": {
+        "mean_s": 1.282,
+        "median_s": 1.19,
+        "p95_s": 1.594
+      },
+      "disease_library_normal": {
+        "mean_s": 1.266,
+        "median_s": 1.185,
+        "p95_s": 1.53
+      },
+      "disease_library_trap": {
+        "mean_s": 1.333,
+        "median_s": 1.245,
+        "p95_s": 1.592
+      }
+    },
+    "max_s": 2.47,
+    "mean_s": 1.295,
+    "median_s": 1.22,
+    "p95_s": 1.819
+  },
+  "environment": {
+    "note": "Local Windows run; project acceptance runtime is Python 3.11.",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.13"
+  },
+  "main_benchmark": {
+    "summary": {
+      "assertions": 27,
+      "assertions_passed": 27,
+      "categories": {
+        "contract": {
+          "assertions": 3,
+          "passed": 3,
+          "score": 1.0
+        },
+        "determinism": {
+          "assertions": 3,
+          "passed": 3,
+          "score": 1.0
+        },
+        "main_chain": {
+          "assertions": 14,
+          "passed": 14,
+          "score": 1.0
+        },
+        "migration": {
+          "assertions": 3,
+          "passed": 3,
+          "score": 1.0
+        },
+        "robustness": {
+          "assertions": 4,
+          "passed": 4,
+          "score": 1.0
+        }
+      },
+      "goldset": "benchmark\\goldset_v2.jsonl",
+      "live": false,
+      "score": 1.0,
+      "tasks": 11,
+      "tasks_passed": 11
+    },
+    "tasks": [
+      {
+        "category": "main_chain",
+        "elapsed_s": 1.44,
+        "id": "BM-01",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "equals": "completed",
+              "type": "terminal_status"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "gene": "IL12B",
+              "type": "ranking_contains"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "equals": 10,
+              "type": "ranking_length"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "equals": 5,
+              "type": "cards_length"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "event_type": "plan",
+              "state": "planner",
+              "type": "trace_contains"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "event_type": "review",
+              "state": "reviewer",
+              "type": "trace_contains"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "event_type": "ranking",
+              "state": "ranking",
+              "type": "trace_contains"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "event_type": "report",
+              "state": "report",
+              "type": "trace_contains"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "report.md",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "case_record.json",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "UC main chain completes with expected ranking"
+      },
+      {
+        "category": "migration",
+        "elapsed_s": 2.79,
+        "id": "BM-02",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "equals": "completed",
+              "type": "terminal_status"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "gene": "IL12B",
+              "type": "ranking_contains"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "parity"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "Legacy engine produces identical observable output"
+      },
+      {
+        "category": "determinism",
+        "elapsed_s": 4.16,
+        "id": "BM-03",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "runs": 3,
+              "type": "deterministic"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "Repeated runs are deterministic"
+      },
+      {
+        "category": "determinism",
+        "elapsed_s": 1.62,
+        "id": "BM-04",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "type": "resume_idempotent"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "Terminal resume is idempotent"
+      },
+      {
+        "category": "determinism",
+        "elapsed_s": 2.88,
+        "id": "BM-05",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "terminal_status": "completed",
+              "type": "resume_completes"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "Mid-pipeline crash resumes to completion"
+      },
+      {
+        "category": "robustness",
+        "elapsed_s": 1.34,
+        "id": "BM-06",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "event_type": "degradation",
+              "state": "tool_execution",
+              "type": "trace_contains"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "terminal_status_in",
+              "values": [
+                "completed",
+                "completed_with_gaps"
+              ]
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "Tool-call budget degrades gracefully"
+      },
+      {
+        "category": "main_chain",
+        "elapsed_s": 0.81,
+        "id": "BM-07",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "status": "success",
+              "tool": "mch_causal_gold",
+              "type": "tool_status"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "path": "causal_graph.json",
+              "type": "file_exists"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "type": "evidence_provenance"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "MCH causal gold validates the exact trait"
+      },
+      {
+        "category": "robustness",
+        "elapsed_s": 0.75,
+        "id": "BM-08",
+        "mode": "fake",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "status": "out_of_scope",
+              "tool": "mch_causal_gold",
+              "type": "tool_status"
+            },
+            "failure": null,
+            "passed": true
+          },
+          {
+            "assertion": {
+              "equals": "needs_input",
+              "type": "terminal_status"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "Out-of-scope trait is refused, not fabricated"
+      },
+      {
+        "category": "contract",
+        "elapsed_s": 0.0,
+        "id": "BM-09",
+        "mode": "unit",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "check": "contract_version_gate",
+              "type": "unit"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "Contract version gate rejects 2.0 tasks"
+      },
+      {
+        "category": "contract",
+        "elapsed_s": 0.0,
+        "id": "BM-10",
+        "mode": "unit",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "check": "planner_whitelist",
+              "type": "unit"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "Planner fallback only uses whitelisted registered tools"
+      },
+      {
+        "category": "contract",
+        "elapsed_s": 1.07,
+        "id": "BM-11",
+        "mode": "unit",
+        "passed": true,
+        "results": [
+          {
+            "assertion": {
+              "check": "schema_export_valid",
+              "type": "unit"
+            },
+            "failure": null,
+            "passed": true
+          }
+        ],
+        "title": "Exported JSON Schemas are valid Draft 2020-12"
+      },
+      {
+        "category": "live",
+        "id": "BM-L1",
+        "mode": "live",
+        "passed": null,
+        "results": [],
+        "skipped": true,
+        "title": "Live: Alzheimer disease full pipeline"
+      },
+      {
+        "category": "live",
+        "id": "BM-L2",
+        "mode": "live",
+        "passed": null,
+        "results": [],
+        "skipped": true,
+        "title": "Live: lung adenocarcinoma with GEO omics"
+      },
+      {
+        "category": "live",
+        "id": "BM-L3",
+        "mode": "live",
+        "passed": null,
+        "results": [],
+        "skipped": true,
+        "title": "Live: clinical trials evidence retrieved for LUAD oncogenes"
+      }
+    ]
+  },
+  "pytest": {
+    "errors": 0,
+    "failures": 0,
+    "passed": 81,
+    "skipped": 4,
+    "tests": 85,
+    "time_s": 36.168
+  },
+  "relation_benchmark": {
+    "cases": 145,
+    "context_blind_baseline": {
+      "by_family": {
+        "contextualized_target": {
+          "coverage": 1.0,
+          "forbidden_claims": 1.0,
+          "label": 0.25,
+          "required_actions": 0.25
+        },
+        "disease_target_anchor": {
+          "coverage": 1.0,
+          "forbidden_claims": 1.0,
+          "label": 1.0,
+          "required_actions": 1.0
+        }
+      },
+      "duplicate_prediction_ids": 0,
+      "failures": [
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-02B75CEB28D4",
+          "split": "train"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-0749DB9A0D2F",
+          "split": "train"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-09E141C8DF9F",
+          "split": "train"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-0F2C2FBE0D9B",
+          "split": "validation"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-100F7C7B278B",
+          "split": "validation"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-164248FF5B96",
+          "split": "validation"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-1DC9964F8523",
+          "split": "train"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-23748068AB46",
+          "split": "validation"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-27B20641B915",
+          "split": "train"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-28F249A0FD86",
+          "split": "train"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-2A66F1CE8F44",
+          "split": "train"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-2BBB3976C3B7",
+          "split": "train"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-2F96C999A4A5",
+          "split": "train"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-30F6F5516A56",
+          "split": "validation"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-326CA5C4A9CE",
+          "split": "validation"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-3414C1011E4E",
+          "split": "validation"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-360066A64B02",
+          "split": "test"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-3B7EDB529D01",
+          "split": "validation"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-3D34670D680D",
+          "split": "train"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-44C5C0D84276",
+          "split": "train"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-48612D4E2D8B",
+          "split": "validation"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-51BA5D7B3E3A",
+          "split": "train"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-577221A56245",
+          "split": "train"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-599C0C13EF8A",
+          "split": "train"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-7BB484B75B60",
+          "split": "train"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-83E5532A6DF0",
+          "split": "validation"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-84FA11768E16",
+          "split": "train"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-87EBFE6FE7CA",
+          "split": "test"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-8B3D382B5429",
+          "split": "train"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-8C6A000CC16D",
+          "split": "train"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-8CE786775B5B",
+          "split": "train"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-8F552F9ACD83",
+          "split": "train"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-904474694506",
+          "split": "train"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-9745A7BB2147",
+          "split": "test"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-997182DD80CB",
+          "split": "test"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-9992CF292CA3",
+          "split": "test"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-9B56D7557BBF",
+          "split": "train"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-9F635AEA1A54",
+          "split": "train"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-A24EA5D63B08",
+          "split": "test"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-A2EB078BB901",
+          "split": "train"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-A86C1DA9591A",
+          "split": "validation"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-BD4DDFB3393E",
+          "split": "train"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-C0BE69F52323",
+          "split": "test"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-C23ECFA74D35",
+          "split": "test"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-CEC05782F913",
+          "split": "train"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-D392CDF0F7DA",
+          "split": "validation"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-D45FB32C31C5",
+          "split": "train"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-DEC0B78BE6C7",
+          "split": "test"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-E418A69DF218",
+          "split": "train"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-E5725DB00E6A",
+          "split": "test"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-E623C7296D4F",
+          "split": "train"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-EC750875EED7",
+          "split": "train"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-F6C3C6719277",
+          "split": "test"
+        },
+        {
+          "checks": {
+            "coverage": true,
+            "forbidden_claims": true,
+            "label": false,
+            "required_actions": false
+          },
+          "id": "CR-F6D79915F161",
+          "split": "test"
+        }
+      ],
+      "gold_cases": 145,
+      "metrics": {
+        "coverage": 1.0,
+        "forbidden_claims": 1.0,
+        "label": 0.6275862068965518,
+        "required_actions": 0.6275862068965518
+      },
+      "prediction_rows": 145
+    },
+    "families": {
+      "contextualized_target": 72,
+      "disease_target_anchor": 73
+    },
+    "labels": {
+      "context_complete": 18,
+      "context_mismatch": 36,
+      "insufficient_context": 18,
+      "supported_anchor": 73
+    },
+    "oracle_integrity_check": {
+      "by_family": {
+        "contextualized_target": {
+          "coverage": 1.0,
+          "forbidden_claims": 1.0,
+          "label": 1.0,
+          "required_actions": 1.0
+        },
+        "disease_target_anchor": {
+          "coverage": 1.0,
+          "forbidden_claims": 1.0,
+          "label": 1.0,
+          "required_actions": 1.0
+        }
+      },
+      "duplicate_prediction_ids": 0,
+      "failures": [],
+      "gold_cases": 145,
+      "metrics": {
+        "coverage": 1.0,
+        "forbidden_claims": 1.0,
+        "label": 1.0,
+        "required_actions": 1.0
+      },
+      "prediction_rows": 145
+    },
+    "splits": {
+      "test": 32,
+      "train": 81,
+      "validation": 32
+    }
+  },
+  "run_date": "2026-08-08",
+  "scope_boundary": {
+    "live_tasks_run": 0,
+    "reason": "Live external-API tasks and Reviewer LoRA matrix require network/API/GPU deployment profiles and are informational, not CI gates."
+  }
+}
