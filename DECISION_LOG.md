@@ -2,6 +2,15 @@
 
 Cross-module contracts, workflow choices, model boundaries and scientific-safety decisions are recorded here. Accepted decisions must not be changed silently in a feature branch.
 
+## 2026-08-08 - 机制证据图与证据合成质量门（P2.5）
+
+- **Status:** accepted
+- 决策：新增确定性证据合成层，把持久化 Evidence Store 投影为“实体 + 证据层 + 模式链接”三层的机制证据图；Web 工作台新增机制证据图面板，与既有工作流 DAG 并存。
+- 决策：论文模式 EvidenceLink 只作为跨层链接的“建议模板”；链接边固定 claim_class=INFERRED，且必须同时满足：基因在源/目标证据层都有 context_match ≥ 0.5 的证据、基因无未解决的方向冲突、两层证据相互独立（不共享 source lineage 或同一 tool run）。
+- 决策：方向冲突与证据依赖按确定性规则生成 synthesis findings，拦截而非静默删除；安全性阻断以独立 safety_liability 边保留。
+- 决策：GraphEdge 增加 attributes（携带 lane/stance/pattern 元数据），GraphNode 增加 lane 类型；schema 同步导出，旧图可兼容读取。
+- 决策：对齐数据生成与 Planner/Reviewer 小模型训练（P3）继续按团队决定最后再做；本次不产生任何训练数据或模型。
+
 ## 2026-08-08 - Gold 标注、抽取工具链与模式消融回归（P2）
 
 - **Status:** accepted

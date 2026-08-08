@@ -103,6 +103,24 @@ def test_project_api_rejects_invalid_payload_and_duplicate_project(tmp_path):
     assert duplicate.get_json()["error"] == "project id already exists"
 
 
+def test_mechanism_graph_endpoint_is_explicit_when_no_domain_task(tmp_path):
+    research_runtime, _ = fake_research_runtime(tmp_path)
+    client = create_app(
+        fake_target_runtime(tmp_path),
+        research_runtime=research_runtime,
+    ).test_client()
+    project = research_project("project-mechanism-web")
+    assert client.post("/api/projects", json=project.model_dump(mode="json")).status_code == 202
+    _wait_for_project(client, project.project_id)
+    response = client.get(f"/api/projects/{project.project_id}/mechanism-graph")
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["available"] is False
+    assert payload["graph"] is None
+    assert payload["reason"]
+    assert client.get("/api/projects/project-does-not-exist/mechanism-graph").status_code == 404
+
+
 def test_project_api_missing_resources_are_explicit(tmp_path):
     research_runtime, _ = fake_research_runtime(tmp_path)
     client = create_app(

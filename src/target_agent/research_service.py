@@ -6,9 +6,14 @@ records and never returns deployment paths or credentials.
 """
 from __future__ import annotations
 
+import json
 from typing import Any
 
-from .contracts import TaskContext, TaskSpec
+from pydantic import ValidationError
+
+from .contracts import EvidenceItem, TaskContext, TaskSpec
+from .graphs import synthesize_evidence_graph
+from .paper_strategy import StrategyPattern
 from .research_contracts import (
     RESEARCH_CONTRACT_VERSION,
     AutonomyMode,
@@ -684,6 +689,132 @@ class ResearchProjectService:
             "state_status": (snap.get("state") or {}).get("status"),
             "nodes": nodes,
             "edges": edges,
+        }
+
+    @staticmethod
+    def _active_artifact_record(store: ResearchProjectStore, logical_name: str):
+        records = [row for row in store.read_artifacts() if row.logical_name == logical_name]
+        if not records:
+            return None
+        heads = {row.artifact_id for row in store.read_artifact_heads()}
+        active = [row for row in records if row.artifact_id in heads]
+        return (active or records)[-1]
+
+    def _read_ndjson_artifact(
+        self, store: ResearchProjectStore, logical_name: str, *, limit: int = 200,
+        model=None,
+    ) -> list[Any]:
+        record = self._active_artifact_record(store, logical_name)
+        if record is None:
+            return []
+        path = store.artifact_path(record)
+        rows: list[Any] = []
+        try:
+            with path.open("r", encoding="utf-8") as handle:
+                for line in handle:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        row = json.loads(line)
+                        if model is not None:
+                            row = model.model_validate(row)
+                    except (ValueError, json.JSONDecodeError):
+                        continue
+                    rows.append(row)
+                    if len(rows) >= limit:
+                        break
+        except OSError:
+            return []
+        return rows
+
+    def _read_json_artifact(
+        self, store: ResearchProjectStore, logical_name: str, *, limit: int = 200,
+    ) -> list[dict[str, Any]]:
+        record = self._active_artifact_record(store, logical_name)
+        if record is None:
+            return []
+        path = store.artifact_path(record)
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return []
+        rows = payload if isinstance(payload, list) else [payload]
+        return rows[:limit]
+
+    def mechanism_graph(self, project_id: str) -> dict[str, Any]:
+        """Mechanistic evidence graph plus deterministic synthesis gates.
+
+        The graph is projected only from durable child-run artifacts
+        (evidence, claims, reviewer findings, ranked targets) and the plan's
+        evidence-strategy patterns. No number is invented in the service or
+        client layer.
+        """
+        store = self._existing_store(project_id)
+        spec = store.load_spec()
+        assert spec is not None
+        state = store.load_state()
+        plan = store.load_plan()
+        task = None
+        try:
+            task = TaskSpec.model_validate(spec.context["target_task_spec"])
+        except (KeyError, ValidationError, ValueError):
+            task = None
+        evidence = self._read_ndjson_artifact(
+            store, "target_discovery_evidence", limit=400, model=EvidenceItem,
+        )
+        claims = self._read_ndjson_artifact(store, "target_discovery_claims", limit=200)
+        reviewer_findings = self._read_ndjson_artifact(
+            store, "target_discovery_reviewer_findings", limit=50,
+        )
+        ranked_rows = self._read_json_artifact(store, "ranked_targets", limit=200)
+        genes = [
+            str(row["gene"]).strip() for row in ranked_rows
+            if isinstance(row, dict) and row.get("gene")
+        ]
+        if not genes:
+            genes = sorted({
+                str(getattr(row, "gene_symbol", "") or "").strip()
+                for row in evidence
+                if getattr(row, "gene_symbol", None)
+            })
+        patterns: list[StrategyPattern] = []
+        if plan is not None:
+            for raw in plan.evidence_strategy_patterns:
+                try:
+                    patterns.append(StrategyPattern.model_validate(raw))
+                except ValidationError:
+                    continue
+        status = state.status.value if state else ProjectStatus.DRAFT.value
+        if task is None:
+            return {
+                "contract_version": RESEARCH_CONTRACT_VERSION,
+                "project_id": project_id,
+                "status": status,
+                "available": False,
+                "reason": "Project has no disease-target TaskSpec.",
+                "graph": None,
+                "synthesis_findings": [],
+                "reviewer_findings": reviewer_findings,
+                "lane_coverage": {},
+                "pattern_links": [],
+                "ranked_genes": genes,
+            }
+        synthesis = synthesize_evidence_graph(task, evidence, genes, patterns=patterns)
+        return {
+            "contract_version": RESEARCH_CONTRACT_VERSION,
+            "project_id": project_id,
+            "status": status,
+            "available": True,
+            "graph": synthesis.graph.model_dump(mode="json"),
+            "synthesis_findings": synthesis.findings,
+            "reviewer_findings": reviewer_findings,
+            "lane_coverage": synthesis.lane_coverage,
+            "pattern_links": synthesis.pattern_links,
+            "ranked_genes": genes,
+            "claim_count": len(claims),
+            "evidence_count": len(evidence),
+            "pattern_count": len(patterns),
         }
 
     def project_files(self, project_id: str) -> dict[str, Any]:

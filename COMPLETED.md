@@ -45,6 +45,15 @@
 - Reviewer 专属超时 240s、重试 1 次，避免 90s×3 无效等待后落入确定性回退；
 - 远程验收（UC）：冷启动约 28 分钟 → 工具层全缓存后阶段二 55s；冷、暖、热三次独立运行的 Top10 排序完全一致，终态均为 completed_with_gaps、0 blocking、2 gaps。
 
+### 1.6 机制证据图与证据合成（P2.5）
+
+- 证据合成将持久化 Evidence Store 投影为机制证据图：disease / locus / variant / gene / cell_state（组织或细胞类型）/ drug 实体节点，外加 genetics / omics / perturbation / drug / literature / safety 证据层节点；
+- 跨层模式链接：只有当基因在两条独立证据层都有达标证据（context_match ≥ 0.5）且匹配论文模式 EvidenceLink 时才生成 pattern_evidence_link 边，claim_class 固定为 INFERRED，并携带 pattern_id、link_type、decision_rule 与 why_this_link，明确标注“策略假设而非当前疾病证据”；
+- 确定性质量门：方向冲突基因（同上下文 increase+decrease）拦截其全部模式链接；两条层共享 source lineage 或同一 tool run 时视为非独立证据，模式链接被拦截并写入 evidence_dependence finding；低上下文证据不参与模式链接但保留在图上供审计；
+- 图语义边界：边权重仅为上下文匹配系数（排序用途），不表示因果或临床成功概率；安全性阻断以独立 safety_liability 边保留，不被加权平均隐藏；
+- 接口：GET /api/projects/<id>/mechanism-graph 返回 graph + synthesis_findings + reviewer_findings + lane_coverage + pattern_links；Web 工作台证据图区改为“工作流 DAG / 机制证据图”双面板，支持模式链接、预测/推断边、证据层节点筛选，前端不创造任何后端不存在的数字；
+- 合同：GraphNode 新增 lane 类型，GraphEdge 新增 attributes，schemas/causal_graph.schema.json 同步更新（兼容读取旧图）。
+
 ## 2. 已完成的可靠性控制面
 
 ### 2.1 持久项目模型

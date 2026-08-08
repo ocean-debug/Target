@@ -357,6 +357,7 @@ function renderSnapshot(snap) {
   renderArtifacts(snap);
   renderEvents(snap);
   renderGraph(snap);
+  renderMechanismGraph(snap);
   renderFiles(snap);
 }
 
@@ -673,15 +674,26 @@ async function init() {
   $('kernel-start').addEventListener('click', startKernel);
   $('kernel-stop').addEventListener('click', stopKernel);
   $('kernel-run').addEventListener('click', runKernelCode);
+  $('tab-dag').addEventListener('click', () => switchGraphTab('dag'));
+  $('tab-mechanism').addEventListener('click', () => switchGraphTab('mechanism'));
   refreshKernels();
 }
 
 document.addEventListener('DOMContentLoaded', init);
 
+function switchGraphTab(tab) {
+  const isDag = tab === 'dag';
+  $('tab-dag').classList.toggle('active', isDag);
+  $('tab-mechanism').classList.toggle('active', !isDag);
+  $('dag-graph').classList.toggle('hidden', !isDag);
+  $('mechanism-graph').classList.toggle('hidden', isDag);
+}
+
+
 // ---------- evidence graph / file preview ----------
 
 async function renderGraph(snap) {
-  const host = $('evidence-graph');
+  const host = $('dag-graph');
   const projectId = snap.spec.project_id;
   try {
     const graph = await api(`/api/projects/${projectId}/graph`);
@@ -771,6 +783,175 @@ function renderSvgGraph(nodes, edges) {
     ? `<p class="muted">回退分支：${branchNodes.map((b) => esc(b.label) + ' (' + esc(b.mode) + '/' + esc(b.status) + ')').join('，')}</p>`
     : '';
   return `${legend}${branchNote}<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" style="max-width:100%">
+    <defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#5f7ea0"/></marker></defs>
+    ${edgeSvg}${nodeSvg}</svg>`;
+}
+
+
+// ---------- mechanism evidence graph ----------
+
+let mechanismPayload = null;
+let mechanismFilters = { patternLinks: true, predictedInferred: true, lanes: true };
+
+async function renderMechanismGraph(snap) {
+  const host = $('mechanism-graph');
+  const projectId = snap.spec.project_id;
+  try {
+    const payload = await api(`/api/projects/${projectId}/mechanism-graph`);
+    mechanismPayload = payload;
+    host.innerHTML = renderMechanismPanel(payload);
+    host.querySelectorAll('input[data-filter]').forEach((input) => {
+      input.addEventListener('change', () => {
+        mechanismFilters[input.dataset.filter] = input.checked;
+        if (mechanismPayload) host.innerHTML = renderMechanismPanel(mechanismPayload);
+      });
+    });
+  } catch (error) {
+    host.innerHTML = `<p class="muted">${esc(error.message)}</p>`;
+  }
+}
+
+function renderMechanismPanel(payload) {
+  if (!payload.available) {
+    return `<p class="muted">${esc(payload.reason || '机制证据图暂不可用')}</p>`;
+  }
+  const graph = payload.graph;
+  const nodes = (graph && graph.nodes) || [];
+  const edges = (graph && graph.edges) || [];
+  const stats = (graph && graph.model_statistics) || {};
+  if (!nodes.length) {
+    return `<p class="muted">尚无机制证据节点（项目未完成靶点发现，或证据为空）。</p>`;
+  }
+  const filtered = filterMechanismEdges(nodes, edges);
+  const svg = mechanismSvg(nodes, filtered.edges);
+  const findings = (payload.synthesis_findings || []).slice(0, 8);
+  const reviewer = (payload.reviewer_findings || []).filter((row) => row.severity === 'blocking' || row.severity === 'major').slice(0, 8);
+  const links = (payload.pattern_links || []).slice(0, 8);
+  const chips = mechanismLaneChips(payload.lane_coverage, payload.ranked_genes || []);
+  const controls = `<div class="graph-tools">
+    <label><input type="checkbox" data-filter="patternLinks" ${mechanismFilters.patternLinks ? 'checked' : ''}> 模式跨层链接</label>
+    <label><input type="checkbox" data-filter="predictedInferred" ${mechanismFilters.predictedInferred ? 'checked' : ''}> 预测/推断边</label>
+    <label><input type="checkbox" data-filter="lanes" ${mechanismFilters.lanes ? 'checked' : ''}> 证据层节点</label>
+    <span class="muted">边权重是上下文匹配系数，用于排序，不代表临床成功概率。</span>
+  </div>`;
+  const statsRow = `<div class="metric-row">
+    <div class="metric cyan"><strong>${esc(stats.evidence_items ?? 0)}</strong><span>证据条目</span></div>
+    <div class="metric blue"><strong>${esc(stats.ranked_genes ?? 0)}</strong><span>候选基因</span></div>
+    <div class="metric green"><strong>${esc(stats.pattern_links ?? 0)}</strong><span>模式跨层链接</span></div>
+    <div class="metric amber"><strong>${esc(stats.conflicting_genes ? stats.conflicting_genes.length : 0)}</strong><span>方向冲突基因</span></div>
+    <div class="metric purple"><strong>${esc(stats.dependent_links_withheld ?? 0)}</strong><span>依赖链接拦截</span></div>
+  </div>`;
+  const findingsHtml = (findings.length || reviewer.length)
+    ? `<div class="graph-findings">
+        ${findings.length ? `<h4>证据合成质量门</h4>${findings.map((row) => `<div class="finding-row"><span class="sev ${esc(row.severity)}">${esc(row.severity)}</span><span>${esc(row.message)}</span></div>`).join('')}` : ''}
+        ${reviewer.length ? `<h4>Reviewer 阻断/主要发现</h4>${reviewer.map((row) => `<div class="finding-row"><span class="sev ${esc(row.severity)}">${esc(row.severity)}</span><span>${esc(row.message)}</span></div>`).join('')}` : ''}
+      </div>`
+    : '';
+  const linksHtml = links.length
+    ? `<div class="graph-findings"><h4>模式跨层链接（假设性，非当前疾病证据）</h4>
+        ${links.map((row) => `<div class="pattern-link-row"><span>${esc(row.gene)} · ${esc(row.link_type)}</span><span><b>${esc(row.pattern_name)}</b>（${esc(row.source_lane)} → ${esc(row.target_lane)}）<small>${esc(row.why_this_link)}</small></span></div>`).join('')}
+      </div>`
+    : '';
+  return `${statsRow}${controls}${mechanismLegend()}${svg}${chips}${findingsHtml}${linksHtml}`;
+}
+
+function filterMechanismEdges(nodes, edges) {
+  const visible = new Set(nodes.map((n) => n.id));
+  const laneIds = new Set(nodes.filter((n) => n.node_type === 'lane').map((n) => n.id));
+  return {
+    edges: edges.filter((e) => {
+      if (!visible.has(e.source) || !visible.has(e.target)) return false;
+      if (!mechanismFilters.lanes && (laneIds.has(e.source) || laneIds.has(e.target))) return false;
+      if (e.relation === 'pattern_evidence_link' && !mechanismFilters.patternLinks) return false;
+      if (!mechanismFilters.predictedInferred && (e.claim_class === 'PREDICTED' || e.claim_class === 'INFERRED')) return false;
+      return true;
+    }),
+  };
+}
+
+function mechanismLegend() {
+  const nodeLegend = [
+    ['#2f8f6b', '疾病'], ['#2b6f9e', '基因'], ['#7d5ba6', '位点/变异'],
+    ['#b7791f', '细胞/组织'], ['#5c9e77', '药物'], ['#4a7ba6', '证据层'],
+  ].map(([color, label]) => `<span class="dot" style="background:${color}"></span>${label}`).join(' ');
+  const edgeLegend = [
+    ['#8ec5ff', 'FACT 实线'], ['#42d392', 'OBSERVED 实线'],
+    ['#ffbf69', 'PREDICTED 虚线'], ['#9a7fd4', 'INFERRED 虚线'],
+    ['#ff9f43', '模式跨层链接'], ['#ff6b7a', '安全性阻断'],
+  ].map(([color, label]) => `<span style="color:${color}">${label}</span>`).join(' ');
+  return `<div class="graph-legend"><b>节点：</b>${nodeLegend}<b>边：</b>${edgeLegend}</div>`;
+}
+
+function mechanismLaneChips(laneCoverage, rankedGenes) {
+  const coverage = laneCoverage || {};
+  const genes = Object.keys(coverage);
+  if (!genes.length) return '';
+  const laneLabel = { genetics: '遗传学', omics: '组学', perturbation: '扰动', drug: '药物', literature: '文献', safety: '安全' };
+  const rows = genes.map((gene) => {
+    const lanes = Object.entries(coverage[gene] || {});
+    const ranked = rankedGenes.includes(gene);
+    const chips = lanes.map(([lane, ids]) => `<span class="lane-chip">${esc(laneLabel[lane] || lane)} ${ids.length}</span>`).join('');
+    return `<div style="margin:3px 0"><b style="${ranked ? 'color:var(--cyan)' : ''}">${esc(gene)}${ranked ? ' · 已入排名' : ''}</b> ${chips}</div>`;
+  }).join('');
+  return `<div class="graph-findings"><h4>每个基因的证据层覆盖</h4>${rows}</div>`;
+}
+
+function mechanismSvg(nodes, edges) {
+  const colOf = { variant: 0, locus: 0, gene: 1, cell_state: 2, drug: 2, program: 2, trait: 2, lane: 3, disease: 4 };
+  const cols = [[], [], [], [], []];
+  nodes.forEach((n) => {
+    const col = colOf[n.node_type] ?? 2;
+    cols[col].push(n);
+  });
+  const colW = 200, rowH = 56, nodeW = 158, nodeH = 34, padX = 26, padY = 22;
+  const maxRows = Math.max(1, ...cols.map((col) => col.length));
+  const width = cols.length * colW + padX * 2;
+  const height = maxRows * rowH + padY * 2 + 30;
+  const pos = new Map();
+  cols.forEach((col, colIndex) => {
+    col.forEach((n, rowIndex) => {
+      const y = ((maxRows - col.length) / 2) * rowH + rowIndex * rowH + padY;
+      pos.set(n.id, { x: padX + colIndex * colW, y });
+    });
+  });
+  const nodeColor = {
+    disease: '#2f8f6b', gene: '#2b6f9e', locus: '#7d5ba6', variant: '#7d5ba6',
+    cell_state: '#b7791f', drug: '#5c9e77', lane: '#4a7ba6', program: '#5c6f9e', trait: '#5c6f9e',
+  };
+  const edgeStyle = (e) => {
+    if (e.relation === 'safety_liability') return { stroke: '#ff6b7a', dash: '' };
+    if (e.relation === 'pattern_evidence_link') return { stroke: '#ff9f43', dash: '7 4' };
+    if (e.relation === 'known_drug_link') return { stroke: '#5c9e77', dash: '' };
+    if (e.relation === 'context_localization') return { stroke: '#b7791f', dash: '' };
+    if (['evidence_lane_supports_disease', 'disease_context_relevance', 'colocalization_shared_signal_hypothesis'].includes(e.relation)) return { stroke: '#9a7fd4', dash: '7 4' };
+    if (e.claim_class === 'FACT') return { stroke: '#8ec5ff', dash: '' };
+    if (e.claim_class === 'OBSERVED') return { stroke: '#42d392', dash: '' };
+    if (e.claim_class === 'PREDICTED') return { stroke: '#ffbf69', dash: '5 4' };
+    return { stroke: '#9a7fd4', dash: '5 4' };
+  };
+  const edgeSvg = edges.map((e) => {
+    const a = pos.get(e.source), b = pos.get(e.target);
+    if (!a || !b) return '';
+    const x1 = a.x + nodeW, y1 = a.y + nodeH / 2;
+    const x2 = b.x, y2 = b.y + nodeH / 2;
+    const style = edgeStyle(e);
+    const title = `${esc(e.relation)} · ${esc(e.claim_class)} · ${(e.evidence_ids || []).length} 条证据`;
+    return `<g><title>${title}</title><line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${style.stroke}" stroke-width="1.5" stroke-dasharray="${style.dash}" marker-end="url(#arrow)"/></g>`;
+  }).join('');
+  const nodeSvg = nodes.map((n) => {
+    const posNode = pos.get(n.id);
+    if (!posNode) return '';
+    const fill = nodeColor[n.node_type] || '#5c6f9e';
+    const subtitle = n.node_type === 'cell_state' ? (n.attributes && n.attributes.layer) : n.node_type;
+    const label = n.label.length > 20 ? n.label.slice(0, 19) + '…' : n.label;
+    const title = `${esc(n.node_type)} · ${esc(n.label)}`;
+    return `<g transform="translate(${posNode.x},${posNode.y})"><title>${title}</title>
+      <rect width="${nodeW}" height="${nodeH}" rx="8" fill="${fill}" opacity="0.92"/>
+      <text x="${nodeW / 2}" y="15" text-anchor="middle" fill="#06121f" font-size="11" font-weight="700">${esc(label)}</text>
+      <text x="${nodeW / 2}" y="28" text-anchor="middle" fill="#0b1b2e" font-size="8">${esc(subtitle)}</text>
+    </g>`;
+  }).join('');
+  return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" style="max-width:100%">
     <defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#5f7ea0"/></marker></defs>
     ${edgeSvg}${nodeSvg}</svg>`;
 }

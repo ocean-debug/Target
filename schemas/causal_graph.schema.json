@@ -274,6 +274,11 @@
           ],
           "default": null,
           "title": "Weight"
+        },
+        "attributes": {
+          "additionalProperties": true,
+          "title": "Attributes",
+          "type": "object"
         }
       },
       "required": [
@@ -307,7 +312,8 @@
             "trait",
             "disease",
             "cell_state",
-            "drug"
+            "drug",
+            "lane"
           ],
           "title": "Node Type",
           "type": "string"

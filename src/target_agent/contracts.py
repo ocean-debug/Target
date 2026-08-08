@@ -696,7 +696,7 @@ class ReviewerFinding(ContractModel):
 
 class GraphNode(ContractModel):
     node_id: str
-    node_type: Literal["gene", "variant", "locus", "program", "trait", "disease", "cell_state", "drug"]
+    node_type: Literal["gene", "variant", "locus", "program", "trait", "disease", "cell_state", "drug", "lane"]
     label: str
     attributes: dict[str, Any] = Field(default_factory=dict)
 
@@ -708,6 +708,7 @@ class GraphEdge(ContractModel):
     evidence_ids: list[str] = Field(default_factory=list)
     claim_class: ClaimClass
     weight: float | None = None
+    attributes: dict[str, Any] = Field(default_factory=dict)
 
 
 class CausalGraph(ContractModel):

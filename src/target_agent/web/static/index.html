@@ -107,8 +107,13 @@
         </div>
       </section>
     <section class="section">
-        <div class="section-head compact"><div><span class="section-no">06</span><h2>证据图</h2></div><p>计划依赖与产物溯源的项目 DAG，仅由持久化状态生成，前端不创造新数字。</p></div>
-        <div id="evidence-graph" class="graph-panel"><p class="muted">加载中…</p></div>
+        <div class="section-head compact"><div><span class="section-no">06</span><h2>证据图</h2></div><p>工作流 DAG 与机制证据图均由持久化状态生成，前端不创造新数字；机制边区分 FACT / OBSERVED / PREDICTED / INFERRED。</p></div>
+        <div class="graph-tabs">
+          <button id="tab-dag" class="graph-tab active" type="button">工作流 DAG</button>
+          <button id="tab-mechanism" class="graph-tab" type="button">机制证据图</button>
+        </div>
+        <div id="dag-graph" class="graph-panel"><p class="muted">加载中…</p></div>
+        <div id="mechanism-graph" class="graph-panel hidden"><p class="muted">加载中…</p></div>
       </section>
 
       <section class="section">

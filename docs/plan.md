@@ -465,6 +465,7 @@ Pattern 中的 `data_integration` 将被转换为 `EvidenceLink` 建议，供 `e
 9. 抽取工具链（P2）：`src/target_agent/pattern_extraction.py` 提供 append-only Gold 标注台账（`pattern curate`）、Europe PMC 摘要/Methods 有界提取、StrategyPattern 严格校验与 append-only 抽取审计（`pattern extract`），全程不存全文；专家评审以 `pattern review` 追加式台账完成，模式记录保持不可变。
 10. 垂直子工作流注入：LangGraphRuntime 的域内 Planner 现在从配置的模式库构建 few-shot 提示并持久化命中 trace（`planner_pattern_hints`）；项目级 Planner 沿用原注入路径。
 11. 消融回归：`benchmark/pattern_ablation.py` 在公开疾病金标准上离线度量模式覆盖率与确定性计划有效性，并支持 `--llm` 对比真实 Step Planner 在有/无模式提示下的计划形状；新增 benchmark 单元检查 BM-12。
+12. 证据合成与机制证据图（P2.5）：确定性投影 Evidence Store 为实体/证据层/模式链接三层图；方向冲突与证据依赖质量门拦截模式链接；Web 工作台新增“机制证据图”面板与 `GET /api/projects/<id>/mechanism-graph` 接口。
 
 ### 延后（P3，按团队决定最后再做）
 
@@ -473,7 +474,8 @@ Pattern 中的 `data_integration` 将被转换为 `EvidenceLink` 建议，供 `e
 
 ### 下一步
 
-1. 人工挑选 30-50 篇 Gold 论文：`target-agent pattern curate --pmid <PMID> --status gold --rationale "..." --role life_science|engineering`，科学+工程双人标注。
+1. 机制证据图回归：在真实 AD / 肺腺癌 / UC 运行上检查实体节点、证据层覆盖、模式链接与 synthesis findings，确认 UI 展示与后端数据一致。
+2. 人工挑选 30-50 篇 Gold 论文：`target-agent pattern curate --pmid <PMID> --status gold --rationale "..." --role life_science|engineering`，科学+工程双人标注。
 2. 批量抽取：`target-agent pattern extract`（需配置 Step 提供商），随后 `target-agent pattern review` 完成双人复核；每条抽取失败记录进入 `paper_strategy/extractions.jsonl` 供复盘。
 3. 盲测回归：`python benchmark/pattern_ablation.py` 建立当前覆盖率基线（10 条种子：14/18 疾病命中、18/18 计划有效；SLE/银屑病/ALS/黑色素瘤尚无模式），模式库扩充后重跑，确保计划有效性不下降；可选 `--llm --limit N` 对比真实规划形状。
 4. 对齐数据生成与 Planner/Reviewer 小模型训练：按团队决定最后再做，来源为已复核的 Pattern 库。

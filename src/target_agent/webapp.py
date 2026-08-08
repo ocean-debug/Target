@@ -442,6 +442,17 @@ def create_app(
             return jsonify({"error": str(exc)}), 400
         return jsonify(payload)
 
+    @app.get("/api/projects/<project_id>/mechanism-graph")
+    def project_mechanism_graph(project_id: str):
+        project_id = _safe_project_id(project_id)
+        try:
+            payload = research_service.mechanism_graph(project_id)
+        except ResearchProjectNotFound:
+            return jsonify({"error": "project not found"}), 404
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+        return jsonify(payload)
+
     @app.get("/api/projects/<project_id>/files")
     def project_files(project_id: str):
         project_id = _safe_project_id(project_id)
