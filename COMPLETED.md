@@ -61,6 +61,7 @@
 - PlannerFewShotBuilder 新增 build_paper_evidence：模式命中与论文证据同时注入 Planner prompt；两端 Planner（领域 Planner 与项目 ResearchPlanner）都会把 paper_evidence 放进请求、持久化进 ResearchPlan、并把命中数写入 planner_backend（+paper-rag:N）；
 - LangGraph 运行时会以 planner_paper_evidence trace 记录 chunk_id/PMID，领域活动投影允许该事件类型；Web 工作台新增“论文证据（RAG）”面板，展示 chunk、得分、证据层与命中原因，并明确标注“策略提示非证据”；
 - 只持久化摘要分块：Methods/全文仅在抽取时驻留内存，绝不落盘；对齐数据生成与 Planner/Reviewer 小模型训练仍按团队决定延后到最终阶段。
+- 远程已刷新种子语料：paper_strategy/rag/chunks.jsonl 共 155 个分块 / 59 篇 2025-2026 年 Nature/Science/Cell 系列论文（MANIFEST.json 校验和入库），可通过 pattern rag refresh 继续扩充；顺带修复 Europe PMC Methods 截断引用未加 self. 的存量缺陷。
 
 ## 2. 已完成的可靠性控制面
 

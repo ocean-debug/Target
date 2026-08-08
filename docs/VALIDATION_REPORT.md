@@ -114,3 +114,29 @@ The checkboxes above record the historical V2.1 remote-node baseline, not curren
 - Canonical export produced 45 JSON Schemas. The stdio MCP smoke discovered 11 Target tools and returned `TARGET_MCP_STDIO=OK`; `pip check` and repository policy returned clean/`REPO_POLICY=OK`.
 - Historical disease-matrix correction: its conflicting-evidence bucket asserted terminal status, provenance and report existence only. The recorded 54/54 score did not verify conflict detection, preservation or repair and must not be used as that claim.
 - This increment does **not** implement science-finding-driven evidence repair, dataset switching, method changes, general DAG replanning, WorkAttempt/Head, a certified release package, external blind biological validation or independent expert release.
+
+
+## Paper RAG and few-shot Planner acceptance (2026-08-08, P2.6)
+
+- New paper-level RAG layer (src/target_agent/paper_rag.py): bounded abstract
+  chunks with per-chunk SHA-256 digest, append-only JSONL store and a
+  MANIFEST. Retrieval is deterministic lexical scoring (disease tokens, query
+  tokens, available evidence lanes, recency, journal premium); no embedding
+  model and no network at query time. Methods/full text is never persisted.
+- PlannerFewShotBuilder.build_paper_evidence() now injects top chunks into the
+  domain Planner and the project ResearchPlanner; ResearchPlan persists
+  paper_evidence, planner_backend records +paper-rag:N, and the LangGraph
+  runtime traces planner_paper_evidence. The Web workbench shows the hits in a
+  dedicated panel labelled "strategy hint, not evidence".
+- Seed corpus refreshed on the remote workspace: 155 chunks from 59 recent
+  (2025-2026) Nature/Science/Cell-family papers; MANIFEST is committed so
+  chunk checksums are reproducible. The full candidate pool can be expanded
+  with target-agent pattern rag refresh or scripts/build_paper_rag.py.
+- Full remote acceptance passed: 360 tests collected with no failures (two
+  pre-existing optional model-backed tests skipped by their capability gates),
+  internal benchmark 12/12 tasks with 28/28 assertions, canonical schema
+  export regenerated all schemas, and repository policy returned
+  REPO_POLICY=OK; the acceptance script printed TARGET_P02_ACCEPTANCE=OK.
+- Alignment-data generation and Planner/Reviewer small-model training remain
+  deferred (P3) per the team decision; RAG hits and pattern library are the
+  future alignment-data source.
