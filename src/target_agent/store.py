@@ -12,6 +12,7 @@ from .contracts import (
     CaseRecord, Claim, EvidenceItem, ExecutionPlan, ReviewerFinding, TargetCard,
     TaskSpec, ToolResult, TraceEvent,
 )
+from .legacy import migrate_current_contract, parse_task_spec
 
 
 T = TypeVar("T", bound=BaseModel)
@@ -48,7 +49,25 @@ class EvidenceStore:
         path = self.run_dir / "task_spec.json"
         if not path.exists():
             return None
-        return TaskSpec.model_validate_json(path.read_text(encoding="utf-8"))
+        return parse_task_spec(json.loads(path.read_text(encoding="utf-8")))
+
+    def task_contract_version(self) -> str | None:
+        """Return the persisted root version without applying a migration adapter."""
+        path = self.run_dir / "task_spec.json"
+        if not path.exists():
+            return None
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        version = payload.get("contract_version")
+        return str(version) if version is not None else None
+
+    def has_durable_run_artifacts(self) -> bool:
+        names = {
+            "checkpoint.json", "execution_plan.json", "tool_results.jsonl",
+            "evidence_items.jsonl", "claims.jsonl", "reviewer_findings.jsonl",
+            "trace.jsonl", "status.json", "ranked_targets.json", "target_cards.json",
+            "case_record.json", "report.json", "report.md",
+        }
+        return any((self.run_dir / name).exists() for name in names)
 
     def save_plan(self, plan: ExecutionPlan) -> None:
         self._json("execution_plan.json", plan)
@@ -88,7 +107,10 @@ class EvidenceStore:
         path = self.run_dir / name
         if not path.exists():
             return []
-        return [model.model_validate_json(line) for line in path.read_text(encoding="utf-8").splitlines() if line]
+        return [
+            model.model_validate(migrate_current_contract(json.loads(line)))
+            for line in path.read_text(encoding="utf-8").splitlines() if line
+        ]
 
     def evidences(self) -> list[EvidenceItem]:
         return self.read_jsonl("evidence_items.jsonl", EvidenceItem)
@@ -103,15 +125,43 @@ class EvidenceStore:
         return self.read_jsonl("trace.jsonl", TraceEvent)
 
     def assert_referential_integrity(self) -> None:
-        tool_ids = {item.tool_run_id for item in self.tool_results()}
-        evidence_ids = {item.evidence_id for item in self.evidences()}
-        for evidence in self.evidences():
+        results = self.tool_results()
+        evidence_items = self.evidences()
+        tool_id_list = [item.tool_run_id for item in results]
+        evidence_id_list = [item.evidence_id for item in evidence_items]
+        if len(tool_id_list) != len(set(tool_id_list)):
+            raise ValueError("duplicate ToolResult.tool_run_id values make provenance ambiguous")
+        if len(evidence_id_list) != len(set(evidence_id_list)):
+            raise ValueError("duplicate EvidenceItem.evidence_id values make provenance ambiguous")
+        tool_ids = set(tool_id_list)
+        evidence_ids = set(evidence_id_list)
+        for evidence in evidence_items:
             if evidence.tool_run_id not in tool_ids:
                 raise ValueError(f"evidence {evidence.evidence_id} references missing tool run")
-        for result in self.tool_results():
+        for result in results:
             missing = set(result.evidence_ids) - evidence_ids
             if missing:
                 raise ValueError(f"tool run {result.tool_run_id} references missing evidence: {sorted(missing)}")
+        for result in results:
+            prior_id = result.supersedes_tool_run_id
+            if prior_id is not None:
+                if prior_id == result.tool_run_id:
+                    raise ValueError(f"tool run {result.tool_run_id} cannot supersede itself")
+                if prior_id not in tool_ids:
+                    raise ValueError(f"tool run {result.tool_run_id} supersedes a missing tool run: {prior_id}")
+        supersession = {
+            row.tool_run_id: row.supersedes_tool_run_id
+            for row in results
+            if row.supersedes_tool_run_id is not None
+        }
+        for run_id in supersession:
+            seen: set[str] = set()
+            cursor = run_id
+            while cursor in supersession:
+                if cursor in seen:
+                    raise ValueError("tool result supersession chain contains a cycle")
+                seen.add(cursor)
+                cursor = supersession[cursor]
 
     @staticmethod
     def by_gene(items: Iterable[EvidenceItem]) -> dict[str, list[EvidenceItem]]:

@@ -4,7 +4,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from .contracts import ClaimClass, EvidenceItem, ScoreBreakdown, Stance, ToolResult
+from .contracts import (
+    ClaimClass, EvidenceItem, ReviewerFinding, ScoreBreakdown, Stance,
+    TargetGeneticEvidenceSummary, ToolResult,
+)
 
 
 WEIGHTS = {
@@ -27,6 +30,7 @@ class RankedTarget:
     safety_blockers: list[str]
     evidence_gaps: list[str]
     matched_drugs: list[dict[str, Any]]
+    genetic_evidence_summary: list[TargetGeneticEvidenceSummary]
     decision: str
 
 
@@ -47,7 +51,31 @@ def _phase_value(value: Any) -> float:
     return 0.0
 
 
-def rank_targets(candidates: list[str], evidence: list[EvidenceItem], results: list[ToolResult]) -> list[RankedTarget]:
+def rank_targets(
+    candidates: list[str], evidence: list[EvidenceItem], results: list[ToolResult],
+    findings: list[ReviewerFinding] | None = None,
+    *, minimum_coloc_pp4: float = 0.8,
+) -> list[RankedTarget]:
+    results_by_id = {result.tool_run_id: result for result in results}
+
+    def tool_lineage(tool_run_id: str) -> set[str]:
+        lineage: set[str] = set()
+        pending = [tool_run_id]
+        while pending:
+            current = pending.pop()
+            if current in lineage:
+                continue
+            lineage.add(current)
+            result = results_by_id.get(current)
+            if result is None:
+                continue
+            pending.extend(
+                value
+                for key, value in result.inputs.items()
+                if key.endswith("_tool_run_id") and isinstance(value, str) and value
+            )
+        return lineage
+
     by_gene: dict[str, list[EvidenceItem]] = {gene: [] for gene in candidates}
     for item in evidence:
         if item.gene_symbol in by_gene:
@@ -71,11 +99,40 @@ def rank_targets(candidates: list[str], evidence: list[EvidenceItem], results: l
         blockers = []
         matched_drugs = ot_by_gene.get(gene, {}).get("known_drugs", [])
         tractability = ot_by_gene.get(gene, {}).get("tractability", [])
+        has_strict_genetics = False
+        genetic_summaries: list[TargetGeneticEvidenceSummary] = []
+        independent_genetic_context: dict[tuple[str, str], float] = {}
 
         for item in formal:
             context = item.context_match_score
-            if "genetic_score" in item.effect:
-                genetics = max(genetics, WEIGHTS["human_genetics"] * float(item.effect["genetic_score"]) * context)
+            genetic = item.genetic_evidence
+            if (
+                genetic is not None
+                and genetic.formal_score_eligible
+                and genetic.analysis_level == "colocalization_supported"
+                and genetic.evidence_type in {"colocalization", "locus_to_gene"}
+                and genetic.evidence_type != "open_targets_genetic_association"
+                and genetic.strength >= minimum_coloc_pp4
+                and item.stance == Stance.SUPPORTS
+                and item.gene_symbol == genetic.gene_symbol
+                and item.context.study_id == genetic.study_id
+                and item.context.locus_id == genetic.locus_id
+                and item.context.signal_id == genetic.signal_id
+                and bool(item.context.genome_build and item.context.ancestry)
+            ):
+                has_strict_genetics = True
+                independent_key = (genetic.study_id, genetic.locus_id or "")
+                independent_genetic_context[independent_key] = max(
+                    independent_genetic_context.get(independent_key, 0.0), context,
+                )
+                genetic_summaries.append(TargetGeneticEvidenceSummary(
+                    evidence_id=item.evidence_id, study_id=genetic.study_id,
+                    molecular_study_id=genetic.molecular_study_id or "",
+                    locus_id=genetic.locus_id or "", signal_id=genetic.signal_id or "",
+                    method=genetic.method or "", method_version=genetic.method_version or "",
+                    strength=genetic.strength, genome_build=item.context.genome_build,
+                    ancestry=item.context.ancestry or "", tissue=item.context.tissue,
+                ))
             if "legacy_disease_strength_0_60" in item.effect:
                 normalized = float(item.effect["legacy_disease_strength_0_60"]) / 60.0
                 omics = max(omics, WEIGHTS["disease_omics"] * normalized * context)
@@ -86,6 +143,12 @@ def rank_targets(candidates: list[str], evidence: list[EvidenceItem], results: l
                 perturb = max(perturb, (8.0 + min(12.0, alignment / 0.1 * 12.0)) * context)
             if item.claim_class == ClaimClass.PREDICTED:
                 perturb = max(perturb, min(WEIGHTS["perturbation"] / 2.0, 10.0 * context))
+
+        if independent_genetic_context:
+            independent_loci = len(independent_genetic_context)
+            evidence_tier = 0.5 if independent_loci == 1 else 0.75 if independent_loci == 2 else 1.0
+            context_multiplier = sum(independent_genetic_context.values()) / independent_loci
+            genetics = WEIGHTS["human_genetics"] * evidence_tier * context_multiplier
 
         has_omics = any("legacy_disease_strength_0_60" in item.effect or "omics_strength" in item.effect for item in formal)
         has_observed_perturb = any(item.claim_class == ClaimClass.OBSERVED and "disease_alignment" in item.effect for item in formal)
@@ -119,6 +182,23 @@ def rank_targets(candidates: list[str], evidence: list[EvidenceItem], results: l
         safety_events = [str(item.effect["safety"].get("event") or item.effect["safety"].get("eventId"))
                          for item in items if "safety" in item.effect]
         blockers.extend(f"Open Targets safety liability: {event}" for event in safety_events)
+        target_related_ids = {
+            related_id
+            for item in items
+            for related_id in ({item.evidence_id} | tool_lineage(item.tool_run_id))
+        }
+        unresolved_target_findings = [
+            finding for finding in (findings or [])
+            if not finding.resolved
+            and finding.severity in {"blocking", "major"}
+            and target_related_ids.intersection(finding.related_ids)
+        ]
+        if unresolved_target_findings:
+            categories = sorted({finding.category for finding in unresolved_target_findings})
+            blockers.append(
+                "Unresolved Reviewer finding(s) affect this target: " + ", ".join(categories) + "."
+            )
+            gaps.append("Resolve the linked blocking/major Reviewer findings before an unconditional GO.")
 
         scores = ScoreBreakdown(
             human_genetics=_clamp(genetics, 25), disease_omics=_clamp(omics, 20),
@@ -126,8 +206,8 @@ def rank_targets(candidates: list[str], evidence: list[EvidenceItem], results: l
             druggability=_clamp(druggability, 10), safety_translation=_clamp(safety, 10),
             total=_clamp(genetics + omics + perturb + mechanism + druggability + safety, 100),
         )
-        independent = sum([genetics > 0, has_omics, has_observed_perturb, has_literature, bool(matched_drugs)])
-        gate = genetics > 0 or has_observed_perturb
+        independent = sum([has_strict_genetics, has_omics, has_observed_perturb, has_literature, bool(matched_drugs)])
+        gate = has_strict_genetics or has_observed_perturb
         if blockers:
             decision = "CONDITIONAL_GO" if independent >= 2 else "INSUFFICIENT_EVIDENCE"
         elif independent >= 2 and gate:
@@ -140,6 +220,7 @@ def rank_targets(candidates: list[str], evidence: list[EvidenceItem], results: l
             gene=gene, scores=scores, evidence_ids=[item.evidence_id for item in items],
             supporting_ids=supporting, opposing_ids=opposing, safety_blockers=blockers,
             evidence_gaps=gaps, matched_drugs=matched_drugs, decision=decision,
+            genetic_evidence_summary=genetic_summaries,
         ))
     ranked.sort(key=lambda row: (-row.scores.total, row.gene))
     return ranked

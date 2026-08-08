@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "target-discovery-agent"
-version = "0.3.0"
-description = "Traceable best-practice Agent for disease target discovery"
+version = "0.8.0"
+description = "Evidence-gated Agent for disease-driven drug-target discovery"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -34,6 +34,8 @@ omics-single-cell = [
   "scanpy[leiden]==1.11.5",
 ]
 omics-census = ["cellxgene-census==1.17.*"]
+mcp = ["mcp>=2.0,<3"]
+secrets = ["keyring>=24,<26"]
 train = [
   "accelerate>=0.33",
   "datasets>=2.20",
@@ -44,6 +46,7 @@ train = [
 
 [project.scripts]
 target-agent = "target_agent.cli:main"
+target-agent-mcp = "target_agent.mcp_server:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

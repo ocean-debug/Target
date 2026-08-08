@@ -1,0 +1,51 @@
+{
+  "contract_version": "0.1.0",
+  "count": 10,
+  "validation_levels": {
+    "discovery_pattern": 10,
+    "best_practice": 0
+  },
+  "review_pending": 10,
+  "patterns": [
+    {
+      "pattern_id": "pattern-ad-microglia-celltype",
+      "sha256": "9013c7d69a84e9f3d6c81f0f3f1ebdb0bd09f7b6d0eee5a9bce42b32d539c29e"
+    },
+    {
+      "pattern_id": "pattern-asthma-il33-epithelial",
+      "sha256": "e0a15669994eedd938546a2c51b2a2fe49642069e2f0f5aabf5d8eb9ac669af4"
+    },
+    {
+      "pattern_id": "pattern-cad-lipid-genetics-to-drug",
+      "sha256": "32af17c86615ffa00f5910a75774f243a87bb518087a444c9674d00e52ad9358"
+    },
+    {
+      "pattern_id": "pattern-ibd-genetics-to-drug",
+      "sha256": "d50b272652443ffb74f22c7e4b99b6aff8e40209911ffd5b45cbe3229f5cb11e"
+    },
+    {
+      "pattern_id": "pattern-pd-mr-perturbation",
+      "sha256": "3192417c504fb4bcda8fe0c20211426eac2399bd8420292d7a0e0994ed4a03b7"
+    },
+    {
+      "pattern_id": "pattern-perturbseq-cellstate-first",
+      "sha256": "3468ccebc1372a95f43a035176c32bd9bb5867475b32116104aee9b09ba63669"
+    },
+    {
+      "pattern_id": "pattern-ra-druggable-genome",
+      "sha256": "82486c011543d68d7bf9e2eaeb1048c2449b6700f206f767c612bde57784585b"
+    },
+    {
+      "pattern_id": "pattern-sceqtl-celltype-specific",
+      "sha256": "d69c6fd971c8438061cad37728fa82619baf6d330dcb35bc078034c382506201"
+    },
+    {
+      "pattern_id": "pattern-t2d-multiancestry-genetics-first",
+      "sha256": "ce8f4eedae8f3180885dd30c4c1ad9a5b1232439c1ce91417bec8a6a8c2054b9"
+    },
+    {
+      "pattern_id": "pattern-trait-mechanism-gene-program",
+      "sha256": "eb225e8ddf24ad332db4a08aa72f8007012bf5a8c17e01351b1f01725fc7970b"
+    }
+  ]
+}

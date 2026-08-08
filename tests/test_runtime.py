@@ -40,7 +40,7 @@ def test_cached_style_uc_three_runs_are_consistent_and_fast(tmp_path):
         assert len(ranking) == 10
         assert len(cards) == 5
         assert len([row["gene"] for row in ranking[:3]]) == 3
-        assert any(row["gene"] == "IL12B" for row in ranking)
+        assert all(row["scores"]["human_genetics"] == 0 for row in ranking)
         rankings.append([(row["gene"], row["scores"], row["decision"]) for row in ranking])
     assert rankings[0] == rankings[1] == rankings[2]
 
@@ -96,3 +96,25 @@ def test_resume_uses_stored_task_identity_for_unfinished_run(tmp_path):
     assert status["task_id"] == original.task_id
     assert saved_task["task_id"] == original.task_id
     assert plan["task_id"] == original.task_id
+
+
+def test_store_loads_homogeneous_2_1_task_through_explicit_adapter(tmp_path):
+    run_dir = tmp_path / "runs" / "run-v21"
+    run_dir.mkdir(parents=True)
+    (run_dir / "task_spec.json").write_text(json.dumps({
+        "contract_version": "2.1.0",
+        "task_id": "task-v21",
+        "task_type": "disease_to_target",
+        "question": "Find traceable UC targets",
+        "context": {
+            "contract_version": "2.1.0",
+            "disease": "ulcerative colitis",
+        },
+        "constraints": {"contract_version": "2.1.0"},
+    }), encoding="utf-8")
+
+    task = EvidenceStore(run_dir).load_task()
+
+    assert task is not None
+    assert task.contract_version == "2.2.0"
+    assert task.task_id == "task-v21"

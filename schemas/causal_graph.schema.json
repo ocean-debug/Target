@@ -4,8 +4,8 @@
       "additionalProperties": false,
       "properties": {
         "contract_version": {
-          "const": "2.1.0",
-          "default": "2.1.0",
+          "const": "2.2.0",
+          "default": "2.2.0",
           "title": "Contract Version",
           "type": "string"
         },
@@ -63,8 +63,8 @@
       "additionalProperties": false,
       "properties": {
         "contract_version": {
-          "const": "2.1.0",
-          "default": "2.1.0",
+          "const": "2.2.0",
+          "default": "2.2.0",
           "title": "Contract Version",
           "type": "string"
         },
@@ -163,6 +163,70 @@
           ],
           "default": null,
           "title": "Perturbation Type"
+        },
+        "genome_build": {
+          "anyOf": [
+            {
+              "enum": [
+                "GRCh37",
+                "GRCh38"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Genome Build"
+        },
+        "ancestry": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ancestry"
+        },
+        "locus_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Locus Id"
+        },
+        "study_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Study Id"
+        },
+        "signal_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Signal Id"
         }
       },
       "title": "EvidenceContext",
@@ -172,8 +236,8 @@
       "additionalProperties": false,
       "properties": {
         "contract_version": {
-          "const": "2.1.0",
-          "default": "2.1.0",
+          "const": "2.2.0",
+          "default": "2.2.0",
           "title": "Contract Version",
           "type": "string"
         },
@@ -210,6 +274,11 @@
           ],
           "default": null,
           "title": "Weight"
+        },
+        "attributes": {
+          "additionalProperties": true,
+          "title": "Attributes",
+          "type": "object"
         }
       },
       "required": [
@@ -225,8 +294,8 @@
       "additionalProperties": false,
       "properties": {
         "contract_version": {
-          "const": "2.1.0",
-          "default": "2.1.0",
+          "const": "2.2.0",
+          "default": "2.2.0",
           "title": "Contract Version",
           "type": "string"
         },
@@ -237,11 +306,14 @@
         "node_type": {
           "enum": [
             "gene",
+            "variant",
+            "locus",
             "program",
             "trait",
             "disease",
             "cell_state",
-            "drug"
+            "drug",
+            "lane"
           ],
           "title": "Node Type",
           "type": "string"
@@ -268,8 +340,8 @@
   "additionalProperties": false,
   "properties": {
     "contract_version": {
-      "const": "2.1.0",
-      "default": "2.1.0",
+      "const": "2.2.0",
+      "default": "2.2.0",
       "title": "Contract Version",
       "type": "string"
     },

@@ -1,0 +1,89 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "contract_version": {
+      "const": "2.2.0",
+      "default": "2.2.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "evidence_id": {
+      "title": "Evidence Id",
+      "type": "string"
+    },
+    "study_id": {
+      "title": "Study Id",
+      "type": "string"
+    },
+    "molecular_study_id": {
+      "title": "Molecular Study Id",
+      "type": "string"
+    },
+    "locus_id": {
+      "title": "Locus Id",
+      "type": "string"
+    },
+    "signal_id": {
+      "title": "Signal Id",
+      "type": "string"
+    },
+    "method": {
+      "title": "Method",
+      "type": "string"
+    },
+    "method_version": {
+      "title": "Method Version",
+      "type": "string"
+    },
+    "strength": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Strength",
+      "type": "number"
+    },
+    "genome_build": {
+      "enum": [
+        "GRCh37",
+        "GRCh38"
+      ],
+      "title": "Genome Build",
+      "type": "string"
+    },
+    "ancestry": {
+      "title": "Ancestry",
+      "type": "string"
+    },
+    "tissue": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Tissue"
+    },
+    "interpretation": {
+      "const": "shared_association_signal_not_causality",
+      "default": "shared_association_signal_not_causality",
+      "title": "Interpretation",
+      "type": "string"
+    }
+  },
+  "required": [
+    "evidence_id",
+    "study_id",
+    "molecular_study_id",
+    "locus_id",
+    "signal_id",
+    "method",
+    "method_version",
+    "strength",
+    "genome_build",
+    "ancestry"
+  ],
+  "title": "TargetGeneticEvidenceSummary",
+  "type": "object"
+}

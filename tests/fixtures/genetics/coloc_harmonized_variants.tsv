@@ -1,0 +1,11 @@
+gene	locus	signal	chrom	pos	gwas_ea	gwas_oa	eqtl_ea	eqtl_oa	variant
+IL6	L1	CS1	1	100	A	G	A	G	rs100
+IL6	L1	CS1	1	110	C	A	C	A	rs110
+IL6	L1	CS1	1	120	G	T	G	T	rs120
+IL6	L1	CS1	1	130	T	C	T	C	rs130
+IL6	L1	CS1	1	140	A	C	A	C	rs140
+IL6	L1	CS1	1	150	G	A	G	A	rs150
+IL6	L1	CS1	1	160	C	T	C	T	rs160
+IL6	L1	CS1	1	170	T	G	T	G	rs170
+IL6	L1	CS1	1	180	A	G	A	G	rs180
+IL6	L1	CS1	1	190	C	A	C	A	rs190

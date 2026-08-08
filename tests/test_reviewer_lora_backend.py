@@ -88,7 +88,7 @@ def test_failed_lora_falls_back_to_step(monkeypatch):
         def __init__(self):
             self.called = False
 
-        def json_completion(self, system, payload):
+        def json_completion(self, system, payload, **kwargs):
             self.called = True
             return {"findings": []}
 
@@ -149,3 +149,29 @@ def test_reviewer_uses_lora_backend_when_configured():
     # deterministic gates still fire independently of adapter output quality
     assert any(f.category == "tool_failure" and f.severity == "major" for f in findings)
     assert reviewer.last_backend in {"lora:reviewer-lora-smoke", "deterministic:lora_unavailable"}
+
+def test_reviewer_llm_findings_reuse_persistent_cache(tmp_path):
+    class FakeStepClient:
+        model = "fake"
+
+        def __init__(self):
+            self.calls = 0
+
+        def json_completion(self, system, payload, **kwargs):
+            self.calls += 1
+            return {"findings": [{
+                "severity": "major", "category": "context_mismatch",
+                "message": "cached review finding", "related_ids": [],
+                "required_action": "check",
+            }]}
+
+    client = FakeStepClient()
+    reviewer = Reviewer(client, cache_dir=tmp_path / "cache")
+    first = reviewer.review(uc_task_missing_context(), [], [])
+    assert client.calls == 1
+    assert reviewer.last_backend == "step:fake"
+    second = reviewer.review(uc_task_missing_context(), [], [])
+    assert client.calls == 1
+    assert reviewer.last_backend == "step:fake:cached"
+    assert [f.message for f in first] == [f.message for f in second]
+    assert (tmp_path / "cache" / "reviewer_llm").is_dir()

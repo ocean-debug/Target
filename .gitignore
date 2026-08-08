@@ -28,6 +28,7 @@ build/
 
 # Runtime artifacts and large biological data
 runs/
+projects/
 artifacts/
 cache/
 models/
@@ -38,6 +39,8 @@ models/
 *.pid
 remote-profile*.json
 deployment-profile*.json
+blind_labels*.json
+blind_labels*.jsonl
 .cluster/
 data/raw/
 data/processed/

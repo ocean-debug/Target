@@ -1,4 +1,4 @@
-contract_version: "2.1.0"
+contract_version: "2.2.0"
 tools:
   - id: disease_resolver
     enabled: true
@@ -17,6 +17,14 @@ tools:
   - id: pathway_enrichment
     enabled: true
   - id: omics_candidate_extraction
+    enabled: true
+  - id: genetics_input_audit
+    enabled: true
+  - id: fine_mapping_audit
+    enabled: true
+  - id: eqtl_colocalization_audit
+    enabled: true
+  - id: genetics_candidate_extraction
     enabled: true
   - id: open_targets
     enabled: true

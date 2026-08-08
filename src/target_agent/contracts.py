@@ -3,13 +3,13 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
-CONTRACT_VERSION = "2.1.0"
+CONTRACT_VERSION = "2.2.0"
 
 
 def utc_now() -> str:
@@ -22,7 +22,7 @@ def new_id(prefix: str) -> str:
 
 class ContractModel(BaseModel):
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
-    contract_version: Literal["2.1.0"] = CONTRACT_VERSION
+    contract_version: Literal["2.2.0"] = CONTRACT_VERSION
 
 
 class ClaimClass(str, Enum):
@@ -73,6 +73,10 @@ class TaskContext(ContractModel):
     desired_phenotype: str | None = None
     assay: str | None = None
     perturbation_type: str | None = None
+    genome_build: Literal["GRCh37", "GRCh38"] | None = None
+    ancestry: str | None = None
+    locus_id: str | None = None
+    study_id: str | None = None
 
 
 class OmicsInput(ContractModel):
@@ -85,6 +89,195 @@ class OmicsInput(ContractModel):
     donor_key: str = "donor_id"
     condition_key: str = "condition"
     counts_layer: str = "counts"
+
+
+class GeneticsAssetBase(ContractModel):
+    """Reference to a pre-staged, checksum-bound genetics file.
+
+    `relative_path` is resolved under the deployment's controlled input root;
+    remote URLs and absolute paths are intentionally not executable inputs.
+    """
+
+    asset_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]{2,127}$")
+    relative_path: str = Field(min_length=1)
+    sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    file_format: Literal["tsv", "csv", "tsv.gz"]
+    genome_build: Literal["GRCh37", "GRCh38"]
+    study_id: str = Field(min_length=1)
+    phenotype: str = Field(min_length=1)
+    phenotype_id: str | None = None
+    ancestry: str = Field(min_length=1)
+    sample_size: int = Field(gt=0)
+    source_uri: str = Field(min_length=1)
+    source_version: str = Field(min_length=1)
+    public_data: bool = True
+
+    @model_validator(mode="after")
+    def safe_relative_path(self) -> "GeneticsAssetBase":
+        from pathlib import PurePosixPath
+        path = PurePosixPath(self.relative_path.replace("\\", "/"))
+        if path.is_absolute() or ".." in path.parts:
+            raise ValueError("genetics relative_path must stay inside the controlled input root")
+        return self
+
+
+class GwasColumnMap(ContractModel):
+    chromosome: str
+    position: str
+    effect_allele: str
+    other_allele: str
+    effect: str
+    standard_error: str
+    p_value: str
+    effect_allele_frequency: str | None = None
+    variant_id: str | None = None
+    locus_id: str | None = None
+
+
+class GwasSummaryStatsInput(GeneticsAssetBase):
+    kind: Literal["gwas_summary_statistics"] = "gwas_summary_statistics"
+    effect_scale: Literal["beta", "log_odds", "odds_ratio"]
+    columns: GwasColumnMap
+
+
+class LDReferenceSpec(ContractModel):
+    reference_id: str = Field(min_length=1)
+    ancestry: str = Field(min_length=1)
+    genome_build: Literal["GRCh37", "GRCh38"]
+    source_uri: str = Field(min_length=1)
+    version: str = Field(min_length=1)
+    sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    sample_size: int = Field(gt=0)
+    matched_to_study: bool = False
+
+
+class FineMappingColumnMap(ContractModel):
+    chromosome: str
+    position: str
+    effect_allele: str
+    other_allele: str
+    signal_posterior: str
+    credible_set_id: str
+    locus_id: str
+    variant_id: str | None = None
+
+
+class FineMappingResultInput(GeneticsAssetBase):
+    kind: Literal["fine_mapping_result"] = "fine_mapping_result"
+    method: Literal["susie"]
+    method_version: str = Field(min_length=1)
+    posterior_kind: Literal["signal_posterior"] = "signal_posterior"
+    credible_level: float = Field(default=0.95, gt=0.5, lt=1.0)
+    ld_reference: LDReferenceSpec | None = None
+    columns: FineMappingColumnMap
+
+
+class ColocResultColumnMap(ContractModel):
+    gene: str
+    locus_id: str
+    signal_id: str
+    chromosome: str
+    position: str
+    gwas_effect_allele: str
+    gwas_other_allele: str
+    eqtl_effect_allele: str
+    eqtl_other_allele: str
+    eqtl_beta: str
+    pp0: str
+    pp1: str
+    pp2: str
+    pp3: str
+    pp4: str
+    n_variants: str
+    variant_id: str | None = None
+
+
+class HarmonizedVariantColumnMap(ContractModel):
+    gene: str
+    locus_id: str
+    signal_id: str
+    chromosome: str
+    position: str
+    gwas_effect_allele: str
+    gwas_other_allele: str
+    eqtl_effect_allele: str
+    eqtl_other_allele: str
+    variant_id: str | None = None
+
+
+class HarmonizedVariantManifest(ContractModel):
+    relative_path: str = Field(min_length=1)
+    sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    file_format: Literal["tsv", "csv", "tsv.gz"]
+    columns: HarmonizedVariantColumnMap
+
+    @model_validator(mode="after")
+    def safe_relative_path(self) -> "HarmonizedVariantManifest":
+        from pathlib import PurePosixPath
+        path = PurePosixPath(self.relative_path.replace("\\", "/"))
+        if path.is_absolute() or ".." in path.parts:
+            raise ValueError("harmonized variant relative_path must stay inside the controlled input root")
+        return self
+
+
+class AnalysisEvidenceArtifact(ContractModel):
+    relative_path: str = Field(min_length=1)
+    sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    media_type: Literal["application/json", "text/tab-separated-values", "text/plain"]
+
+    @model_validator(mode="after")
+    def safe_relative_path(self) -> "AnalysisEvidenceArtifact":
+        from pathlib import PurePosixPath
+        path = PurePosixPath(self.relative_path.replace("\\", "/"))
+        if path.is_absolute() or ".." in path.parts:
+            raise ValueError("analysis evidence relative_path must stay inside the controlled input root")
+        return self
+
+
+class EqtlColocalizationResultInput(GeneticsAssetBase):
+    kind: Literal["eqtl_colocalization_result"] = "eqtl_colocalization_result"
+    method: Literal["coloc_abf", "coloc_susie"]
+    method_version: str = Field(min_length=1)
+    gwas_study_id: str = Field(min_length=1)
+    eqtl_study_id: str = Field(min_length=1)
+    eqtl_ancestry: str = Field(min_length=1)
+    tissue: str = Field(min_length=1)
+    cell_type: str | None = None
+    molecular_trait: str = "gene_expression"
+    minimum_variant_overlap_used: int = Field(ge=1)
+    prior_p1: float = Field(gt=0, lt=1)
+    prior_p2: float = Field(gt=0, lt=1)
+    prior_p12: float = Field(gt=0, lt=1)
+    sensitivity_analysis_passed: bool
+    sample_overlap: Literal["none", "known", "unknown"]
+    sample_overlap_adjustment: str | None = None
+    columns: ColocResultColumnMap
+    harmonized_variants: HarmonizedVariantManifest
+    sensitivity_artifact: AnalysisEvidenceArtifact
+
+    @model_validator(mode="after")
+    def require_overlap_accounting(self) -> "EqtlColocalizationResultInput":
+        if self.sample_overlap == "known" and not self.sample_overlap_adjustment:
+            raise ValueError("known sample overlap requires a declared adjustment method")
+        return self
+
+
+GeneticsInput = Annotated[
+    GwasSummaryStatsInput | FineMappingResultInput | EqtlColocalizationResultInput,
+    Field(discriminator="kind"),
+]
+
+
+class GeneticsAnalysisConstraints(ContractModel):
+    max_file_size_mb: int = Field(default=250, ge=1, le=2048)
+    max_rows_per_asset: int = Field(default=250_000, ge=1_000, le=2_000_000)
+    gwas_p_value_threshold: float = Field(default=5e-8, gt=0, le=1)
+    credible_set_level: float = Field(default=0.95, gt=0.5, lt=1.0)
+    credible_set_sum_tolerance: float = Field(default=0.05, gt=0, le=0.2)
+    minimum_coloc_variant_overlap: int = Field(default=50, ge=10, le=100_000)
+    minimum_coloc_pp4: float = Field(default=0.8, ge=0.5, le=1.0)
+    require_coloc_sensitivity: bool = True
+    reject_palindromic_without_frequency: bool = True
 
 
 class DatasetSelectionConstraint(ContractModel):
@@ -111,16 +304,18 @@ class TaskConstraints(ContractModel):
     max_review_rounds: int = Field(default=2, ge=0, le=2)
     max_tool_calls: int = Field(default=30, ge=1, le=30)
     dataset_selection: DatasetSelectionConstraint = Field(default_factory=DatasetSelectionConstraint)
+    genetics: GeneticsAnalysisConstraints = Field(default_factory=GeneticsAnalysisConstraints)
 
 
 class TaskSpec(ContractModel):
     task_id: str = Field(default_factory=lambda: new_id("task"))
-    task_type: Literal["disease_to_target", "trait_mechanism"]
+    task_type: Literal["disease_to_target", "gwas_locus_to_target", "trait_mechanism"]
     question: str = Field(min_length=3)
     context: TaskContext
     constraints: TaskConstraints = Field(default_factory=TaskConstraints)
     candidate_genes: list[str] = Field(default_factory=list)
     omics_inputs: list[OmicsInput] = Field(default_factory=list)
+    genetics_inputs: list[GeneticsInput] = Field(default_factory=list)
     requested_outputs: list[str] = Field(default_factory=list)
     created_at: str = Field(default_factory=utc_now)
 
@@ -128,8 +323,68 @@ class TaskSpec(ContractModel):
     def require_scope(self) -> "TaskSpec":
         if self.task_type == "disease_to_target" and not self.context.disease:
             raise ValueError("disease_to_target requires context.disease")
+        if self.task_type == "gwas_locus_to_target" and not self.context.disease:
+            raise ValueError("gwas_locus_to_target requires context.disease")
+        if self.task_type == "gwas_locus_to_target" and not self.genetics_inputs:
+            raise ValueError("gwas_locus_to_target requires genetics_inputs")
         if self.task_type == "trait_mechanism" and not self.context.desired_phenotype:
             raise ValueError("trait_mechanism requires context.desired_phenotype")
+        asset_ids = [asset.asset_id for asset in self.genetics_inputs]
+        if len(asset_ids) != len(set(asset_ids)):
+            raise ValueError("genetics asset_id values must be unique")
+        if self.constraints.public_data_only and any(not asset.public_data for asset in self.genetics_inputs):
+            raise ValueError("public_data_only tasks cannot use non-public genetics assets")
+        if self.genetics_inputs:
+            gwas_assets = [asset for asset in self.genetics_inputs if isinstance(asset, GwasSummaryStatsInput)]
+            if not gwas_assets:
+                raise ValueError("genetics_inputs requires at least one GWAS summary-statistics asset")
+            gwas_studies = {asset.study_id for asset in gwas_assets}
+            gwas_by_study = {asset.study_id: asset for asset in gwas_assets}
+            if len(gwas_studies) != len(gwas_assets):
+                raise ValueError("each supplied GWAS asset must have a unique study_id")
+            if self.context.organism.casefold() not in {"homo sapiens", "human"}:
+                raise ValueError("the genetics workflow currently supports Homo sapiens only")
+            if self.context.study_id and self.context.study_id not in gwas_studies:
+                raise ValueError("requested study_id must reference a supplied GWAS study")
+            for asset in self.genetics_inputs:
+                if self.context.genome_build and asset.genome_build != self.context.genome_build:
+                    raise ValueError("genetics asset genome build must match the requested context")
+                if self.context.ancestry and asset.ancestry.casefold() != self.context.ancestry.casefold():
+                    raise ValueError("genetics asset ancestry must match the requested context")
+                if self.context.disease_id and asset.phenotype_id != self.context.disease_id:
+                    raise ValueError("genetics asset phenotype_id must match the requested disease_id")
+                if not self.context.disease_id and self.context.disease and (
+                    "".join(character for character in asset.phenotype.casefold() if character.isalnum())
+                    != "".join(character for character in self.context.disease.casefold() if character.isalnum())
+                ):
+                    raise ValueError("genetics asset phenotype must match the requested disease")
+                if isinstance(asset, FineMappingResultInput):
+                    if asset.study_id not in gwas_studies:
+                        raise ValueError("fine-mapping study_id must reference a supplied GWAS study")
+                    gwas = gwas_by_study[asset.study_id]
+                    if (
+                        asset.genome_build != gwas.genome_build
+                        or asset.ancestry.casefold() != gwas.ancestry.casefold()
+                        or asset.sample_size != gwas.sample_size
+                    ):
+                        raise ValueError(
+                            "fine-mapping build, ancestry and sample size must match its GWAS study"
+                        )
+                if isinstance(asset, EqtlColocalizationResultInput):
+                    if asset.gwas_study_id not in gwas_studies:
+                        raise ValueError("colocalization gwas_study_id must reference a supplied GWAS study")
+                    gwas = gwas_by_study[asset.gwas_study_id]
+                    if (
+                        asset.genome_build != gwas.genome_build
+                        or asset.ancestry.casefold() != gwas.ancestry.casefold()
+                    ):
+                        raise ValueError(
+                            "colocalization build and ancestry must match its GWAS study"
+                        )
+                    if asset.study_id != asset.eqtl_study_id:
+                        raise ValueError("colocalization study_id must identify the supplied eQTL study")
+                    if asset.eqtl_ancestry.casefold() != asset.ancestry.casefold():
+                        raise ValueError("GWAS and eQTL ancestry must match in the current formal workflow")
         return self
 
 
@@ -142,6 +397,16 @@ class PlanStep(ContractModel):
     success_criteria: list[str] = Field(default_factory=list)
     stop_conditions: list[str] = Field(default_factory=list)
     degradation_conditions: list[str] = Field(default_factory=list)
+    # A candidate-bound step consumes the current candidate universe; its
+    # persisted result is only reusable for the same step_id + candidate digest.
+    candidate_bound: bool = False
+    evidence_lane: Literal["literature", "genetics", "drug_safety", "perturbation", "trials"] | None = None
+
+    @model_validator(mode="after")
+    def bind_evidence_lane(self) -> "PlanStep":
+        if self.evidence_lane is not None and not self.candidate_bound:
+            raise ValueError("evidence_lane requires candidate_bound=True")
+        return self
 
 
 class ExecutionPlan(ContractModel):
@@ -172,6 +437,63 @@ class EvidenceContext(ContractModel):
     disease_stage: str | None = None
     assay: str | None = None
     perturbation_type: str | None = None
+    genome_build: Literal["GRCh37", "GRCh38"] | None = None
+    ancestry: str | None = None
+    locus_id: str | None = None
+    study_id: str | None = None
+    signal_id: str | None = None
+
+
+class GeneticEvidencePayload(ContractModel):
+    evidence_type: Literal[
+        "gwas_association", "fine_mapping", "colocalization", "locus_to_gene",
+        "open_targets_genetic_association",
+    ]
+    analysis_level: Literal[
+        "association_only", "fine_mapped", "colocalization_supported", "database_aggregate",
+    ]
+    study_id: str
+    molecular_study_id: str | None = None
+    locus_id: str | None = None
+    variant_id: str | None = None
+    signal_id: str | None = None
+    gene_symbol: str | None = None
+    method: str | None = None
+    method_version: str | None = None
+    strength: float = Field(ge=0.0, le=1.0)
+    formal_score_eligible: bool
+    causal_status: Literal["not_established"] = "not_established"
+    assumptions: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def enforce_formal_scoring_boundary(self) -> "GeneticEvidencePayload":
+        required_level = {
+            "gwas_association": "association_only",
+            "fine_mapping": "fine_mapped",
+            "colocalization": "colocalization_supported",
+            "locus_to_gene": "colocalization_supported",
+            "open_targets_genetic_association": "database_aggregate",
+        }[self.evidence_type]
+        if self.analysis_level != required_level:
+            raise ValueError(
+                f"{self.evidence_type} evidence requires analysis_level={required_level}"
+            )
+        if self.evidence_type == "open_targets_genetic_association":
+            if self.formal_score_eligible:
+                raise ValueError("Open Targets aggregate evidence cannot be formally scored as locus genetics")
+        if self.analysis_level in {"association_only", "database_aggregate"} and self.formal_score_eligible:
+            raise ValueError("association-only and database-aggregate evidence cannot enter formal genetics scoring")
+        if self.formal_score_eligible and self.evidence_type not in {"colocalization", "locus_to_gene"}:
+            raise ValueError("only audited colocalization or locus-to-gene evidence is formally score eligible")
+        if self.formal_score_eligible and self.strength <= 0:
+            raise ValueError("formal genetic evidence requires positive statistical support")
+        if self.formal_score_eligible and (
+            not self.gene_symbol or not self.locus_id or not self.signal_id
+            or not self.molecular_study_id or not self.method or not self.method_version
+            or self.analysis_level != "colocalization_supported"
+        ):
+            raise ValueError("formal genetic evidence requires an identified gene, locus, signal and audited method")
+        return self
 
 
 class EvidenceItem(ContractModel):
@@ -189,6 +511,28 @@ class EvidenceItem(ContractModel):
     uncertainty: str = Field(min_length=1)
     quality_flags: list[str] = Field(default_factory=list)
     context_match_score: float = Field(ge=0.0, le=1.0)
+    genetic_evidence: GeneticEvidencePayload | None = None
+
+    @model_validator(mode="after")
+    def enforce_genetic_context_consistency(self) -> "EvidenceItem":
+        genetic = self.genetic_evidence
+        if not genetic or not genetic.formal_score_eligible:
+            return self
+        if not self.gene_symbol or self.gene_symbol != genetic.gene_symbol:
+            raise ValueError("formal genetic payload gene must match EvidenceItem.gene_symbol")
+        if (
+            self.context.study_id != genetic.study_id
+            or self.context.locus_id != genetic.locus_id
+            or self.context.signal_id != genetic.signal_id
+        ):
+            raise ValueError("formal genetic payload study/locus/signal must match EvidenceContext")
+        if not self.context.genome_build or not self.context.ancestry:
+            raise ValueError("formal genetic evidence requires genome build and ancestry context")
+        if self.stance != Stance.SUPPORTS:
+            raise ValueError("formal locus-to-gene evidence must have a supporting stance")
+        if self.context_match_score < 0.5:
+            raise ValueError("low-context genetic evidence cannot be marked formal score eligible")
+        return self
 
 
 class ToolCapability(ContractModel):
@@ -198,6 +542,10 @@ class ToolCapability(ContractModel):
     supported_perturbations: list[str] = Field(default_factory=list)
     training_scope: str | None = None
     validation_scope: str | None = None
+    supported_genome_builds: list[Literal["GRCh37", "GRCh38"]] = Field(default_factory=list)
+    supported_ancestries: list[str] = Field(default_factory=list)
+    supported_methods: list[str] = Field(default_factory=list)
+    assumptions: list[str] = Field(default_factory=list)
 
 
 class SkillRef(ContractModel):
@@ -213,7 +561,7 @@ class ToolDescriptor(ContractModel):
     tool_id: str
     evidence_dimension: Literal[
         "scope", "dataset_discovery", "omics", "genetics", "literature",
-        "perturbation", "pathway", "drug", "causal_gold",
+        "perturbation", "pathway", "drug", "multi_evidence", "causal_gold",
     ]
     description: str
     input_types: list[str] = Field(default_factory=list)
@@ -305,6 +653,10 @@ class ToolResult(ContractModel):
     limitations: list[str] = Field(default_factory=list)
     error: str | None = None
     cached: bool = False
+    # Set when a candidate-bound evidence step is re-executed because the
+    # candidate universe changed; consumers must treat the superseded result
+    # and its evidence as inactive for review, ranking and reporting.
+    supersedes_tool_run_id: str | None = Field(default=None, pattern=r"^tool-[a-f0-9]{12}$")
     started_at: str = Field(default_factory=utc_now)
     elapsed_ms: int = Field(default=0, ge=0)
 
@@ -332,6 +684,9 @@ class ReviewerFinding(ContractModel):
         "missing_provenance", "context_mismatch", "causal_overreach",
         "conflicting_evidence", "numeric_error", "coverage_gap", "tool_failure",
         "dataset_ineligibility",
+        "allele_harmonization", "genome_build_mismatch", "ancestry_mismatch",
+        "fine_mapping_invalid", "colocalization_invalid", "gene_mapping_overreach",
+        "duplicate_genetic_study",
     ]
     message: str
     related_ids: list[str] = Field(default_factory=list)
@@ -341,7 +696,7 @@ class ReviewerFinding(ContractModel):
 
 class GraphNode(ContractModel):
     node_id: str
-    node_type: Literal["gene", "program", "trait", "disease", "cell_state", "drug"]
+    node_type: Literal["gene", "variant", "locus", "program", "trait", "disease", "cell_state", "drug", "lane", "strategy_paper"]
     label: str
     attributes: dict[str, Any] = Field(default_factory=dict)
 
@@ -353,6 +708,7 @@ class GraphEdge(ContractModel):
     evidence_ids: list[str] = Field(default_factory=list)
     claim_class: ClaimClass
     weight: float | None = None
+    attributes: dict[str, Any] = Field(default_factory=dict)
 
 
 class CausalGraph(ContractModel):
@@ -397,6 +753,21 @@ class ScoreBreakdown(ContractModel):
     total: float = Field(ge=0, le=100)
 
 
+class TargetGeneticEvidenceSummary(ContractModel):
+    evidence_id: str
+    study_id: str
+    molecular_study_id: str
+    locus_id: str
+    signal_id: str
+    method: str
+    method_version: str
+    strength: float = Field(ge=0.0, le=1.0)
+    genome_build: Literal["GRCh37", "GRCh38"]
+    ancestry: str
+    tissue: str | None = None
+    interpretation: Literal["shared_association_signal_not_causality"] = "shared_association_signal_not_causality"
+
+
 class TargetCard(ContractModel):
     target_card_id: str = Field(default_factory=lambda: new_id("card"))
     gene_symbol: str
@@ -409,6 +780,7 @@ class TargetCard(ContractModel):
     safety_blockers: list[str] = Field(default_factory=list)
     evidence_gaps: list[str] = Field(default_factory=list)
     matched_drugs: list[dict[str, Any]] = Field(default_factory=list)
+    genetic_evidence_summary: list[TargetGeneticEvidenceSummary] = Field(default_factory=list)
     experiment_plan: ExperimentPlan
     limitations: list[str] = Field(default_factory=list)
 
@@ -420,6 +792,7 @@ class TraceEvent(ContractModel):
     event_type: Literal[
         "state_transition", "plan", "tool_call", "tool_result", "review",
         "replan", "checkpoint", "ranking", "report", "degradation", "refusal",
+        "evidence_superseded", "planner_pattern_hints", "planner_paper_evidence",
     ]
     state: str
     detail: dict[str, Any] = Field(default_factory=dict)

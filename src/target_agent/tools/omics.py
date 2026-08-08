@@ -84,6 +84,21 @@ def _analysis_cache_key(context: ToolContext, recipe: AnalysisRecipe, source_sha
     # recipe_id is a per-run trace handle, not part of the scientific recipe.
     # Including it would force an identical dataset/contrast to recompute on
     # every run and defeat checksum-bound analysis caching.
+    # The key is deliberately task-context-free: the computed differential
+    # result is a property of the dataset, recipe and source bytes, not of the
+    # query disease. Evidence generated from a cached result still carries the
+    # current run's disease/tissue context.
+    payload = {
+        "contract_version": CONTRACT_VERSION,
+        "tool_version": tool_version,
+        "source_sha256": source_sha256,
+        "recipe": recipe.model_dump(mode="json", exclude={"recipe_id"}),
+    }
+    return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+
+
+def _analysis_cache_legacy_key(context: ToolContext, recipe: AnalysisRecipe, source_sha256: str, tool_version: str) -> str:
+    """Key used by caches that predate the task-context-free analysis key."""
     payload = {
         "contract_version": CONTRACT_VERSION,
         "tool_version": tool_version,
@@ -92,6 +107,26 @@ def _analysis_cache_key(context: ToolContext, recipe: AnalysisRecipe, source_sha
         "task_context": context.task.context.model_dump(mode="json"),
     }
     return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+
+
+def _analysis_cache_locate(context: ToolContext, recipe: AnalysisRecipe, source_sha256: str, tool_version: str) -> tuple[Path, str, str]:
+    """Return (result_path, key, mode) with mode in new|migrated|miss.
+
+    New keys are task-context-free; legacy keys (which included task context)
+    are still honored and copied into the new layout so already-warm caches
+    keep working during the migration.
+    """
+    key = _analysis_cache_key(context, recipe, source_sha256, tool_version)
+    result_path = context.cache_dir / "analysis" / "bulk" / key / "differential.csv"
+    if result_path.is_file():
+        return result_path, key, "new"
+    legacy_key = _analysis_cache_legacy_key(context, recipe, source_sha256, tool_version)
+    legacy_path = context.cache_dir / "analysis" / "bulk" / legacy_key / "differential.csv"
+    if legacy_path.is_file():
+        result_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(legacy_path, result_path)
+        return result_path, key, "migrated"
+    return result_path, key, "miss"
 
 
 def _geo_bucket(accession: str) -> str:
@@ -1178,9 +1213,9 @@ class BulkExpressionAnalysisTool(ScientificTool):
                 artifacts.extend(qc_artifacts)
                 context.run_dir.mkdir(parents=True, exist_ok=True)
                 result_path = context.run_dir / f"{recipe.accession}_deseq2_results.csv"
-                analysis_cache_key = _analysis_cache_key(context, recipe, checksum, self.version)
-                cached_result_path = context.cache_dir / "analysis" / "bulk" / analysis_cache_key / "differential.csv"
-                cached_analysis = cached_result_path.is_file()
+                cached_result_path, analysis_cache_key, analysis_cache_mode = _analysis_cache_locate(
+                    context, recipe, checksum, self.version)
+                cached_analysis = analysis_cache_mode != "miss"
                 if cached_analysis:
                     import pandas as pd
 
@@ -1235,7 +1270,8 @@ class BulkExpressionAnalysisTool(ScientificTool):
                 summaries.append({
                     "accession": recipe.accession, "backend": "pydeseq2",
                     "input_sha256": checksum, "cached_input": cached,
-                    "analysis_cache_key": analysis_cache_key, "cached_analysis": cached_analysis,
+                    "analysis_cache_key": analysis_cache_key, "analysis_cache_mode": analysis_cache_mode,
+                    "cached_analysis": cached_analysis,
                     "n_samples": int(counts.shape[0]), "n_tested_genes": int(results.shape[0]),
                     "n_fdr_significant_genes": int((valid["padj"] <= 0.05).sum()),
                     "group_counts": {str(k): int(v) for k, v in metadata["condition"].value_counts().items()},

@@ -1,18 +1,18 @@
-contract_version: "2.1.0"
+contract_version: "2.2.0"
 task_id: task-example
 task_type: disease_to_target
 question: Discover traceable targets for a specified disease
 context:
-  contract_version: "2.1.0"
+  contract_version: "2.2.0"
   disease: TODO
   organism: Homo sapiens
   tissue: TODO
   desired_phenotype: TODO
 constraints:
-  contract_version: "2.1.0"
+  contract_version: "2.2.0"
   public_data_only: true
   dataset_selection:
-    contract_version: "2.1.0"
+    contract_version: "2.2.0"
     omics_modes: [geo_bulk, cellxgene]
 candidate_genes: []
 omics_inputs: []

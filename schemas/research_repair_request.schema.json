@@ -1,0 +1,162 @@
+{
+  "$defs": {
+    "FailureClass": {
+      "enum": [
+        "transient",
+        "permanent",
+        "missing_input",
+        "scientific_gap",
+        "integrity_failure",
+        "unsupported",
+        "internal"
+      ],
+      "title": "FailureClass",
+      "type": "string"
+    },
+    "RepairAction": {
+      "enum": [
+        "rerun_subgraph_same_inputs",
+        "request_input",
+        "retain_gap",
+        "stop"
+      ],
+      "title": "RepairAction",
+      "type": "string"
+    },
+    "RepairAuthorization": {
+      "enum": [
+        "automatic",
+        "checkpoint_required",
+        "human_input_required",
+        "prohibited"
+      ],
+      "title": "RepairAuthorization",
+      "type": "string"
+    },
+    "RepairRisk": {
+      "enum": [
+        "R0_derivation_only",
+        "R1_same_scope_read_only",
+        "R2_scientific_method_change",
+        "R3_scope_or_truth_change"
+      ],
+      "title": "RepairRisk",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Immutable assessment-triggered request evaluated by deterministic policy.",
+  "properties": {
+    "contract_version": {
+      "const": "3.0.0",
+      "default": "3.0.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "repair_request_id": {
+      "pattern": "^repair-[a-f0-9]{24}$",
+      "title": "Repair Request Id",
+      "type": "string"
+    },
+    "project_id": {
+      "title": "Project Id",
+      "type": "string"
+    },
+    "base_plan_id": {
+      "title": "Base Plan Id",
+      "type": "string"
+    },
+    "target_work_item_id": {
+      "title": "Target Work Item Id",
+      "type": "string"
+    },
+    "trigger_assessment_ids": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Trigger Assessment Ids",
+      "type": "array"
+    },
+    "trigger_result_digest": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Trigger Result Digest",
+      "type": "string"
+    },
+    "trigger_snapshot_digest": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Trigger Snapshot Digest",
+      "type": "string"
+    },
+    "failure_class": {
+      "$ref": "#/$defs/FailureClass"
+    },
+    "action": {
+      "$ref": "#/$defs/RepairAction"
+    },
+    "risk": {
+      "$ref": "#/$defs/RepairRisk"
+    },
+    "authorization": {
+      "$ref": "#/$defs/RepairAuthorization"
+    },
+    "affected_work_item_ids": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Affected Work Item Ids",
+      "type": "array"
+    },
+    "input_digest": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Input Digest",
+      "type": "string"
+    },
+    "policy_rule_id": {
+      "title": "Policy Rule Id",
+      "type": "string"
+    },
+    "policy_version": {
+      "default": "1.0.0",
+      "title": "Policy Version",
+      "type": "string"
+    },
+    "success_criteria": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Success Criteria",
+      "type": "array"
+    },
+    "rationale": {
+      "title": "Rationale",
+      "type": "string"
+    },
+    "created_at": {
+      "title": "Created At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "repair_request_id",
+    "project_id",
+    "base_plan_id",
+    "target_work_item_id",
+    "trigger_assessment_ids",
+    "trigger_result_digest",
+    "trigger_snapshot_digest",
+    "failure_class",
+    "action",
+    "risk",
+    "authorization",
+    "affected_work_item_ids",
+    "input_digest",
+    "policy_rule_id",
+    "success_criteria",
+    "rationale"
+  ],
+  "title": "RepairRequest",
+  "type": "object"
+}

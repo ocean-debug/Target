@@ -1,0 +1,213 @@
+{
+  "$defs": {
+    "GwasColumnMap": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_version": {
+          "const": "2.2.0",
+          "default": "2.2.0",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "chromosome": {
+          "title": "Chromosome",
+          "type": "string"
+        },
+        "position": {
+          "title": "Position",
+          "type": "string"
+        },
+        "effect_allele": {
+          "title": "Effect Allele",
+          "type": "string"
+        },
+        "other_allele": {
+          "title": "Other Allele",
+          "type": "string"
+        },
+        "effect": {
+          "title": "Effect",
+          "type": "string"
+        },
+        "standard_error": {
+          "title": "Standard Error",
+          "type": "string"
+        },
+        "p_value": {
+          "title": "P Value",
+          "type": "string"
+        },
+        "effect_allele_frequency": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Effect Allele Frequency"
+        },
+        "variant_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Variant Id"
+        },
+        "locus_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Locus Id"
+        }
+      },
+      "required": [
+        "chromosome",
+        "position",
+        "effect_allele",
+        "other_allele",
+        "effect",
+        "standard_error",
+        "p_value"
+      ],
+      "title": "GwasColumnMap",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "contract_version": {
+      "const": "2.2.0",
+      "default": "2.2.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "asset_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{2,127}$",
+      "title": "Asset Id",
+      "type": "string"
+    },
+    "relative_path": {
+      "minLength": 1,
+      "title": "Relative Path",
+      "type": "string"
+    },
+    "sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Sha256",
+      "type": "string"
+    },
+    "file_format": {
+      "enum": [
+        "tsv",
+        "csv",
+        "tsv.gz"
+      ],
+      "title": "File Format",
+      "type": "string"
+    },
+    "genome_build": {
+      "enum": [
+        "GRCh37",
+        "GRCh38"
+      ],
+      "title": "Genome Build",
+      "type": "string"
+    },
+    "study_id": {
+      "minLength": 1,
+      "title": "Study Id",
+      "type": "string"
+    },
+    "phenotype": {
+      "minLength": 1,
+      "title": "Phenotype",
+      "type": "string"
+    },
+    "phenotype_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Phenotype Id"
+    },
+    "ancestry": {
+      "minLength": 1,
+      "title": "Ancestry",
+      "type": "string"
+    },
+    "sample_size": {
+      "exclusiveMinimum": 0,
+      "title": "Sample Size",
+      "type": "integer"
+    },
+    "source_uri": {
+      "minLength": 1,
+      "title": "Source Uri",
+      "type": "string"
+    },
+    "source_version": {
+      "minLength": 1,
+      "title": "Source Version",
+      "type": "string"
+    },
+    "public_data": {
+      "default": true,
+      "title": "Public Data",
+      "type": "boolean"
+    },
+    "kind": {
+      "const": "gwas_summary_statistics",
+      "default": "gwas_summary_statistics",
+      "title": "Kind",
+      "type": "string"
+    },
+    "effect_scale": {
+      "enum": [
+        "beta",
+        "log_odds",
+        "odds_ratio"
+      ],
+      "title": "Effect Scale",
+      "type": "string"
+    },
+    "columns": {
+      "$ref": "#/$defs/GwasColumnMap"
+    }
+  },
+  "required": [
+    "asset_id",
+    "relative_path",
+    "sha256",
+    "file_format",
+    "genome_build",
+    "study_id",
+    "phenotype",
+    "ancestry",
+    "sample_size",
+    "source_uri",
+    "source_version",
+    "effect_scale",
+    "columns"
+  ],
+  "title": "GwasSummaryStatsInput",
+  "type": "object"
+}

@@ -1,0 +1,57 @@
+contract_version: "3.0.0"
+project_id: project-alzheimer-example
+title: Alzheimer disease target discovery
+domain: disease_target_discovery
+goal:
+  contract_version: "3.0.0"
+  question: Which targets should be prioritized for Alzheimer disease in human brain?
+  success_criteria:
+    - Candidate targets are ranked from traceable, context-labelled evidence.
+    - Unsupported evidence lanes and safety blockers remain explicit.
+    - Priority TargetCards include falsifiable experiments.
+  deliverables:
+    - Ranked candidate targets
+    - Reviewed TargetCards
+    - Disease-target evidence and risk report
+  constraints:
+    - Use public data only.
+    - Do not present ranking scores as clinical success probabilities.
+context:
+  target_task_spec:
+    contract_version: "2.2.0"
+    task_id: task-alzheimer-example
+    task_type: disease_to_target
+    question: Find traceable Alzheimer disease targets in human brain.
+    context:
+      contract_version: "2.2.0"
+      disease: Alzheimer disease
+      organism: Homo sapiens
+      tissue: brain
+      desired_phenotype: reduce neurodegeneration
+    constraints:
+      contract_version: "2.2.0"
+      dataset_selection:
+        contract_version: "2.2.0"
+        preferred_dataset_accessions: []
+        excluded_dataset_accessions: []
+        omics_modes: [geo_bulk, cellxgene]
+        max_geo_candidates: 10
+        max_datasets_to_analyze: 2
+        max_download_mb: 2048
+        max_cells: 100000
+        min_biological_replicates_per_group: 3
+        min_metadata_confidence: 0.8
+        allow_raw_sra: false
+      public_data_only: true
+      druggable_only: false
+      max_initial_candidates: 20
+      max_ranked_targets: 10
+      max_target_cards: 5
+      max_review_rounds: 2
+      max_tool_calls: 30
+    candidate_genes: []
+    omics_inputs: []
+    requested_outputs: [ranked_targets, target_cards, experiment_plans, report]
+autonomy_mode: checkpointed
+max_work_items: 12
+max_replans: 2

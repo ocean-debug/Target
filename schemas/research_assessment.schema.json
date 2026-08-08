@@ -1,0 +1,114 @@
+{
+  "$defs": {
+    "AssessmentDimension": {
+      "enum": [
+        "integrity",
+        "provenance",
+        "entailment",
+        "methodology",
+        "applicability",
+        "reproducibility",
+        "schema_alignment"
+      ],
+      "title": "AssessmentDimension",
+      "type": "string"
+    },
+    "AssessmentLevel": {
+      "enum": [
+        "A0",
+        "A1",
+        "A2",
+        "A3",
+        "human"
+      ],
+      "title": "AssessmentLevel",
+      "type": "string"
+    },
+    "AssessmentResult": {
+      "enum": [
+        "pass",
+        "fail",
+        "uncertain",
+        "not_assessed"
+      ],
+      "title": "AssessmentResult",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "contract_version": {
+      "const": "3.0.0",
+      "default": "3.0.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "assessment_id": {
+      "title": "Assessment Id",
+      "type": "string"
+    },
+    "project_id": {
+      "title": "Project Id",
+      "type": "string"
+    },
+    "target_id": {
+      "title": "Target Id",
+      "type": "string"
+    },
+    "target_digest": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Target Digest"
+    },
+    "dimension": {
+      "$ref": "#/$defs/AssessmentDimension"
+    },
+    "level": {
+      "$ref": "#/$defs/AssessmentLevel"
+    },
+    "result": {
+      "$ref": "#/$defs/AssessmentResult"
+    },
+    "actor": {
+      "title": "Actor",
+      "type": "string"
+    },
+    "method": {
+      "title": "Method",
+      "type": "string"
+    },
+    "rationale": {
+      "title": "Rationale",
+      "type": "string"
+    },
+    "blocking": {
+      "default": false,
+      "title": "Blocking",
+      "type": "boolean"
+    },
+    "created_at": {
+      "title": "Created At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "project_id",
+    "target_id",
+    "dimension",
+    "level",
+    "result",
+    "actor",
+    "method",
+    "rationale"
+  ],
+  "title": "AssessmentRecord",
+  "type": "object"
+}

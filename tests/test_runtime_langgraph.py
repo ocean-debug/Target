@@ -43,7 +43,7 @@ def _jsonl(path):
 def observable(run_dir):
     """Extract everything a downstream consumer can observe from a run directory."""
     evidence = _jsonl(run_dir / "evidence_items.jsonl")
-    findings = _jsonl(run_dir / "findings.jsonl")
+    findings = _jsonl(run_dir / "reviewer_findings.jsonl")
     trace = _jsonl(run_dir / "trace.jsonl")
     tool_results = _jsonl(run_dir / "tool_results.jsonl")
     ranking = json.loads((run_dir / "ranked_targets.json").read_text())
@@ -58,7 +58,7 @@ def observable(run_dir):
         "trace_topology": [(event["event_type"], event["state"]) for event in trace],
         "checkpoint_stage": json.loads((run_dir / "checkpoint.json").read_text())["stage"],
         "report_exists": (run_dir / "report.md").exists(),
-        "case_exists": (run_dir / "case.json").exists(),
+        "case_exists": (run_dir / "case_record.json").exists(),
     }
 
 
@@ -80,6 +80,8 @@ def test_langgraph_matches_legacy_under_tool_call_budget(tmp_path):
     left = observable(tmp_path / "legacy" / "runs" / "run-budget")
     right = observable(tmp_path / "graph" / "runs" / "run-budget")
     assert left == right
+    assert left["terminal_status"] == "completed_with_gaps"
+    assert ("coverage_gap", "major") in left["findings"]
     assert ("degradation", "tool_execution") in left["trace_topology"]
 
 
@@ -91,6 +93,43 @@ def test_langgraph_resume_terminal_run_is_idempotent(tmp_path):
     after = (tmp_path / "runs" / "run-resume" / "trace.jsonl").read_text()
     assert first == second
     assert before == after
+
+
+def test_trace_observer_runs_only_after_authoritative_trace_is_durable(tmp_path):
+    run_dir = tmp_path / "runs" / "run-observer"
+    observed = []
+
+    def observer(event):
+        durable_ids = {row["event_id"] for row in _jsonl(run_dir / "trace.jsonl")}
+        assert event.event_id in durable_ids
+        observed.append(event.event_id)
+
+    runtime = LangGraphRuntime(
+        runs_dir=tmp_path / "runs",
+        cache_dir=tmp_path / "cache",
+        planner=Planner(None),
+        registry=ToolRegistry([FakeGenericOmics(), FakeOpenTargets(), FakeLiterature()]),
+        trace_observer=observer,
+    )
+    runtime.run(uc_task(), run_id="run-observer")
+
+    assert observed == [row["event_id"] for row in _jsonl(run_dir / "trace.jsonl")]
+    assert runtime.trace_observer_errors == []
+
+
+def test_trace_observer_failure_does_not_change_scientific_terminal_status(tmp_path):
+    runtime = LangGraphRuntime(
+        runs_dir=tmp_path / "runs",
+        cache_dir=tmp_path / "cache",
+        planner=Planner(None),
+        registry=ToolRegistry([FakeGenericOmics(), FakeOpenTargets(), FakeLiterature()]),
+        trace_observer=lambda event: (_ for _ in ()).throw(RuntimeError("projection unavailable")),
+    )
+
+    status = runtime.run(uc_task(), run_id="run-observer-failure")
+
+    assert status["terminal_status"] == "completed"
+    assert runtime.trace_observer_errors
 
 
 def test_langgraph_resume_mid_pipeline_matches_legacy_fresh_run(tmp_path):
@@ -113,3 +152,34 @@ def test_langgraph_resume_mid_pipeline_matches_legacy_fresh_run(tmp_path):
     # resume adds one extra intake trace; compare everything else
     assert {key: value for key, value in left.items() if key != "trace_topology"} == \
            {key: value for key, value in right.items() if key != "trace_topology"}
+
+
+class HintedPlanner:
+    """Deterministic planner wrapper that reports pattern/paper hints like the Step planner."""
+
+    def __init__(self, base):
+        self._base = base
+        self.registry = base.registry
+        self.client = base.client
+        self.last_pattern_hints = [{"pattern_id": "pattern-1"}]
+        self.last_paper_evidence = [{"chunk_id": "chunk-1", "pmid": "12345"}]
+
+    def create_plan(self, task):
+        self._base.registry = self.registry
+        return self._base.create_plan(task)
+
+
+def test_langgraph_trace_records_pattern_and_paper_hints(tmp_path):
+    runtime = LangGraphRuntime(
+        runs_dir=tmp_path / "runs", cache_dir=tmp_path / "cache",
+        planner=HintedPlanner(Planner(None)),
+        registry=ToolRegistry([FakeGenericOmics(), FakeOpenTargets(), FakeLiterature()]),
+    )
+    status = runtime.run(uc_task(), run_id="run-hints")
+    assert status["terminal_status"] == "completed"
+    trace = _jsonl(tmp_path / "runs" / "run-hints" / "trace.jsonl")
+    types = [event["event_type"] for event in trace]
+    assert "planner_pattern_hints" in types
+    assert "planner_paper_evidence" in types
+    pattern_event = next(event for event in trace if event["event_type"] == "planner_pattern_hints")
+    assert pattern_event["detail"]["pattern_ids"] == ["pattern-1"]

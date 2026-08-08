@@ -1,35 +1,40 @@
-contract_version: "2.1.0"
-workflow: disease_to_target
-limits:
-  review_rounds: 2
-  tool_calls: 30
-  initial_candidates: 20
-states:
-  - Intake
-  - Planner
-  - Router
-  - ToolExecution
-  - EvidenceStore
-  - Reviewer
-  - Ranking
-  - TargetCard
-  - Report
-terminal_states: [completed, completed_with_gaps, needs_input, refused, failed]
-required_tools:
-  - disease_resolver
-  - geo_search
-  - geo_metadata_audit
-  - omics_recipe_builder
-  - bulk_expression_analysis
-  - cellxgene_discovery
-  - single_cell_analysis
-  - pathway_enrichment
-  - omics_candidate_extraction
-  - open_targets
-  - europe_pmc_rag
-rules:
-  - missing omics coverage becomes completed_with_gaps while independent evidence chains continue
-  - context_match_score below 0.5 is excluded from formal ranking
-  - every material claim references EvidenceItem and ToolResult
-  - report reads structured Evidence Store only
-  - arbitrary generated code and shell execution are forbidden
+# Executable workflow template (strict contract, loaded by WorkflowCatalog).
+# Legacy descriptive fields live in docs/PRODUCT_V3.md; this file drives the
+# planner and the project runtime.
+template_id: disease_to_target
+description: "从疾病问题推进到可审查的候选靶点证据包：简报 -> 靶点发现 -> 独立评审 -> 报告。"
+product: target_discovery_agent
+domain: disease_target_discovery
+task_types: [disease_to_target]
+contract_version: "1.0.0"
+max_work_items: 8
+human_checkpoints:
+  checkpointed: [plan_acceptance, release]
+  supervised: [plan_acceptance, independent_review, release]
+modules:
+  - module: project_brief
+    required: true
+    dependencies: []
+    objective: "冻结研究问题、约束、成功标准与交付物。"
+  - module: literature_search
+    required: false
+    dependencies: [project_brief]
+    objective: "检索与疾病机制/靶点相关的来源索引文献。"
+  - module: hypothesis_generation
+    required: false
+    dependencies: [project_brief]
+    objective: "在检索来源边界内提出可证伪假设。"
+  - module: target_discovery
+    required: true
+    dependencies: [project_brief]
+    input_contract: TaskSpec@2.2.0
+    max_attempts: 2
+    objective: "执行有界疾病靶点发现子工作流并产生可追溯候选证据。"
+  - module: independent_review
+    required: true
+    dependencies: [project_brief, literature_search, hypothesis_generation, target_discovery]
+    objective: "在发布前独立核验不可变产物、溯源与类型化结果边界。"
+  - module: research_report
+    required: true
+    dependencies: [independent_review]
+    objective: "仅从证据存储与产物账本生成报告与机器可读证据包。"

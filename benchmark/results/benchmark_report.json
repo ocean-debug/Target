@@ -1,6 +1,6 @@
 {
   "summary": {
-    "goldset": "G:\\deepcamp\\target_v2\\benchmark\\goldset_v2.jsonl",
+    "goldset": "benchmark/goldset_v2.jsonl",
     "live": false,
     "tasks": 11,
     "tasks_passed": 11,
@@ -53,7 +53,7 @@
         {
           "assertion": {
             "type": "ranking_contains",
-            "gene": "IL12B"
+            "gene": "IL2"
           },
           "passed": true,
           "failure": null
@@ -135,7 +135,7 @@
         }
       ],
       "passed": true,
-      "elapsed_s": 1.04
+      "elapsed_s": 5.95
     },
     {
       "id": "BM-02",
@@ -154,7 +154,7 @@
         {
           "assertion": {
             "type": "ranking_contains",
-            "gene": "IL12B"
+            "gene": "IL2"
           },
           "passed": true,
           "failure": null
@@ -168,7 +168,7 @@
         }
       ],
       "passed": true,
-      "elapsed_s": 2.29
+      "elapsed_s": 2.47
     },
     {
       "id": "BM-03",
@@ -186,7 +186,7 @@
         }
       ],
       "passed": true,
-      "elapsed_s": 3.36
+      "elapsed_s": 1.21
     },
     {
       "id": "BM-04",
@@ -203,7 +203,7 @@
         }
       ],
       "passed": true,
-      "elapsed_s": 1.15
+      "elapsed_s": 0.23
     },
     {
       "id": "BM-05",
@@ -221,7 +221,7 @@
         }
       ],
       "passed": true,
-      "elapsed_s": 2.21
+      "elapsed_s": 0.31
     },
     {
       "id": "BM-06",
@@ -242,7 +242,6 @@
           "assertion": {
             "type": "terminal_status_in",
             "values": [
-              "completed",
               "completed_with_gaps"
             ]
           },
@@ -251,7 +250,7 @@
         }
       ],
       "passed": true,
-      "elapsed_s": 0.94
+      "elapsed_s": 0.25
     },
     {
       "id": "BM-07",
@@ -285,7 +284,7 @@
         }
       ],
       "passed": true,
-      "elapsed_s": 0.55
+      "elapsed_s": 0.13
     },
     {
       "id": "BM-08",
@@ -312,7 +311,7 @@
         }
       ],
       "passed": true,
-      "elapsed_s": 0.5
+      "elapsed_s": 0.08
     },
     {
       "id": "BM-09",
@@ -366,7 +365,7 @@
         }
       ],
       "passed": true,
-      "elapsed_s": 0.36
+      "elapsed_s": 0.62
     },
     {
       "id": "BM-L1",

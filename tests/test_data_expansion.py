@@ -156,3 +156,49 @@ def test_fulltext_parser_and_chunk_sections():
     chunks = stable_chunks("PMID1", "word " * 800, section="fulltext:Results")
     assert all(c["section"] == "fulltext:Results" for c in chunks)
     assert parse_fulltext_sections("<broken") == []
+
+# ---------------------------------------------------------------- literature LLM stage cache
+class FakeStageLLM:
+    model = "step-test"
+
+    def __init__(self):
+        self.calls = 0
+
+    def json_completion(self, system, user):
+        self.calls += 1
+        payload = json.loads(user)
+        if "Rank text chunks" in system:
+            return {"ranked_chunk_ids": [c["chunk_id"] for c in reversed(payload["chunks"])]}
+        text0 = payload["chunks"][0]["text"]
+        return {"claims": [
+            {"gene": "IL2", "chunk_id": payload["chunks"][0]["chunk_id"],
+             "exact_quote": text0[:40], "stance": "supports",
+             "statement": "IL2 blockade reduced mucosal inflammation in UC."},
+            {"gene": "FAKE", "chunk_id": payload["chunks"][0]["chunk_id"],
+             "exact_quote": "not present in source", "stance": "supports",
+             "statement": "bogus"},
+        ]}
+
+
+def test_literature_llm_stage_cache_reuses_rerank_and_extract(tmp_path):
+    chunks = [
+        {"chunk_id": f"c{i}", "source_id": "s1", "section": "abstract",
+         "text": f"IL2 blockade reduced mucosal inflammation in ulcerative colitis cohort {i}. " * 3}
+        for i in range(5)
+    ]
+    llm = FakeStageLLM()
+    tool = EuropePMCRAGTool(session=RAGSession(), llm=llm)
+    cache_dir = tmp_path / "cache"
+    ordered1, backend1, cached1 = tool._llm_rerank("ulcerative colitis", ["IL2"], chunks, cache_dir)
+    assert backend1 == "step_rerank" and cached1 is False
+    assert [c["chunk_id"] for c in ordered1] == ["c4", "c3", "c2", "c1", "c0"]
+    ordered2, backend2, cached2 = tool._llm_rerank("ulcerative colitis", ["IL2"], chunks, cache_dir)
+    assert backend2 == "step_rerank_cached" and cached2 is True
+    assert ordered1 == ordered2
+    claims1, extract_cached1 = tool._llm_extract("ulcerative colitis", ["IL2"], ordered1, cache_dir)
+    assert extract_cached1 is False
+    assert [c["gene"] for c in claims1] == ["IL2"]
+    claims2, extract_cached2 = tool._llm_extract("ulcerative colitis", ["IL2"], ordered1, cache_dir)
+    assert extract_cached2 is True and claims1 == claims2
+    # rerank and extract each hit the model exactly once; repeats replay the cache
+    assert llm.calls == 2

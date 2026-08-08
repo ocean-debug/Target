@@ -43,8 +43,9 @@ def build_cards(task: TaskSpec, ranked: list[RankedTarget]) -> list[TargetCard]:
             scores=target.scores, evidence_ids=target.evidence_ids,
             supporting_evidence_ids=target.supporting_ids, opposing_evidence_ids=target.opposing_ids,
             safety_blockers=target.safety_blockers, evidence_gaps=target.evidence_gaps,
-            matched_drugs=target.matched_drugs, experiment_plan=experiment_plan(task, target),
+            matched_drugs=target.matched_drugs,
+            genetic_evidence_summary=target.genetic_evidence_summary,
+            experiment_plan=experiment_plan(task, target),
             limitations=["Ranking score is a prioritization score, not a probability of clinical success."],
         ))
     return cards
-

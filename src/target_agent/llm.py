@@ -20,6 +20,7 @@ class StepClient:
     api_key: str
     model: str
     base_url: str
+    provider: str = "step"
     connect_timeout_seconds: int = 10
     read_timeout_seconds: int = 90
     max_retries: int = 3
@@ -28,22 +29,45 @@ class StepClient:
 
     @classmethod
     def from_settings(cls, settings: Settings) -> "StepClient | None":
+        """Build a client for the configured provider.
+
+        LLM_PROVIDER=openai uses the generic OpenAI-compatible endpoint; the
+        default step provider keeps the original STEP_* variables. Any
+        OpenAI-compatible Chat Completions service is supported because the
+        request is a standard JSON-mode chat completion either way.
+        """
+        if settings.llm_provider_name == "openai":
+            if not settings.llm_configured:
+                return None
+            return cls(
+                api_key=settings.openai_api_key.get_secret_value(),
+                model=settings.openai_model,
+                base_url=settings.openai_base_url.rstrip("/"),
+                provider="openai",
+                connect_timeout_seconds=settings.step_connect_timeout_seconds,
+                read_timeout_seconds=settings.step_read_timeout_seconds,
+                max_retries=settings.step_max_retries,
+            )
         if not settings.step_configured:
             return None
         return cls(
             api_key=settings.step_api_key.get_secret_value(),
             model=settings.step_model,
             base_url=settings.step_base_url.rstrip("/"),
+            provider="step",
             connect_timeout_seconds=settings.step_connect_timeout_seconds,
             read_timeout_seconds=settings.step_read_timeout_seconds,
             max_retries=settings.step_max_retries,
         )
 
+
     @classmethod
     def from_env(cls) -> "StepClient | None":
         return cls.from_settings(load_settings())
 
-    def json_completion(self, system: str, user: str) -> dict[str, Any]:
+    def json_completion(self, system: str, user: str, *,
+                        read_timeout_seconds: int | None = None,
+                        max_retries: int | None = None) -> dict[str, Any]:
         url = f"{self.base_url}/chat/completions"
         session = self.session or requests.Session()
         payload = {
@@ -52,22 +76,24 @@ class StepClient:
             "temperature": 0,
             "response_format": {"type": "json_object"},
         }
+        read_timeout = read_timeout_seconds if read_timeout_seconds is not None else self.read_timeout_seconds
+        retry_budget = max_retries if max_retries is not None else self.max_retries
         started = time.perf_counter()
         response = None
-        for attempt in range(self.max_retries + 1):
+        for attempt in range(retry_budget + 1):
             try:
                 response = session.post(
                     url,
                     headers={"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"},
                     json=payload,
-                    timeout=(self.connect_timeout_seconds, self.read_timeout_seconds),
+                    timeout=(self.connect_timeout_seconds, read_timeout),
                 )
             except requests.RequestException as exc:
-                if attempt >= self.max_retries:
+                if attempt >= retry_budget:
                     raise LLMUnavailable(f"Step API request failed: {exc.__class__.__name__}") from exc
                 time.sleep(2 ** attempt)
                 continue
-            if response.status_code not in {429, 500, 502, 503, 504} or attempt >= self.max_retries:
+            if response.status_code not in {429, 500, 502, 503, 504} or attempt >= retry_budget:
                 break
             time.sleep(2 ** attempt)
         if response is None:
@@ -82,6 +108,7 @@ class StepClient:
             or (body.get("id") if isinstance(body, dict) else None)
         )
         self.last_request_meta = {
+            "provider": self.provider,
             "model": self.model,
             "elapsed_ms": int((time.perf_counter() - started) * 1000),
             "request_id": request_id,
@@ -95,3 +122,7 @@ class StepClient:
             return json.loads(content)
         except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
             raise LLMUnavailable("Step API did not return valid JSON") from exc
+
+
+# Product-facing alias; the implementation remains a small OpenAI-compatible client.
+LLMClient = StepClient

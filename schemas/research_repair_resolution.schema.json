@@ -1,0 +1,89 @@
+{
+  "$defs": {
+    "RepairResolutionStatus": {
+      "enum": [
+        "resolved",
+        "mitigated",
+        "unresolved",
+        "exhausted"
+      ],
+      "title": "RepairResolutionStatus",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "contract_version": {
+      "const": "3.0.0",
+      "default": "3.0.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "resolution_id": {
+      "pattern": "^resolution-[a-f0-9]{24}$",
+      "title": "Resolution Id",
+      "type": "string"
+    },
+    "project_id": {
+      "title": "Project Id",
+      "type": "string"
+    },
+    "repair_request_id": {
+      "pattern": "^repair-[a-f0-9]{24}$",
+      "title": "Repair Request Id",
+      "type": "string"
+    },
+    "revision_id": {
+      "pattern": "^revision-[a-f0-9]{24}$",
+      "title": "Revision Id",
+      "type": "string"
+    },
+    "status": {
+      "$ref": "#/$defs/RepairResolutionStatus"
+    },
+    "before_snapshot_digest": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Before Snapshot Digest",
+      "type": "string"
+    },
+    "after_snapshot_digest": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "After Snapshot Digest",
+      "type": "string"
+    },
+    "verification_assessment_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Verification Assessment Ids",
+      "type": "array"
+    },
+    "active_work_item_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Active Work Item Ids",
+      "type": "array"
+    },
+    "rationale": {
+      "title": "Rationale",
+      "type": "string"
+    },
+    "created_at": {
+      "title": "Created At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "resolution_id",
+    "project_id",
+    "repair_request_id",
+    "revision_id",
+    "status",
+    "before_snapshot_digest",
+    "after_snapshot_digest",
+    "rationale"
+  ],
+  "title": "RepairResolution",
+  "type": "object"
+}

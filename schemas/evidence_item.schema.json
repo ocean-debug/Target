@@ -14,8 +14,8 @@
       "additionalProperties": false,
       "properties": {
         "contract_version": {
-          "const": "2.1.0",
-          "default": "2.1.0",
+          "const": "2.2.0",
+          "default": "2.2.0",
           "title": "Contract Version",
           "type": "string"
         },
@@ -114,17 +114,233 @@
           ],
           "default": null,
           "title": "Perturbation Type"
+        },
+        "genome_build": {
+          "anyOf": [
+            {
+              "enum": [
+                "GRCh37",
+                "GRCh38"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Genome Build"
+        },
+        "ancestry": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ancestry"
+        },
+        "locus_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Locus Id"
+        },
+        "study_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Study Id"
+        },
+        "signal_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Signal Id"
         }
       },
       "title": "EvidenceContext",
+      "type": "object"
+    },
+    "GeneticEvidencePayload": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_version": {
+          "const": "2.2.0",
+          "default": "2.2.0",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "evidence_type": {
+          "enum": [
+            "gwas_association",
+            "fine_mapping",
+            "colocalization",
+            "locus_to_gene",
+            "open_targets_genetic_association"
+          ],
+          "title": "Evidence Type",
+          "type": "string"
+        },
+        "analysis_level": {
+          "enum": [
+            "association_only",
+            "fine_mapped",
+            "colocalization_supported",
+            "database_aggregate"
+          ],
+          "title": "Analysis Level",
+          "type": "string"
+        },
+        "study_id": {
+          "title": "Study Id",
+          "type": "string"
+        },
+        "molecular_study_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Molecular Study Id"
+        },
+        "locus_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Locus Id"
+        },
+        "variant_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Variant Id"
+        },
+        "signal_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Signal Id"
+        },
+        "gene_symbol": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Gene Symbol"
+        },
+        "method": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Method"
+        },
+        "method_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Method Version"
+        },
+        "strength": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Strength",
+          "type": "number"
+        },
+        "formal_score_eligible": {
+          "title": "Formal Score Eligible",
+          "type": "boolean"
+        },
+        "causal_status": {
+          "const": "not_established",
+          "default": "not_established",
+          "title": "Causal Status",
+          "type": "string"
+        },
+        "assumptions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Assumptions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "evidence_type",
+        "analysis_level",
+        "study_id",
+        "strength",
+        "formal_score_eligible"
+      ],
+      "title": "GeneticEvidencePayload",
       "type": "object"
     },
     "SourceLocator": {
       "additionalProperties": false,
       "properties": {
         "contract_version": {
-          "const": "2.1.0",
-          "default": "2.1.0",
+          "const": "2.2.0",
+          "default": "2.2.0",
           "title": "Contract Version",
           "type": "string"
         },
@@ -222,8 +438,8 @@
   "additionalProperties": false,
   "properties": {
     "contract_version": {
-      "const": "2.1.0",
-      "default": "2.1.0",
+      "const": "2.2.0",
+      "default": "2.2.0",
       "title": "Contract Version",
       "type": "string"
     },
@@ -304,6 +520,17 @@
       "minimum": 0.0,
       "title": "Context Match Score",
       "type": "number"
+    },
+    "genetic_evidence": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/GeneticEvidencePayload"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     }
   },
   "required": [

@@ -1,0 +1,133 @@
+{
+  "$defs": {
+    "ProjectStatus": {
+      "enum": [
+        "draft",
+        "planned",
+        "running",
+        "waiting_review",
+        "completed",
+        "completed_with_gaps",
+        "needs_input",
+        "failed",
+        "cancelled"
+      ],
+      "title": "ProjectStatus",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "contract_version": {
+      "const": "3.0.0",
+      "default": "3.0.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "project_id": {
+      "title": "Project Id",
+      "type": "string"
+    },
+    "status": {
+      "$ref": "#/$defs/ProjectStatus",
+      "default": "draft"
+    },
+    "current_item_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Current Item Id"
+    },
+    "completed_items": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Completed Items",
+      "type": "array"
+    },
+    "failed_items": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Failed Items",
+      "type": "array"
+    },
+    "attempts": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Attempts",
+      "type": "object"
+    },
+    "checkpoint_kind": {
+      "anyOf": [
+        {
+          "enum": [
+            "plan",
+            "work_item",
+            "repair",
+            "release"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Checkpoint Kind"
+    },
+    "checkpoint_target_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Checkpoint Target Id"
+    },
+    "checkpoint_snapshot_digest": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Checkpoint Snapshot Digest"
+    },
+    "terminal_reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Terminal Reason"
+    },
+    "updated_at": {
+      "title": "Updated At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "project_id"
+  ],
+  "title": "ProjectState",
+  "type": "object"
+}

@@ -10,6 +10,12 @@ from ..llm import StepClient
 from ..settings import Settings, load_settings
 from .base import ToolRegistry
 from .clinicaltrials import ClinicalTrialsGovTool
+from .genetics import (
+    EqtlColocalizationAuditTool,
+    FineMappingAuditTool,
+    GeneticsCandidateExtractionTool,
+    GeneticsInputAuditTool,
+)
 from .literature import EuropePMCRAGTool
 from .mch import MCHCausalGoldTool
 from .omics import (
@@ -33,6 +39,10 @@ def _known_tools(settings: Settings) -> dict[str, object]:
         "single_cell_analysis": SingleCellAnalysisTool(),
         "pathway_enrichment": PathwayEnrichmentTool(),
         "omics_candidate_extraction": OmicsCandidateExtractionTool(),
+        "genetics_input_audit": GeneticsInputAuditTool(),
+        "fine_mapping_audit": FineMappingAuditTool(),
+        "eqtl_colocalization_audit": EqtlColocalizationAuditTool(),
+        "genetics_candidate_extraction": GeneticsCandidateExtractionTool(),
         "open_targets": OpenTargetsTool(),
         "europe_pmc_rag": EuropePMCRAGTool(llm=llm),
         "clinical_trials_gov": ClinicalTrialsGovTool(),

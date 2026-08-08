@@ -1,0 +1,159 @@
+{
+  "$defs": {
+    "FailureClass": {
+      "enum": [
+        "transient",
+        "permanent",
+        "missing_input",
+        "scientific_gap",
+        "integrity_failure",
+        "unsupported",
+        "internal"
+      ],
+      "title": "FailureClass",
+      "type": "string"
+    },
+    "WorkItemStatus": {
+      "enum": [
+        "pending",
+        "running",
+        "completed",
+        "completed_with_gaps",
+        "needs_input",
+        "blocked",
+        "failed",
+        "skipped"
+      ],
+      "title": "WorkItemStatus",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "contract_version": {
+      "const": "3.0.0",
+      "default": "3.0.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "item_id": {
+      "title": "Item Id",
+      "type": "string"
+    },
+    "module": {
+      "title": "Module",
+      "type": "string"
+    },
+    "status": {
+      "$ref": "#/$defs/WorkItemStatus"
+    },
+    "summary": {
+      "title": "Summary",
+      "type": "string"
+    },
+    "outputs": {
+      "additionalProperties": true,
+      "title": "Outputs",
+      "type": "object"
+    },
+    "artifact_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Artifact Ids",
+      "type": "array"
+    },
+    "evidence_refs": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Evidence Refs",
+      "type": "array"
+    },
+    "limitations": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Limitations",
+      "type": "array"
+    },
+    "error": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Error"
+    },
+    "failure_class": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/FailureClass"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "input_digest": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Input Digest"
+    },
+    "supersedes_result_digest": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Supersedes Result Digest"
+    },
+    "repair_request_id": {
+      "anyOf": [
+        {
+          "pattern": "^repair-[a-f0-9]{24}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Repair Request Id"
+    },
+    "started_at": {
+      "title": "Started At",
+      "type": "string"
+    },
+    "completed_at": {
+      "title": "Completed At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "item_id",
+    "module",
+    "status",
+    "summary"
+  ],
+  "title": "WorkItemResult",
+  "type": "object"
+}

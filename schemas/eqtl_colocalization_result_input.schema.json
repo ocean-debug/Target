@@ -1,0 +1,492 @@
+{
+  "$defs": {
+    "AnalysisEvidenceArtifact": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_version": {
+          "const": "2.2.0",
+          "default": "2.2.0",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "relative_path": {
+          "minLength": 1,
+          "title": "Relative Path",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "media_type": {
+          "enum": [
+            "application/json",
+            "text/tab-separated-values",
+            "text/plain"
+          ],
+          "title": "Media Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "relative_path",
+        "sha256",
+        "media_type"
+      ],
+      "title": "AnalysisEvidenceArtifact",
+      "type": "object"
+    },
+    "ColocResultColumnMap": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_version": {
+          "const": "2.2.0",
+          "default": "2.2.0",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "gene": {
+          "title": "Gene",
+          "type": "string"
+        },
+        "locus_id": {
+          "title": "Locus Id",
+          "type": "string"
+        },
+        "signal_id": {
+          "title": "Signal Id",
+          "type": "string"
+        },
+        "chromosome": {
+          "title": "Chromosome",
+          "type": "string"
+        },
+        "position": {
+          "title": "Position",
+          "type": "string"
+        },
+        "gwas_effect_allele": {
+          "title": "Gwas Effect Allele",
+          "type": "string"
+        },
+        "gwas_other_allele": {
+          "title": "Gwas Other Allele",
+          "type": "string"
+        },
+        "eqtl_effect_allele": {
+          "title": "Eqtl Effect Allele",
+          "type": "string"
+        },
+        "eqtl_other_allele": {
+          "title": "Eqtl Other Allele",
+          "type": "string"
+        },
+        "eqtl_beta": {
+          "title": "Eqtl Beta",
+          "type": "string"
+        },
+        "pp0": {
+          "title": "Pp0",
+          "type": "string"
+        },
+        "pp1": {
+          "title": "Pp1",
+          "type": "string"
+        },
+        "pp2": {
+          "title": "Pp2",
+          "type": "string"
+        },
+        "pp3": {
+          "title": "Pp3",
+          "type": "string"
+        },
+        "pp4": {
+          "title": "Pp4",
+          "type": "string"
+        },
+        "n_variants": {
+          "title": "N Variants",
+          "type": "string"
+        },
+        "variant_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Variant Id"
+        }
+      },
+      "required": [
+        "gene",
+        "locus_id",
+        "signal_id",
+        "chromosome",
+        "position",
+        "gwas_effect_allele",
+        "gwas_other_allele",
+        "eqtl_effect_allele",
+        "eqtl_other_allele",
+        "eqtl_beta",
+        "pp0",
+        "pp1",
+        "pp2",
+        "pp3",
+        "pp4",
+        "n_variants"
+      ],
+      "title": "ColocResultColumnMap",
+      "type": "object"
+    },
+    "HarmonizedVariantColumnMap": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_version": {
+          "const": "2.2.0",
+          "default": "2.2.0",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "gene": {
+          "title": "Gene",
+          "type": "string"
+        },
+        "locus_id": {
+          "title": "Locus Id",
+          "type": "string"
+        },
+        "signal_id": {
+          "title": "Signal Id",
+          "type": "string"
+        },
+        "chromosome": {
+          "title": "Chromosome",
+          "type": "string"
+        },
+        "position": {
+          "title": "Position",
+          "type": "string"
+        },
+        "gwas_effect_allele": {
+          "title": "Gwas Effect Allele",
+          "type": "string"
+        },
+        "gwas_other_allele": {
+          "title": "Gwas Other Allele",
+          "type": "string"
+        },
+        "eqtl_effect_allele": {
+          "title": "Eqtl Effect Allele",
+          "type": "string"
+        },
+        "eqtl_other_allele": {
+          "title": "Eqtl Other Allele",
+          "type": "string"
+        },
+        "variant_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Variant Id"
+        }
+      },
+      "required": [
+        "gene",
+        "locus_id",
+        "signal_id",
+        "chromosome",
+        "position",
+        "gwas_effect_allele",
+        "gwas_other_allele",
+        "eqtl_effect_allele",
+        "eqtl_other_allele"
+      ],
+      "title": "HarmonizedVariantColumnMap",
+      "type": "object"
+    },
+    "HarmonizedVariantManifest": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_version": {
+          "const": "2.2.0",
+          "default": "2.2.0",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "relative_path": {
+          "minLength": 1,
+          "title": "Relative Path",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "file_format": {
+          "enum": [
+            "tsv",
+            "csv",
+            "tsv.gz"
+          ],
+          "title": "File Format",
+          "type": "string"
+        },
+        "columns": {
+          "$ref": "#/$defs/HarmonizedVariantColumnMap"
+        }
+      },
+      "required": [
+        "relative_path",
+        "sha256",
+        "file_format",
+        "columns"
+      ],
+      "title": "HarmonizedVariantManifest",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "contract_version": {
+      "const": "2.2.0",
+      "default": "2.2.0",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "asset_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{2,127}$",
+      "title": "Asset Id",
+      "type": "string"
+    },
+    "relative_path": {
+      "minLength": 1,
+      "title": "Relative Path",
+      "type": "string"
+    },
+    "sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Sha256",
+      "type": "string"
+    },
+    "file_format": {
+      "enum": [
+        "tsv",
+        "csv",
+        "tsv.gz"
+      ],
+      "title": "File Format",
+      "type": "string"
+    },
+    "genome_build": {
+      "enum": [
+        "GRCh37",
+        "GRCh38"
+      ],
+      "title": "Genome Build",
+      "type": "string"
+    },
+    "study_id": {
+      "minLength": 1,
+      "title": "Study Id",
+      "type": "string"
+    },
+    "phenotype": {
+      "minLength": 1,
+      "title": "Phenotype",
+      "type": "string"
+    },
+    "phenotype_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Phenotype Id"
+    },
+    "ancestry": {
+      "minLength": 1,
+      "title": "Ancestry",
+      "type": "string"
+    },
+    "sample_size": {
+      "exclusiveMinimum": 0,
+      "title": "Sample Size",
+      "type": "integer"
+    },
+    "source_uri": {
+      "minLength": 1,
+      "title": "Source Uri",
+      "type": "string"
+    },
+    "source_version": {
+      "minLength": 1,
+      "title": "Source Version",
+      "type": "string"
+    },
+    "public_data": {
+      "default": true,
+      "title": "Public Data",
+      "type": "boolean"
+    },
+    "kind": {
+      "const": "eqtl_colocalization_result",
+      "default": "eqtl_colocalization_result",
+      "title": "Kind",
+      "type": "string"
+    },
+    "method": {
+      "enum": [
+        "coloc_abf",
+        "coloc_susie"
+      ],
+      "title": "Method",
+      "type": "string"
+    },
+    "method_version": {
+      "minLength": 1,
+      "title": "Method Version",
+      "type": "string"
+    },
+    "gwas_study_id": {
+      "minLength": 1,
+      "title": "Gwas Study Id",
+      "type": "string"
+    },
+    "eqtl_study_id": {
+      "minLength": 1,
+      "title": "Eqtl Study Id",
+      "type": "string"
+    },
+    "eqtl_ancestry": {
+      "minLength": 1,
+      "title": "Eqtl Ancestry",
+      "type": "string"
+    },
+    "tissue": {
+      "minLength": 1,
+      "title": "Tissue",
+      "type": "string"
+    },
+    "cell_type": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Cell Type"
+    },
+    "molecular_trait": {
+      "default": "gene_expression",
+      "title": "Molecular Trait",
+      "type": "string"
+    },
+    "minimum_variant_overlap_used": {
+      "minimum": 1,
+      "title": "Minimum Variant Overlap Used",
+      "type": "integer"
+    },
+    "prior_p1": {
+      "exclusiveMaximum": 1,
+      "exclusiveMinimum": 0,
+      "title": "Prior P1",
+      "type": "number"
+    },
+    "prior_p2": {
+      "exclusiveMaximum": 1,
+      "exclusiveMinimum": 0,
+      "title": "Prior P2",
+      "type": "number"
+    },
+    "prior_p12": {
+      "exclusiveMaximum": 1,
+      "exclusiveMinimum": 0,
+      "title": "Prior P12",
+      "type": "number"
+    },
+    "sensitivity_analysis_passed": {
+      "title": "Sensitivity Analysis Passed",
+      "type": "boolean"
+    },
+    "sample_overlap": {
+      "enum": [
+        "none",
+        "known",
+        "unknown"
+      ],
+      "title": "Sample Overlap",
+      "type": "string"
+    },
+    "sample_overlap_adjustment": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Sample Overlap Adjustment"
+    },
+    "columns": {
+      "$ref": "#/$defs/ColocResultColumnMap"
+    },
+    "harmonized_variants": {
+      "$ref": "#/$defs/HarmonizedVariantManifest"
+    },
+    "sensitivity_artifact": {
+      "$ref": "#/$defs/AnalysisEvidenceArtifact"
+    }
+  },
+  "required": [
+    "asset_id",
+    "relative_path",
+    "sha256",
+    "file_format",
+    "genome_build",
+    "study_id",
+    "phenotype",
+    "ancestry",
+    "sample_size",
+    "source_uri",
+    "source_version",
+    "method",
+    "method_version",
+    "gwas_study_id",
+    "eqtl_study_id",
+    "eqtl_ancestry",
+    "tissue",
+    "minimum_variant_overlap_used",
+    "prior_p1",
+    "prior_p2",
+    "prior_p12",
+    "sensitivity_analysis_passed",
+    "sample_overlap",
+    "columns",
+    "harmonized_variants",
+    "sensitivity_artifact"
+  ],
+  "title": "EqtlColocalizationResultInput",
+  "type": "object"
+}

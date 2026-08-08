@@ -2,8 +2,8 @@
 
 The web workbench has two explicit modes:
 
-- **Validated replay** reads an existing stored run and never calls Step or a public database.
-- **Live run** submits a new `TaskSpec 2.1.0`, streams SSE Trace events and may use configured external services.
+- **Acceptance-checked stored replay** reads an existing stored run and never calls Step or a public database. Acceptance covers Trace and artifact integrity, not biological truth.
+- **Live run** submits a new `TaskSpec 2.2.0`, streams SSE Trace events and may use configured external services.
 
 Never describe replay as a live run. The header, run identifier and Planner backend remain visible so the audience can distinguish them.
 
@@ -43,7 +43,7 @@ Explain that the product is a research Agent, not a gene-list generator. Point t
 
 ### 0:35–1:15 — Stable LUAD replay
 
-Click **肺腺癌靶点发现 → 加载并回放**. State clearly that this is a validated Trace replay. Show:
+Click **肺腺癌靶点发现 → 加载并回放**. State clearly that this is an acceptance-checked stored Trace replay. Show:
 
 - the typed 12-step Plan;
 - the actual Planner backend used by that stored run;
@@ -65,15 +65,15 @@ Show the EGFR, TP63 and NRG1 cards. For EGFR, point out the retained safety liab
 
 ### 3:30–4:20 — Reliable degradation
 
-Click **UC可靠降级 → 加载并回放**. Show `COMPLETED WITH GAPS`, `not_covered` and `context_mismatch`. Explain that the Agent continues genetics, literature and drug evidence while refusing to fabricate formal omics evidence.
+Click **UC可靠降级 → 加载并回放**. Show `COMPLETED WITH GAPS`, `not_covered` and `context_mismatch`. Explain that the Agent continues available aggregate associations, literature and drug evidence while refusing to fabricate strict genetics or formal omics evidence without controlled inputs.
 
 ### 4:20–5:00 — Generalization and optional live action
 
-Point to the Alzheimer disease stored case as cross-disease evidence. Expand **启动新的真实运行** only if network time permits. A live run is optional; the validated replay already demonstrates the full auditable product path.
+Point to the Alzheimer disease stored case as cross-disease evidence. Expand **启动新的真实运行** only if network time permits. A live run is optional; the acceptance-checked replay demonstrates the auditable product path but is not a biological validation result.
 
 ## Recovery during a presentation
 
-- If a live run is slow, return to a validated case; do not wait on public databases.
+- If a live run is slow, return to an acceptance-checked stored case; do not wait on public databases.
 - If Step is unavailable, the generic deterministic workflow remains available and the Planner backend is shown.
 - If a backend capability is missing, use the capability pill and Reviewer findings to explain the gap.
 - If the service cannot be reached, use the separately generated offline HTML/video package. Do not present it as a live backend session.

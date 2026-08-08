@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="dark">
-  <title>TargetDiscovery Agent · 科研工作台</title>
+  <title>TargetDiscovery 科研工作台</title>
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -13,44 +13,169 @@
     <nav><span class="brand"><i>TD</i> TargetDiscovery Agent</span><span id="capability" class="system-pill">正在检查系统能力…</span></nav>
     <div class="hero-copy">
       <div><span class="eyebrow">BEST-PRACTICE ALIGNED · TRACEABLE · RELIABLE</span><h1>从疾病问题，到<br><em>可验证的药物靶点</em></h1></div>
-      <p>动态发现公开数据、调用受控分析工具、融合多源证据，并在证据不足时主动降级。页面只呈现后端Evidence Store中存在的结论。</p>
+      <p>每个项目都是一条完整科研链路：问题定义 → 数据发现 → 组学分析 → 证据融合 → 可靠审查 → 实验设计。关键节点需要审批，任意步骤可以回退。</p>
     </div>
     <div class="pipeline" aria-label="Agent工作流"><span>问题定义</span><b>→</b><span>数据发现</span><b>→</b><span>组学分析</span><b>→</b><span>证据融合</span><b>→</b><span>可靠审查</span><b>→</b><span>实验设计</span></div>
   </header>
 
   <main>
     <section class="section case-section">
-      <div class="section-head"><div><span class="section-no">01</span><h2>选择演示方式</h2></div><p>推荐先回放已验证案例，现场稳定展示完整科学链路；也可启动一次新的真实Agent运行。</p></div>
-      <div id="demo-cases" class="case-grid"><article class="case-card skeleton">正在读取已验证案例…</article></div>
-      <details class="live-panel">
-        <summary><span>启动新的真实运行</span><small>需要公共数据库网络；结果可能耗时</small></summary>
-        <div class="form-grid">
-          <label>疾病名称<input id="disease" value="lung adenocarcinoma"></label>
-          <label>疾病亚型<input id="subtype" placeholder="可选"></label>
-          <label>目标组织<input id="tissue" value="lung"></label>
-          <label>目标细胞类型<input id="cell" placeholder="可选"></label>
-          <label>疾病阶段<input id="stage" value="primary tumor"></label>
-          <label>物种<input id="organism" value="Homo sapiens"></label>
-          <label>实验类型<input id="assay" value="RNA-seq"></label>
-          <label>优先GEO编号<input id="accessions" placeholder="可选，多个编号用逗号分隔"></label>
-          <label class="span-2">希望抑制或恢复的表型<textarea id="phenotype">suppress malignant growth and restore tissue homeostasis</textarea></label>
+      <div class="section-head"><div><span class="section-no">01</span><h2>科研项目</h2></div><p>选择已有项目继续推进，或新建一个从问题出发的研究项目。所有结论都可回链到来源、数据版本和工具运行参数。</p></div>
+      <div class="two-col projects-layout">
+        <div>
+          <div class="subhead"><h3>已有项目</h3><button id="refresh-projects" class="ghost">刷新</button></div>
+          <div id="project-list" class="project-list"></div>
         </div>
-        <div class="mode-row"><label><input id="mode-geo" type="checkbox" checked> GEO bulk</label><label><input id="mode-census" type="checkbox" checked> CELLxGENE</label><button id="run" class="primary">启动Agent</button></div>
-      </details>
+        <div>
+          <div class="subhead"><h3>新建项目</h3></div>
+          <label class="span-2">研究问题（自然语言）<textarea id="research-question-input" rows="2" placeholder="例如：在肺腺癌中，哪些可成药靶点有公共证据支持？"></textarea></label>
+          <div class="mode-row"><button id="draft-from-question" class="ghost" type="button">AI 解读并填入表单</button><span id="draft-review-notes" class="muted"></span></div>
+          <div class="form-grid">
+            <label>疾病名称<input id="disease" value="lung adenocarcinoma" required></label>
+            <label>疾病亚型<input id="subtype" placeholder="可选，如 EGFR 突变"></label>
+            <label>目标组织<input id="tissue" value="lung"></label>
+            <label>目标细胞类型<input id="cell" placeholder="可选"></label>
+            <label>疾病阶段<input id="stage" value="primary tumor"></label>
+            <label>物种<input id="organism" value="Homo sapiens"></label>
+            <label>实验类型<input id="assay" value="RNA-seq"></label>
+            <label>首选 GEO 编号<input id="accessions" placeholder="可选，逗号分隔"></label>
+            <label class="span-2">希望抑制或恢复的表型<textarea id="phenotype">suppress malignant growth and restore tissue homeostasis</textarea></label>
+          </div>
+          <div class="mode-row">
+            <label>审批模式
+              <select id="autonomy">
+                <option value="checkpointed" selected>关键节点审批（推荐）</option>
+                <option value="autonomous">全自动</option>
+                <option value="supervised">逐步审批</option>
+              </select>
+            </label>
+            <label>研究工作流
+              <select id="workflow">
+                <option value="disease_to_target" selected>疾病靶点发现（推荐）</option>
+                <option value="literature_review">文献综述研究</option>
+              </select>
+            </label>
+            <button id="create" class="primary">创建并启动项目</button>
+          </div>
+        </div>
+      </div>
     </section>
 
     <section id="workspace" class="workspace hidden" aria-live="polite">
-      <div class="run-bar"><div><span id="run-status" class="status-badge">READY</span><b id="run-title">等待案例</b><small id="run-meta"></small></div><div class="run-actions"><button id="replay" class="ghost">▶ 回放Trace</button><a id="report-link" class="ghost link-button" href="#">下载研究报告</a></div></div>
+      <div class="run-bar">
+        <div><span id="run-status" class="status-badge">READY</span><b id="run-title">等待选择项目</b><small id="run-meta"></small></div>
+        <div class="run-actions"><a id="export-package" class="ghost link-button hidden" href="#">导出项目包</a><a id="share-portal" class="ghost link-button hidden" href="#" target="_blank" rel="noopener">分享审查页</a><span id="next-actions" class="action-bar"></span></div>
+      </div>
 
-      <section class="section"><div class="section-head compact"><div><span class="section-no">02</span><h2>研究问题与Agent计划</h2></div><p id="research-question"></p></div><div class="two-col"><div id="context" class="context-grid"></div><div><div class="subhead"><h3>类型化执行计划</h3><span id="planner-backend"></span></div><div id="plan" class="plan-list"></div></div></div></section>
+      <section class="section">
+        <div class="section-head compact"><div>      <section class="section">
+        <div class="section-head compact"><div><span class="section-no">02</span><h2>研究会话</h2></div><p>会话是项目的对话视图：消息防篡改，Agent 摘要不产生科学状态；关键节点可直接在会话中批准或拒绝。</p></div>
+        <div class="session-layout">
+          <div class="session-side">
+            <div class="subhead"><h3>会话</h3><div class="session-role-row"><label class="session-role">角色<select id="new-session-role"><option value="researcher" selected>研究员</option><option value="reviewer">审阅者</option><option value="admin">管理员</option><option value="viewer">只读查看</option></select></label><button id="new-session" class="ghost" type="button">新建会话</button></div></div>
+            <div id="session-list" class="session-list"><p class="muted">选择项目后自动创建</p></div>
+          </div>
+          <div class="session-main">
+            <div id="session-messages" class="session-messages"><p class="muted">等待选择会话…</p></div>
+            <div id="session-actions" class="session-actions"></div>
+            <div id="session-supplement" class="session-supplement hidden">
+              <div class="subhead"><h3>补充输入并重跑</h3></div>
+              <p class="muted">项目需要更多输入。按工作项填写 JSON 覆盖，系统将发起一次需人工批准的 redo 回退（项目账本不可变，不做原地修改）。</p>
+              <textarea id="session-supplement-json" rows="4" placeholder="{&quot;target_discovery&quot;:{&quot;tissue&quot;:&quot;colon&quot;}}"></textarea>
+              <div class="mode-row"><button id="session-supplement-run" class="primary" type="button">提交补充输入并重跑</button></div>
+            </div>
+            <div class="session-input-row">
+              <textarea id="session-input" rows="2" placeholder="询问项目进展；若使用下方审批按钮，请先在这里写下审批理由"></textarea>
+              <div class="session-buttons">
+                <button id="session-ask" class="ghost" type="button">询问 Agent</button>
+                <button id="session-send" class="primary" type="button">发送</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+<span class="section-no">03</span><h2>研究问题与执行计划</h2></div><p id="research-question"></p></div>
+        <div class="two-col">
+          <div id="context" class="context-grid"></div>
+          <div>
+            <div class="subhead"><h3>类型化执行计划</h3><span id="planner-backend"></span></div>
+            <div id="plan" class="plan-list"></div>
+            <div class="subhead pattern-subhead"><h3>证据策略模式</h3><span id="strategy-pattern-count" class="muted"></span></div>
+            <div id="strategy-patterns" class="plan-list"></div>
+            <div class="subhead pattern-subhead"><h3>论文证据（RAG）</h3><span id="paper-evidence-count" class="muted"></span></div>
+            <div id="paper-evidence" class="plan-list"></div>
+          </div>
+        </div>
+      </section>
 
-      <section class="section"><div class="section-head compact"><div><span class="section-no">03</span><h2>工具执行与数据集审查</h2></div><p>检索命中不是证据；只有通过确定性资格门的数据才进入正式分析。</p></div><div class="two-col trace-layout"><div><div class="subhead"><h3>实时 / 回放Trace</h3><span id="trace-progress">0 / 0</span></div><div id="events" class="events"></div></div><div><div class="subhead"><h3>工具覆盖</h3><span id="tool-summary"></span></div><div id="tools" class="tool-list"></div><div class="subhead dataset-head"><h3>GEO筛选</h3></div><div id="datasets" class="dataset-list"></div></div></div></section>
+      <section class="section">
+        <div class="section-head compact"><div><span class="section-no">04</span><h2>工作项结果与尝试</h2></div><p>每个结果绑定不可变 attempt、输入摘要与溯源链；失败项保留错误与失败类型。</p></div>
+        <div id="results" class="result-grid"></div>
+      </section>
 
-      <section class="section"><div class="section-head compact"><div><span class="section-no">04</span><h2>证据融合与候选排序</h2></div><p>总分表示研究优先级，不是临床成功概率。</p></div><div id="evidence-metrics" class="metric-row"></div><div class="ranking-wrap"><table><thead><tr><th>#</th><th>Target</th><th>Decision</th><th>Priority</th><th>Genetics</th><th>Omics</th><th>Perturb.</th><th>Mechanism</th><th>Drug</th></tr></thead><tbody id="ranking"></tbody></table></div></section>
+      <section class="section">
+        <div class="section-head compact"><div><span class="section-no">05</span><h2>回退与分支</h2></div><p>redo 重跑目标及其全部下游；restore 恢复历史 attempt 的结果而不重跑，仅重跑下游。RESTORE 与关键节点审批模式始终需要人工批准。</p></div>
+        <div id="branches" class="branch-block"></div>
+        <details class="live-panel">
+          <summary><span>发起一次回退</span><small>目标必须是当前活动工作项</small></summary>
+          <div class="form-grid">
+            <label>目标工作项<select id="fork-target"></select></label>
+            <label>回退方式<select id="fork-mode"><option value="redo">redo（重跑）</option><option value="restore">restore（恢复历史结果）</option></select></label>
+            <label>恢复到的 attempt（restore 用）<select id="fork-attempt"></select></label>
+            <label class="span-2">理由<textarea id="fork-rationale" placeholder="说明为什么需要回退"></textarea></label>
+            <label class="span-2">输入覆盖（可选，JSON）<textarea id="fork-overrides" placeholder="{&quot;literature_search&quot;:{&quot;record_count&quot;:2}}"></textarea></label>
+          </div>
+          <div class="mode-row"><button id="propose-fork" class="primary">发起回退</button></div>
+        </details>
+      </section>
 
-      <section class="section"><div class="section-head compact"><div><span class="section-no">05</span><h2>重点TargetCard</h2></div><p>支持证据、反方证据、安全风险、药物、证据缺口和实验方案同时呈现。</p></div><div id="target-cards" class="target-grid"></div></section>
+      <section class="section">
+        <div class="section-head compact"><div><span class="section-no">06</span><h2>事件账本与产物</h2></div><p>事件按序追加；产物通过 /artifacts 完整性校验后下载。</p></div>
+        <div class="two-col">
+          <div>
+            <div class="subhead"><h3>事件</h3><span id="event-count"></span></div>
+            <div id="events" class="events"></div>
+          </div>
+          <div>
+            <div class="subhead"><h3>报告与产物</h3></div>
+            <div id="artifacts" class="artifact-list"></div>
+          </div>
+        </div>
+      </section>
+    <section class="section">
+        <div class="section-head compact"><div><span class="section-no">07</span><h2>证据图</h2></div><p>工作流 DAG 与机制证据图均由持久化状态生成，前端不创造新数字；机制边区分 FACT / OBSERVED / PREDICTED / INFERRED。</p></div>
+        <div class="graph-tabs">
+          <button id="tab-dag" class="graph-tab active" type="button">工作流 DAG</button>
+          <button id="tab-mechanism" class="graph-tab" type="button">机制证据图</button>
+        </div>
+        <div id="dag-graph" class="graph-panel"><p class="muted">加载中…</p></div>
+        <div id="mechanism-graph" class="graph-panel hidden"><p class="muted">加载中…</p></div>
+      </section>
 
-      <section class="section"><div class="section-head compact"><div><span class="section-no">06</span><h2>Reviewer与科学边界</h2></div><p>Agent的可靠性不仅体现在给出答案，也体现在知道何时补证、降级或停止。</p></div><div class="two-col"><div><div class="subhead"><h3>Reviewer Findings</h3><span id="finding-summary"></span></div><div id="review" class="finding-list"></div></div><div><div class="subhead"><h3>可核对证据</h3><span id="evidence-count"></span></div><div id="evidence" class="evidence-list"></div></div></div></section>
+      <section class="section">
+        <div class="section-head compact"><div><span class="section-no">08</span><h2>项目文件与预览</h2></div><p>项目目录只读浏览；点击文本文件可在线预览。</p></div>
+        <div class="two-col">
+          <div id="file-tree" class="file-tree"><p class="muted">加载中…</p></div>
+          <div id="file-preview" class="file-preview"><p class="muted">选择文件查看内容</p></div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-head compact"><div><span class="section-no">09</span><h2>持久分析内核</h2></div><p>显式创建的 Python/R 会话，状态跨执行保留；LLM 不自动执行代码，仅限人工或注册工具使用。</p></div>
+        <div class="kernel-console">
+          <div class="kernel-toolbar">
+            <span id="kernel-status" class="status-badge">无内核</span>
+            <button id="kernel-start" class="ghost">启动 Python 内核</button>
+            <button id="kernel-stop" class="ghost" disabled>停止内核</button>
+          </div>
+          <label class="kernel-code-label">代码<textarea id="kernel-code" rows="6" placeholder="print('hello'); __kernel_result__ = 1 + 1"></textarea></label>
+          <div class="mode-row">
+            <label>超时（秒）<input id="kernel-timeout" type="number" value="30" min="1"></label>
+            <button id="kernel-run" class="primary" disabled>运行</button>
+          </div>
+          <pre id="kernel-output" class="kernel-output">尚未运行。</pre>
+        </div>
+      </section>
     </section>
   </main>
 

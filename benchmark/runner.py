@@ -24,6 +24,7 @@ sys.path.insert(0, str(ROOT / "tests"))
 from pydantic import ValidationError  # noqa: E402
 
 from target_agent.contracts import ExecutionPlan, PlanStep, TaskSpec  # noqa: E402
+from target_agent.legacy import parse_task_spec  # noqa: E402
 from target_agent.planner import Planner  # noqa: E402
 from target_agent.runtime import TargetDiscoveryRuntime  # noqa: E402
 from target_agent.runtime_langgraph import LangGraphRuntime  # noqa: E402
@@ -46,7 +47,7 @@ def jsonl(path: Path) -> list[dict]:
 
 def observable(run_dir: Path) -> dict:
     evidence = jsonl(run_dir / "evidence_items.jsonl")
-    findings = jsonl(run_dir / "findings.jsonl")
+    findings = jsonl(run_dir / "reviewer_findings.jsonl")
     trace = jsonl(run_dir / "trace.jsonl")
     tool_results = jsonl(run_dir / "tool_results.jsonl")
     ranking_path = run_dir / "ranked_targets.json"
@@ -128,10 +129,108 @@ def unit_schema_export_valid() -> str | None:
     return None
 
 
+
+def unit_pattern_ablation_offline() -> str | None:
+    import subprocess
+
+    with tempfile.TemporaryDirectory() as tmp:
+        cmd = [
+            sys.executable, str(ROOT / "benchmark" / "pattern_ablation.py"),
+            "--goldset", str(ROOT / "benchmark" / "goldset_diseases.jsonl"),
+            "--store", str(ROOT / "paper_strategy" / "patterns.jsonl"),
+            "--out", tmp,
+        ]
+        try:
+            completed = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+        except Exception as exc:
+            return f"pattern ablation crashed: {exc.__class__.__name__}: {exc}"
+        if completed.returncode != 0:
+            return f"pattern ablation failed: {completed.stdout[-400:]}{completed.stderr[-400:]}"
+        try:
+            payload = json.loads(completed.stdout)
+        except Exception as exc:
+            return f"pattern ablation returned invalid JSON: {exc}"
+        if payload.get("diseases_total", 0) < 10:
+            return "pattern ablation considered too few diseases"
+        if payload.get("diseases_with_hints", 0) < 3:
+            return "pattern ablation coverage below the seed floor (3 diseases)"
+        if payload.get("plan_valid", 0) != payload.get("diseases_total"):
+            return "pattern ablation produced invalid deterministic plans"
+    return None
+
+
+def unit_paper_rag_graph_projection() -> str | None:
+    from target_agent.contracts import (
+        ClaimClass, EvidenceContext, EvidenceItem, SourceLocator, Stance,
+        TaskContext,
+    )
+    from target_agent.graphs import synthesize_evidence_graph
+
+    item = EvidenceItem(
+        tool_run_id="tool-g1",
+        gene_symbol="GENE1",
+        claim_class=ClaimClass.FACT,
+        statement="test evidence",
+        source=SourceLocator(uri="https://example.org/x", source_id="s1"),
+        source_span="GENE1",
+        context=EvidenceContext(disease="test disease", tissue="lung", cell_type="T cell"),
+        stance=Stance.SUPPORTS,
+        effect_direction="unclear",
+        effect={},
+        uncertainty="fixture",
+        context_match_score=0.9,
+    )
+    task = TaskSpec(
+        task_type="disease_to_target",
+        question="test question",
+        context=TaskContext(disease="test disease", tissue="lung", cell_type="T cell"),
+    )
+    baseline = synthesize_evidence_graph(task, [item], ["GENE1"])
+    result = synthesize_evidence_graph(
+        task, [item], ["GENE1"],
+        paper_evidence=[{
+            "kind": "paper_rag",
+            "chunk_id": "chunk-0-paper-0",
+            "pmid": "12345678",
+            "title": "GENE1 mechanism in test disease",
+            "journal": "Nature",
+            "year": 2025,
+            "lane_tags": ["genetics", "omics"],
+            "snippet": "GENE1 regulates test disease",
+            "score": 4.0,
+            "strategy_hint_not_evidence": True,
+        }],
+    )
+    node_ids = {node.node_id for node in result.graph.nodes}
+    if "strategy:paper:chunk-0-paper-0" not in node_ids:
+        return "paper RAG strategy node missing"
+    hint_edges = [edge for edge in result.graph.edges if edge.relation == "paper_strategy_hint"]
+    if len(hint_edges) != 1:
+        return f"expected 1 paper strategy edge, got {len(hint_edges)}"
+    edge = hint_edges[0]
+    if edge.claim_class != ClaimClass.INFERRED or edge.weight != 0.0:
+        return "paper strategy edge must be INFERRED with weight 0"
+    if edge.attributes.get("strategy_only") is not True or edge.attributes.get("not_evidence") is not True:
+        return "paper strategy edge missing strategy_only/not_evidence markers"
+    if edge.evidence_ids:
+        return "paper strategy edge must carry no evidence ids"
+    if result.lane_coverage != baseline.lane_coverage:
+        return "paper RAG hit changed lane coverage"
+    if result.pattern_links != baseline.pattern_links:
+        return "paper RAG hit changed pattern links"
+    if result.findings != baseline.findings:
+        return "paper RAG hit changed synthesis findings"
+    if result.graph.model_statistics.get("paper_strategy_hints") != 1:
+        return "paper_strategy_hints statistic missing"
+    return None
+
+
 UNIT_CHECKS = {
     "contract_version_gate": unit_contract_version_gate,
     "planner_whitelist": unit_planner_whitelist,
     "schema_export_valid": unit_schema_export_valid,
+    "pattern_ablation_offline": unit_pattern_ablation_offline,
+    "paper_rag_graph_projection": unit_paper_rag_graph_projection,
 }
 
 
@@ -224,10 +323,23 @@ def check_assertion(assertion: dict, ctx: dict) -> str | None:
         needle = assertion["substring"].casefold()
         return None if any(needle in str(f.get("message", "")).casefold() for f in findings) else \
             f"no reviewer finding message contains {assertion['substring']!r}"
+    if kind == "finding_category":
+        findings = jsonl(run_dir / "reviewer_findings.jsonl")
+        category = assertion["category"]
+        return None if any(f.get("category") == category for f in findings) else \
+            f"reviewer finding category {category!r} was not observed"
     return f"unknown assertion type {kind}"
 
 
 # --------------------------------------------------------------------------- runner
+def public_path_label(path: Path) -> str:
+    """Keep benchmark reports portable and free of deployment-specific paths."""
+    try:
+        return path.resolve().relative_to(ROOT.resolve()).as_posix()
+    except ValueError:
+        return path.name
+
+
 def run_task(entry: dict, work: Path, cache_dir: Path | None = None) -> dict:
     started = time.perf_counter()
     results = []
@@ -242,7 +354,7 @@ def run_task(entry: dict, work: Path, cache_dir: Path | None = None) -> dict:
 
     engine = entry.get("runtime", "langgraph")
     registry_kind = entry.get("registry", "default")
-    task = TaskSpec(**entry["task"])
+    task = parse_task_spec(entry["task"])
     runtime = build_runtime(engine, registry_kind, work,
                             cache_dir=cache_dir if entry["mode"] == "live" else None)
     run_id = f"bm-{entry['id'].lower()}"
@@ -317,7 +429,7 @@ def main() -> int:
         bucket["assertions"] += len(report["results"])
         bucket["passed"] += sum(1 for a in report["results"] if a["passed"])
     summary = {
-        "goldset": str(args.goldset), "live": args.live,
+        "goldset": public_path_label(args.goldset), "live": args.live,
         "tasks": len(executed), "tasks_passed": sum(1 for r in executed if r["passed"]),
         "assertions": total, "assertions_passed": passed,
         "score": round(passed / total, 4) if total else None,

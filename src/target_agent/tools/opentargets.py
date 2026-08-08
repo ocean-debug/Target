@@ -10,8 +10,8 @@ from typing import Any
 import requests
 
 from ..contracts import (
-    ClaimClass, CoverageStatus, EvidenceContext, EvidenceItem, SourceLocator,
-    Stance, ToolCapability, ToolDescriptor, ToolResult, ToolStatus, new_id,
+    ClaimClass, CoverageStatus, EvidenceContext, EvidenceItem, GeneticEvidencePayload,
+    SourceLocator, Stance, ToolCapability, ToolDescriptor, ToolResult, ToolStatus, new_id,
 )
 from .base import ScientificTool, ToolContext, ToolExecution
 
@@ -44,10 +44,13 @@ query ResolveDisease($queryString: String!) {
 
 class OpenTargetsTool(ScientificTool):
     name = "open_targets"
-    version = "2.1.0"
+    version = "2.2.0"
     descriptor = ToolDescriptor(
-        tool_id=name, evidence_dimension="genetics",
-        description="Resolve diseases and retrieve Open Targets genetics, tractability, safety and known drugs.",
+        tool_id=name, evidence_dimension="multi_evidence",
+        description=(
+            "Resolve diseases and retrieve Open Targets aggregate associations, tractability, safety and known drugs; "
+            "aggregate scores are not locus-level genetic evidence."
+        ),
         input_types=["TaskSpec", "candidate_genes"], output_types=["EvidenceItem[]", "candidate_genes"],
         execution_policy="read_only_connector",
     )
@@ -216,27 +219,73 @@ class OpenTargetsTool(ScientificTool):
             if gene not in candidate_set:
                 continue
             datatype = {entry.get("id"): float(entry.get("score") or 0) for entry in row.get("datatypeScores") or []}
-            genetics = max(datatype.get("genetic_association", 0), datatype.get("somatic_mutation", 0))
+            genetic_association = datatype.get("genetic_association", 0)
+            somatic_mutation = datatype.get("somatic_mutation", 0)
             known_drugs = drugs_by_target.get(target.get("id"), [])
             profile = profiles_by_target.get(target.get("id"), {})
             normalized = {
                 "gene": gene, "target_id": target.get("id"), "association_score": float(row.get("score") or 0),
-                "genetic_score": genetics, "datatype_scores": datatype, "known_drugs": known_drugs,
+                "genetic_association_score": genetic_association,
+                "genetic_score": genetic_association,
+                "somatic_mutation_score": somatic_mutation,
+                "datatype_scores": datatype, "known_drugs": known_drugs,
                 "tractability": profile.get("tractability", []),
                 "safety_liabilities": profile.get("safety_liabilities", []),
             }
             associations.append(normalized)
-            if genetics > 0:
-                span = f"disease={resolved_disease_id}|target={target.get('id')}|genetic_association_score={genetics}"
+            if genetic_association > 0:
+                span = f"disease={resolved_disease_id}|target={target.get('id')}|genetic_association_score={genetic_association}"
                 evidence.append(EvidenceItem(
                     tool_run_id=run_id, gene_symbol=gene, claim_class=ClaimClass.FACT,
-                    statement=f"Open Targets reports a human-genetic association score of {genetics:.3g} for {gene} and {disease['name']}.",
+                    statement=f"Open Targets reports a human-genetic association score of {genetic_association:.3g} for {gene} and {disease['name']}.",
                     source=SourceLocator(uri=f"https://platform.opentargets.org/disease/{resolved_disease_id}/associations", source_id=resolved_disease_id, version="live-or-cache", section="associatedTargets", chunk_id=f"ot-genetics-{gene}"),
                     source_span=span,
                     context=EvidenceContext(organism="Homo sapiens", disease=disease["name"], assay="Open Targets evidence aggregation"),
-                    stance=Stance.SUPPORTS, effect={"genetic_score": genetics},
-                    uncertainty="This is a database evidence score, not a treatment success probability.",
-                    quality_flags=["database_aggregate_score"], context_match_score=0.9,
+                    stance=Stance.SUPPORTS,
+                    effect={"open_targets_genetic_association_score": genetic_association},
+                    uncertainty=(
+                        "This is an aggregate database evidence score, not locus-level fine-mapping or "
+                        "colocalization evidence and not a treatment success probability."
+                    ),
+                    quality_flags=["database_aggregate_score", "not_formal_human_genetics"],
+                    context_match_score=0.9,
+                    genetic_evidence=GeneticEvidencePayload(
+                        evidence_type="open_targets_genetic_association",
+                        analysis_level="database_aggregate",
+                        study_id=f"OpenTargets:{resolved_disease_id}",
+                        gene_symbol=gene,
+                        strength=genetic_association,
+                        formal_score_eligible=False,
+                        assumptions=["Underlying studies and loci are not independently audited in this aggregate."],
+                    ),
+                ))
+            if somatic_mutation > 0:
+                evidence.append(EvidenceItem(
+                    tool_run_id=run_id, gene_symbol=gene, claim_class=ClaimClass.FACT,
+                    statement=(
+                        f"Open Targets reports a somatic-mutation evidence score of "
+                        f"{somatic_mutation:.3g} for {gene} and {disease['name']}."
+                    ),
+                    source=SourceLocator(
+                        uri=f"https://platform.opentargets.org/disease/{resolved_disease_id}/associations",
+                        source_id=resolved_disease_id, version="live-or-cache",
+                        section="associatedTargets", chunk_id=f"ot-somatic-{gene}",
+                    ),
+                    source_span=(
+                        f"disease={resolved_disease_id}|target={target.get('id')}|"
+                        f"somatic_mutation_score={somatic_mutation}"
+                    ),
+                    context=EvidenceContext(
+                        organism="Homo sapiens", disease=disease["name"],
+                        assay="Open Targets evidence aggregation",
+                    ),
+                    stance=Stance.SUPPORTS, effect={"somatic_mutation_score": somatic_mutation},
+                    uncertainty=(
+                        "Somatic-mutation evidence is distinct from inherited human-genetic support and "
+                        "does not enter the strict human-genetics score."
+                    ),
+                    quality_flags=["database_aggregate_score", "somatic_not_germline_genetics"],
+                    context_match_score=0.9,
                 ))
             for drug in known_drugs[:5]:
                 span = f"target={target.get('id')}|drug={drug.get('drugId')}|clinical_stage={drug.get('phase')}|status={drug.get('status')}"
@@ -270,23 +319,44 @@ class OpenTargetsTool(ScientificTool):
                     uncertainty="A recorded liability is a risk signal; relevance depends on modality, exposure and tissue.",
                     quality_flags=["safety_blocker_retained"], context_match_score=0.8,
                 ))
+        aggregate_covered = bool(associations)
+        inherited_covered = any(row["genetic_association_score"] > 0 for row in associations)
         result = ToolResult(
             tool_run_id=run_id, tool_name=self.name, tool_version=self.version,
-            status=ToolStatus.SUCCESS, coverage_status=CoverageStatus.COVERED, context_match_score=0.9,
+            status=ToolStatus.SUCCESS if aggregate_covered else ToolStatus.PARTIAL,
+            coverage_status=CoverageStatus.COVERED if aggregate_covered else CoverageStatus.NOT_COVERED,
+            context_match_score=0.9 if aggregate_covered else 0.0,
             inputs={"disease_id": disease_id, "genes": context.candidate_genes},
-            outputs={"covered": True, "disease": {"id": disease["id"], "name": disease["name"]},
+            outputs={"covered": aggregate_covered,
+                     "aggregate_association_covered": aggregate_covered,
+                     "inherited_genetic_association_covered": inherited_covered,
+                     "locus_level_genetics_covered": False,
+                     "disease": {"id": disease["id"], "name": disease["name"]},
                      "requested_disease_id": disease_id, "resolved_disease_id": resolved_disease_id,
                      "associations": associations,
                      "top_genetic_candidates": [
-                         {"gene": row["gene"], "target_id": row["target_id"], "genetic_score": row["genetic_score"]}
-                         for row in sorted(associations, key=lambda row: row["genetic_score"], reverse=True)[:10]
-                     ]},
-            candidate_genes=[row["gene"] for row in sorted(associations, key=lambda row: row["genetic_score"], reverse=True)[:10]],
-            capability=capability, data_version="OpenTargets:live-or-cache", code_version="2.1.0",
+                         {"gene": row["gene"], "target_id": row["target_id"],
+                          "genetic_association_score": row["genetic_association_score"],
+                          "genetic_score": row["genetic_association_score"]}
+                         for row in sorted(
+                             associations, key=lambda row: row["genetic_association_score"], reverse=True,
+                         ) if row["genetic_association_score"] > 0
+                     ][:10]
+                     },
+            candidate_genes=[
+                row["gene"] for row in sorted(
+                    associations, key=lambda row: row["genetic_association_score"], reverse=True,
+                ) if row["genetic_association_score"] > 0
+            ][:10],
+            capability=capability, data_version="OpenTargets:live-or-cache", code_version="2.2.0",
             parameters={"graphql_endpoint": ENDPOINT}, evidence_ids=[item.evidence_id for item in evidence],
             warnings=([payload["clinical_warning"]] if payload.get("clinical_warning") else [])
-                     + ([] if associations else ["candidate_genes_not_in_top_100_associations"]),
-            limitations=["Only the first 100 disease associations and selected candidate target profiles are retrieved for the MVP."],
+                     + ([] if associations else ["candidate_genes_not_in_top_100_associations"])
+                     + ([] if inherited_covered else ["no_inherited_genetic_association_for_selected_targets"]),
+            limitations=[
+                "Only the first 100 disease associations and selected candidate target profiles are retrieved for the MVP.",
+                "Open Targets coverage is aggregate multi-evidence coverage, never locus-level genetics coverage.",
+            ],
             cached=cached, elapsed_ms=int((time.perf_counter() - started) * 1000),
         )
         return ToolExecution(result=result, evidence=evidence)
