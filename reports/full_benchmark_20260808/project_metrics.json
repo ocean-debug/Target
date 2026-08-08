@@ -1,0 +1,869 @@
+{
+  "alignment": {
+    "Heldout": {
+      "categories": {
+        "causal_overreach": 5,
+        "conflicting_evidence": 5,
+        "correct_refusal": 5,
+        "missing_context": 5,
+        "out_of_distribution": 5,
+        "tool_failure": 5
+      },
+      "risk": {
+        "high": 30
+      },
+      "rows": 30,
+      "splits": {
+        "heldout": 30
+      }
+    },
+    "Preference": {
+      "categories": {
+        "causal_overreach": 10,
+        "conflicting_evidence": 10,
+        "correct_refusal": 10,
+        "missing_context": 10,
+        "out_of_distribution": 10,
+        "tool_failure": 10
+      },
+      "risk": {
+        "high": 60
+      },
+      "rows": 60,
+      "splits": {
+        "train": 60
+      }
+    },
+    "SFT": {
+      "categories": {
+        "causal_overreach": 20,
+        "conflicting_evidence": 20,
+        "correct_refusal": 20,
+        "missing_context": 20,
+        "out_of_distribution": 20,
+        "tool_failure": 20
+      },
+      "risk": {
+        "high": 120
+      },
+      "rows": 120,
+      "splits": {
+        "train": 120
+      }
+    }
+  },
+  "archive": {
+    "artifact_presence": {
+      "ranked_targets.json": 72,
+      "report.md": 72,
+      "reviewer_findings.jsonl": 72,
+      "status.json": 72
+    },
+    "decisions": {
+      "CONDITIONAL_GO": 136,
+      "GO": 350,
+      "INSUFFICIENT_EVIDENCE": 234
+    },
+    "evidence_ids_per_target": {
+      "max": 19,
+      "mean": 4.765,
+      "median": 4.0
+    },
+    "ranked_targets_per_run": {
+      "10": 72
+    },
+    "reviewer_findings": {
+      "categories": {
+        "causal_overreach": 9,
+        "context_mismatch": 460,
+        "coverage_gap": 432,
+        "dataset_ineligibility": 502
+      },
+      "resolved": {
+        "False": 1403
+      },
+      "severity": {
+        "major": 797,
+        "minor": 606
+      },
+      "total": 1403
+    },
+    "score_dimensions": {
+      "disease_omics": {
+        "max": 0.0,
+        "mean": 0.0
+      },
+      "druggability": {
+        "max": 8.5,
+        "mean": 4.772
+      },
+      "human_genetics": {
+        "max": 21.927,
+        "mean": 18.373
+      },
+      "mechanism": {
+        "max": 4.0,
+        "mean": 2.278
+      },
+      "perturbation": {
+        "max": 0.0,
+        "mean": 0.0
+      },
+      "safety_translation": {
+        "max": 0.0,
+        "mean": 0.0
+      }
+    },
+    "target_cards": {
+      "5": 72
+    },
+    "terminal_status": {
+      "completed_with_gaps": 72
+    },
+    "tool_calls": {
+      "max": 12,
+      "mean": 12,
+      "min": 12
+    },
+    "top_ranked_genes": {
+      "APOE": 8,
+      "CDK4": 8,
+      "CTLA4": 12,
+      "CTRB2": 8,
+      "FBXO11": 8,
+      "GPR35": 8,
+      "IL10": 12,
+      "IL12B": 16,
+      "IL13": 8,
+      "IL23R": 16,
+      "IL7R": 8,
+      "IRF5": 8,
+      "MLH1": 8,
+      "MSH2": 8,
+      "MSH6": 8,
+      "SH2B3": 12,
+      "SUOX": 8,
+      "TNFAIP3": 8,
+      "TNFSF15": 8,
+      "TYK2": 16
+    }
+  },
+  "code": {
+    "largest_python_files": [
+      {
+        "nonblank_lines": 1695,
+        "path": "src/target_agent/tools/omics.py"
+      },
+      {
+        "nonblank_lines": 381,
+        "path": "src/target_agent/runtime_langgraph.py"
+      },
+      {
+        "nonblank_lines": 366,
+        "path": "src/target_agent/contracts.py"
+      },
+      {
+        "nonblank_lines": 348,
+        "path": "src/target_agent/tools/literature.py"
+      },
+      {
+        "nonblank_lines": 326,
+        "path": "src/target_agent/webapp.py"
+      },
+      {
+        "nonblank_lines": 321,
+        "path": "benchmark/runner.py"
+      },
+      {
+        "nonblank_lines": 284,
+        "path": "tests/test_v21_generalization.py"
+      },
+      {
+        "nonblank_lines": 277,
+        "path": "src/target_agent/tools/opentargets.py"
+      },
+      {
+        "nonblank_lines": 266,
+        "path": "src/target_agent/runtime.py"
+      },
+      {
+        "nonblank_lines": 202,
+        "path": "benchmark/generate_context_relation_goldset.py"
+      },
+      {
+        "nonblank_lines": 193,
+        "path": "src/target_agent/reviewer.py"
+      },
+      {
+        "nonblank_lines": 185,
+        "path": "src/target_agent/cli.py"
+      },
+      {
+        "nonblank_lines": 178,
+        "path": "src/target_agent/reviewer_lora.py"
+      },
+      {
+        "nonblank_lines": 171,
+        "path": "src/target_agent/tools/uc.py"
+      },
+      {
+        "nonblank_lines": 159,
+        "path": "src/target_agent/planner.py"
+      }
+    ],
+    "nonblank_lines_by_area": {
+      ".editorconfig": 12,
+      ".env.example": 19,
+      ".gitattributes": 9,
+      ".github": 124,
+      ".gitignore": 52,
+      "AGENTS.md": 22,
+      "CONTRIBUTING.md": 37,
+      "DECISION_LOG.md": 46,
+      "PROJECT_CHARTER.md": 28,
+      "README.md": 67,
+      "agents": 29,
+      "alignment_data": 296,
+      "benchmark": 4337,
+      "cases": 129,
+      "configs": 289,
+      "data": 123,
+      "docs": 211,
+      "models": 7,
+      "pyproject.toml": 52,
+      "schemas": 3551,
+      "scripts": 284,
+      "src": 6222,
+      "tests": 1285,
+      "training": 313,
+      "workflows": 35
+    },
+    "nonblank_lines_by_extension": {
+      ".R": 23,
+      ".css": 13,
+      ".example": 19,
+      ".html": 52,
+      ".js": 250,
+      ".json": 6855,
+      ".jsonl": 513,
+      ".md": 853,
+      ".py": 8320,
+      ".sh": 10,
+      ".toml": 52,
+      ".yaml": 445,
+      ".yml": 99,
+      "<none>": 75
+    },
+    "test_functions": 82,
+    "test_functions_by_file": {
+      "test_alignment.py": 1,
+      "test_benchmark.py": 2,
+      "test_benchmark_diseases.py": 8,
+      "test_context_relation_benchmark.py": 4,
+      "test_contracts.py": 6,
+      "test_data_expansion.py": 4,
+      "test_diseases.py": 9,
+      "test_eval_scoring.py": 4,
+      "test_review_and_web.py": 6,
+      "test_reviewer_lora_backend.py": 8,
+      "test_robustness_fixes.py": 3,
+      "test_runtime.py": 4,
+      "test_runtime_langgraph.py": 4,
+      "test_science_tools.py": 5,
+      "test_v21_generalization.py": 14
+    }
+  },
+  "derived_data": {
+    "candidate_perturbation_overlap": 5,
+    "mch": {
+      "graph": {
+        "programs": [
+          {
+            "id": "P1",
+            "label": "Mitochondrial translation"
+          },
+          {
+            "id": "P16",
+            "label": "p53 / cell-cycle arrest"
+          },
+          {
+            "id": "P9",
+            "label": "erythroid/haemoglobin program"
+          }
+        ],
+        "regulators": [
+          "HBA1",
+          "ABCB10",
+          "HSPA9",
+          "PIK3CD",
+          "CAD"
+        ]
+      },
+      "limitations": [
+        "K562 is a haematopoietic cancer cell line and is not a UC tissue model.",
+        "The 94/147 extension uses a different hit set from the paper's 43/59 result and is not a paper accuracy replication.",
+        "Results are valid only for the cached MCH configuration; other traits require complete re-analysis."
+      ],
+      "paper": {
+        "direction_prediction": {
+          "accuracy": 0.7288135593,
+          "correct": 43,
+          "total": 59
+        },
+        "fig3a": {
+          "beta": 0.052,
+          "p_value": 3e-07,
+          "target": "HBA1"
+        },
+        "method": "K562 Perturb-seq regulator-to-program effects integrated with rare-variant trait effects",
+        "title": "Causal modelling of gene effects from regulators to programs to traits",
+        "uri": "https://www.nature.com/articles/s41586-025-09866-3"
+      },
+      "project_replication": {
+        "direction_prediction": {
+          "accuracy": 0.6394557823,
+          "correct": 94,
+          "permutation_p": 0.00019998,
+          "total": 147
+        },
+        "fig3a": {
+          "beta": 0.0523924754,
+          "n_perturbed_genes": 9398,
+          "p_value": 3.3519566e-07,
+          "pearson_r": 0.0514371939
+        },
+        "robustness": {
+          "leave_one_out": "recorded in the reproduction workflow; must be recomputed for any changed input",
+          "permutation": {
+            "iterations": 10000,
+            "p_value": 0.00019998
+          },
+          "program_selection": "top programs retained from the migrated paper workflow"
+        },
+        "source_artifacts": [
+          "nature_framework/results/fig3a_summary.json",
+          "nature_framework/results/mch_sign_prediction.csv",
+          "nature_framework/results/mch_graph.json"
+        ]
+      },
+      "schema_version": "2.0.0",
+      "trait": "MCH"
+    },
+    "perturbation": {
+      "analysis": "target expression effect plus perturbation-footprint/disease-signature correlation",
+      "assay": "primary human T-cell CRISPRa Perturb-seq",
+      "datasets": [
+        "GSE190604",
+        "GSE125527"
+      ],
+      "limitations": [
+        "CRISPRa measures activation, not inhibition.",
+        "The disease-alignment statistic is an observational correlation across 71 measured targets.",
+        "Donors were pooled in the migrated perturbation summary."
+      ],
+      "n_screen_targets": 71,
+      "schema_version": "2.0.0",
+      "source_uris": [
+        "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE190604",
+        "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE125527"
+      ],
+      "targets": [
+        {
+          "activation_log2fc": 2.7517071,
+          "disease_alignment": 0.010637794,
+          "fdr": 1.1532512e-35,
+          "gene": "IL2",
+          "n_cells": 1156
+        },
+        {
+          "activation_log2fc": 3.0306547,
+          "disease_alignment": 0.046472515,
+          "fdr": 2.4498603e-243,
+          "gene": "TAGAP",
+          "n_cells": 1006
+        },
+        {
+          "activation_log2fc": 3.670917,
+          "disease_alignment": 0.092388425,
+          "fdr": 0.0,
+          "gene": "CD27",
+          "n_cells": 1455
+        },
+        {
+          "activation_log2fc": 2.3569258,
+          "disease_alignment": -0.071954177,
+          "fdr": 1.5165962e-11,
+          "gene": "FOSB",
+          "n_cells": 551
+        },
+        {
+          "activation_log2fc": 3.041317,
+          "disease_alignment": -0.075030781,
+          "fdr": 8.2961915e-96,
+          "gene": "GATA3",
+          "n_cells": 358
+        }
+      ]
+    },
+    "uc_candidates": {
+      "analysis": "edgeR TMM QLF donor pseudobulk",
+      "candidates": [
+        {
+          "cell_type": "T cell",
+          "disease_strength_0_60": 37.294,
+          "fdr": 0.0037052595,
+          "gene": "IL2",
+          "legacy_rank": 1,
+          "log2fc": -2.7608418,
+          "tissue": "rectum"
+        },
+        {
+          "cell_type": "B cell",
+          "disease_strength_0_60": 20.125,
+          "fdr": 0.0468507583,
+          "gene": "TAGAP",
+          "legacy_rank": 2,
+          "log2fc": 1.07580497,
+          "tissue": "rectum"
+        },
+        {
+          "cell_type": "T cell",
+          "disease_strength_0_60": 17.926,
+          "fdr": 0.0040598912,
+          "gene": "CD27",
+          "legacy_rank": 3,
+          "log2fc": 0.71674109,
+          "tissue": "rectum"
+        },
+        {
+          "cell_type": "T cell",
+          "disease_strength_0_60": 16.241,
+          "fdr": 0.0349849466,
+          "gene": "FOSB",
+          "legacy_rank": 4,
+          "log2fc": -0.791528,
+          "tissue": "rectum"
+        },
+        {
+          "cell_type": "T cell",
+          "disease_strength_0_60": 12.89,
+          "fdr": 0.0447528188,
+          "gene": "GATA3",
+          "legacy_rank": 5,
+          "log2fc": -0.5894664,
+          "tissue": "rectum"
+        },
+        {
+          "cell_type": "B cell",
+          "disease_strength_0_60": 38.837,
+          "fdr": 0.0009704641,
+          "gene": "PABPC4",
+          "legacy_rank": 6,
+          "log2fc": -1.9865173,
+          "tissue": "rectum"
+        },
+        {
+          "cell_type": "B cell",
+          "disease_strength_0_60": 37.288,
+          "fdr": 0.0037196775,
+          "gene": "MTRNR2L12",
+          "legacy_rank": 7,
+          "log2fc": -1.945941,
+          "tissue": "PBMC"
+        },
+        {
+          "cell_type": "T cell",
+          "disease_strength_0_60": 43.172,
+          "fdr": 4.06709e-05,
+          "gene": "GPR15",
+          "legacy_rank": 8,
+          "log2fc": -2.4749855,
+          "tissue": "rectum"
+        },
+        {
+          "cell_type": "T cell",
+          "disease_strength_0_60": 41.067,
+          "fdr": 0.0002047042,
+          "gene": "SPINK2",
+          "legacy_rank": 9,
+          "log2fc": -3.138055,
+          "tissue": "rectum"
+        },
+        {
+          "cell_type": "unknown",
+          "disease_strength_0_60": 39.964,
+          "fdr": 0.0004771931,
+          "gene": "TXNIP",
+          "legacy_rank": 10,
+          "log2fc": -2.1506638,
+          "tissue": "rectum"
+        },
+        {
+          "cell_type": "T cell",
+          "disease_strength_0_60": 46.588,
+          "fdr": 2.956e-06,
+          "gene": "NPDC1",
+          "legacy_rank": 11,
+          "log2fc": 3.0370651,
+          "tissue": "rectum"
+        },
+        {
+          "cell_type": "B cell",
+          "disease_strength_0_60": 38.412,
+          "fdr": 0.0015699676,
+          "gene": "IGHG1",
+          "legacy_rank": 12,
+          "log2fc": 3.6156307,
+          "tissue": "rectum"
+        },
+        {
+          "cell_type": "T cell",
+          "disease_strength_0_60": 37.943,
+          "fdr": 0.0015918297,
+          "gene": "PERP",
+          "legacy_rank": 13,
+          "log2fc": -1.2890029,
+          "tissue": "rectum"
+        },
+        {
+          "cell_type": "T cell",
+          "disease_strength_0_60": 37.83,
+          "fdr": 0.0004862649,
+          "gene": "ERN1",
+          "legacy_rank": 14,
+          "log2fc": -1.3335948,
+          "tissue": "rectum"
+        },
+        {
+          "cell_type": "T cell",
+          "disease_strength_0_60": 37.537,
+          "fdr": 0.0030734248,
+          "gene": "CD79B",
+          "legacy_rank": 15,
+          "log2fc": 0.9876635,
+          "tissue": "rectum"
+        },
+        {
+          "cell_type": "T cell",
+          "disease_strength_0_60": 37.537,
+          "fdr": 0.0030734248,
+          "gene": "CHI3L2",
+          "legacy_rank": 16,
+          "log2fc": 1.785335,
+          "tissue": "rectum"
+        },
+        {
+          "cell_type": "T cell",
+          "disease_strength_0_60": 36.368,
+          "fdr": 0.0075377678,
+          "gene": "IL7R",
+          "legacy_rank": 17,
+          "log2fc": -0.9301708,
+          "tissue": "rectum"
+        },
+        {
+          "cell_type": "B cell",
+          "disease_strength_0_60": 35.443,
+          "fdr": 0.0037196775,
+          "gene": "HOPX",
+          "legacy_rank": 18,
+          "log2fc": 1.8769827,
+          "tissue": "PBMC"
+        },
+        {
+          "cell_type": "B cell",
+          "disease_strength_0_60": 35.323,
+          "fdr": 0.0168131377,
+          "gene": "JCHAIN",
+          "legacy_rank": 19,
+          "log2fc": -2.9076606,
+          "tissue": "rectum"
+        },
+        {
+          "cell_type": "T cell",
+          "disease_strength_0_60": 34.957,
+          "fdr": 0.0157067282,
+          "gene": "F2R",
+          "legacy_rank": 20,
+          "log2fc": -0.8115422,
+          "tissue": "rectum"
+        }
+      ],
+      "dataset": "GSE125527",
+      "limitations": [
+        "Public UC cohort only; not a prospective validation cohort.",
+        "Differential expression is observational and is not causal evidence.",
+        "Models were not adjusted for additional donor covariates in the migrated analysis."
+      ],
+      "schema_version": "2.0.0",
+      "snapshot_date": "2026-08-03",
+      "source_uri": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE125527"
+    }
+  },
+  "disease_library": {
+    "categories": {
+      "autoimmune": 7,
+      "cancer": 4,
+      "metabolic": 2,
+      "neurodegenerative": 3,
+      "respiratory": 2
+    },
+    "cell_types": {
+      "B cell": 1,
+      "T cell": 1,
+      "airway epithelial cell": 2,
+      "beta cell": 2,
+      "dopaminergic neuron": 1,
+      "epithelial cell": 3,
+      "fibroblast": 1,
+      "hepatocyte": 1,
+      "keratinocyte": 1,
+      "macrophage": 1,
+      "melanocyte": 1,
+      "microglia": 1,
+      "motor neuron": 1,
+      "neuron": 1
+    },
+    "reference_evidence": {
+      "approved_drug": 42,
+      "clinical_trial": 6,
+      "gwas": 14,
+      "mechanistic": 1,
+      "mendelian": 10
+    },
+    "reference_genes": {
+      "ALK": 1,
+      "APC": 1,
+      "APOE": 1,
+      "APP": 1,
+      "BRAF": 2,
+      "BRCA1": 1,
+      "C9orf72": 1,
+      "CD20": 1,
+      "CHRM3": 1,
+      "CTLA4": 2,
+      "DPP4": 1,
+      "EGFR": 2,
+      "ERBB2": 1,
+      "ESR1": 1,
+      "FUS": 1,
+      "GBA": 1,
+      "GLP1R": 2,
+      "IFNAR1": 1,
+      "IL12B": 1,
+      "IL13": 1,
+      "IL17A": 1,
+      "IL23A": 1,
+      "IL23R": 2,
+      "IL2RA": 2,
+      "IL4R": 2,
+      "IL5": 2,
+      "IL6R": 1,
+      "INS": 1,
+      "IRF5": 1,
+      "ITGA4": 1,
+      "JAK1": 2,
+      "JAK3": 2,
+      "KRAS": 1,
+      "LRRK2": 1,
+      "MAP2K1": 1,
+      "NOD2": 1,
+      "NR1H4": 1,
+      "PDCD1": 1,
+      "PDE4": 1,
+      "PIK3CA": 1,
+      "PNPLA3": 1,
+      "PRKN": 1,
+      "PSEN1": 1,
+      "PTPN22": 2,
+      "ROS1": 1,
+      "S1PR1": 1,
+      "SLC5A2": 1,
+      "SNCA": 1,
+      "SOD1": 1,
+      "TARDBP": 1,
+      "TCF7L2": 1,
+      "THRB": 1,
+      "TNF": 4,
+      "TNFSF13B": 1,
+      "TREM2": 1,
+      "TSLP": 1,
+      "TYK2": 2,
+      "VEGFA": 1
+    },
+    "tissues": {
+      "blood": 1,
+      "brain": 2,
+      "breast": 1,
+      "colon": 1,
+      "ileum": 1,
+      "liver": 1,
+      "lung": 3,
+      "pancreatic islet": 2,
+      "rectum": 1,
+      "skin": 2,
+      "spinal cord": 1,
+      "substantia nigra": 1,
+      "synovium": 1
+    }
+  },
+  "inventory": {
+    "alignment_rows": 210,
+    "archived_runs": 72,
+    "diseases": 18,
+    "enabled_tools": 13,
+    "reference_targets": 73,
+    "required_tools": 11,
+    "schemas": 17,
+    "tools": 16,
+    "workflow_states": 9
+  },
+  "schemas": [
+    {
+      "name": "analysis_recipe",
+      "properties": 14,
+      "required": 6
+    },
+    {
+      "name": "case_record",
+      "properties": 13,
+      "required": 8
+    },
+    {
+      "name": "causal_graph",
+      "properties": 9,
+      "required": 4
+    },
+    {
+      "name": "claim",
+      "properties": 6,
+      "required": 3
+    },
+    {
+      "name": "context_relation_case",
+      "properties": 8,
+      "required": 7
+    },
+    {
+      "name": "dataset_candidate",
+      "properties": 20,
+      "required": 4
+    },
+    {
+      "name": "dataset_selection_constraint",
+      "properties": 11,
+      "required": 0
+    },
+    {
+      "name": "evidence_item",
+      "properties": 15,
+      "required": 8
+    },
+    {
+      "name": "execution_plan",
+      "properties": 7,
+      "required": 3
+    },
+    {
+      "name": "experiment_plan",
+      "properties": 12,
+      "required": 11
+    },
+    {
+      "name": "omics_result",
+      "properties": 11,
+      "required": 4
+    },
+    {
+      "name": "reviewer_finding",
+      "properties": 8,
+      "required": 4
+    },
+    {
+      "name": "target_card",
+      "properties": 14,
+      "required": 6
+    },
+    {
+      "name": "task_spec",
+      "properties": 10,
+      "required": 3
+    },
+    {
+      "name": "tool_descriptor",
+      "properties": 10,
+      "required": 3
+    },
+    {
+      "name": "tool_result",
+      "properties": 22,
+      "required": 6
+    },
+    {
+      "name": "trace_event",
+      "properties": 9,
+      "required": 4
+    }
+  ],
+  "scope_note": "Archive matrix is a stored fake/unit replay. All 72 runs ended completed_with_gaps; it is not a live biological validation cohort.",
+  "tools": {
+    "disabled": [
+      "uc_omics_snapshot",
+      "observed_tcell_perturbation",
+      "deltafactor"
+    ],
+    "enabled": [
+      "disease_resolver",
+      "geo_search",
+      "geo_metadata_audit",
+      "omics_recipe_builder",
+      "bulk_expression_analysis",
+      "cellxgene_discovery",
+      "single_cell_analysis",
+      "pathway_enrichment",
+      "omics_candidate_extraction",
+      "open_targets",
+      "europe_pmc_rag",
+      "clinical_trials_gov",
+      "mch_causal_gold"
+    ]
+  },
+  "workflow": {
+    "limits": {
+      "initial_candidates": 20,
+      "review_rounds": 2,
+      "tool_calls": 30
+    },
+    "required_tools": [
+      "disease_resolver",
+      "geo_search",
+      "geo_metadata_audit",
+      "omics_recipe_builder",
+      "bulk_expression_analysis",
+      "cellxgene_discovery",
+      "single_cell_analysis",
+      "pathway_enrichment",
+      "omics_candidate_extraction",
+      "open_targets",
+      "europe_pmc_rag"
+    ],
+    "states": [
+      "Intake",
+      "Planner",
+      "Router",
+      "ToolExecution",
+      "EvidenceStore",
+      "Reviewer",
+      "Ranking",
+      "TargetCard",
+      "Report"
+    ],
+    "terminal_states": [
+      "completed",
+      "completed_with_gaps",
+      "needs_input",
+      "refused",
+      "failed"
+    ]
+  }
+}

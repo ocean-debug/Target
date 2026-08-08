@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ocean-debug/Target/schemas/context_relation_case.schema.json",
+  "title": "ContextRelationCase",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "split", "task_family", "relation_type", "query", "gold", "provenance"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^CR-[A-F0-9]{12}$"},
+    "split": {"enum": ["train", "validation", "test"]},
+    "task_family": {"enum": ["disease_target_anchor", "contextualized_target"]},
+    "relation_type": {"enum": ["disease_target", "disease_target_tissue_cell_stage"]},
+    "query": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["disease", "disease_id", "target", "context"],
+      "properties": {
+        "disease": {"type": "string", "minLength": 1},
+        "disease_id": {"type": "string", "pattern": "^(MONDO|EFO):[0-9]{7}$"},
+        "target": {"type": "string", "minLength": 1},
+        "context": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["organism", "tissue", "cell_type", "disease_stage", "desired_phenotype"],
+          "properties": {
+            "organism": {"type": "string", "minLength": 1},
+            "tissue": {"type": ["string", "null"]},
+            "cell_type": {"type": ["string", "null"]},
+            "disease_stage": {"type": ["string", "null"]},
+            "desired_phenotype": {"type": ["string", "null"]}
+          }
+        }
+      }
+    },
+    "perturbation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "changed_fields", "donor_disease_id", "interpretation"],
+      "properties": {
+        "kind": {"enum": ["complete", "missing_cell_type", "tissue_swap", "stage_swap"]},
+        "changed_fields": {"type": "array", "items": {"enum": ["cell_type", "tissue", "disease_stage"]}},
+        "donor_disease_id": {"type": ["string", "null"]},
+        "interpretation": {"type": "string", "minLength": 1}
+      }
+    },
+    "gold": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "evidence_level", "required_actions", "forbidden_claims", "claim_boundary"],
+      "properties": {
+        "label": {"enum": ["supported_anchor", "context_complete", "insufficient_context", "context_mismatch"]},
+        "evidence_level": {"enum": ["approved_drug", "gwas", "mendelian", "clinical_trial", "mechanistic"]},
+        "required_actions": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
+        "forbidden_claims": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
+        "claim_boundary": {"type": "string", "minLength": 1}
+      }
+    },
+    "provenance": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source_type", "source_uri", "locator", "curation_scope"],
+        "properties": {
+          "source_type": {"const": "curated_repository_config"},
+          "source_uri": {"const": "configs/disease_library.yaml"},
+          "locator": {"type": "string", "minLength": 1},
+          "curation_scope": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"task_family": {"const": "contextualized_target"}}},
+      "then": {"required": ["perturbation"]}
+    }
+  ]
+}

@@ -1,0 +1,567 @@
+{
+  "by_family": {
+    "contextualized_target": {
+      "coverage": 1.0,
+      "forbidden_claims": 1.0,
+      "label": 0.25,
+      "required_actions": 0.25
+    },
+    "disease_target_anchor": {
+      "coverage": 1.0,
+      "forbidden_claims": 1.0,
+      "label": 1.0,
+      "required_actions": 1.0
+    }
+  },
+  "duplicate_prediction_ids": 0,
+  "failures": [
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-02B75CEB28D4",
+      "split": "train"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-0749DB9A0D2F",
+      "split": "train"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-09E141C8DF9F",
+      "split": "train"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-0F2C2FBE0D9B",
+      "split": "validation"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-100F7C7B278B",
+      "split": "validation"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-164248FF5B96",
+      "split": "validation"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-1DC9964F8523",
+      "split": "train"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-23748068AB46",
+      "split": "validation"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-27B20641B915",
+      "split": "train"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-28F249A0FD86",
+      "split": "train"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-2A66F1CE8F44",
+      "split": "train"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-2BBB3976C3B7",
+      "split": "train"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-2F96C999A4A5",
+      "split": "train"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-30F6F5516A56",
+      "split": "validation"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-326CA5C4A9CE",
+      "split": "validation"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-3414C1011E4E",
+      "split": "validation"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-360066A64B02",
+      "split": "test"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-3B7EDB529D01",
+      "split": "validation"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-3D34670D680D",
+      "split": "train"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-44C5C0D84276",
+      "split": "train"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-48612D4E2D8B",
+      "split": "validation"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-51BA5D7B3E3A",
+      "split": "train"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-577221A56245",
+      "split": "train"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-599C0C13EF8A",
+      "split": "train"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-7BB484B75B60",
+      "split": "train"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-83E5532A6DF0",
+      "split": "validation"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-84FA11768E16",
+      "split": "train"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-87EBFE6FE7CA",
+      "split": "test"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-8B3D382B5429",
+      "split": "train"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-8C6A000CC16D",
+      "split": "train"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-8CE786775B5B",
+      "split": "train"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-8F552F9ACD83",
+      "split": "train"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-904474694506",
+      "split": "train"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-9745A7BB2147",
+      "split": "test"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-997182DD80CB",
+      "split": "test"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-9992CF292CA3",
+      "split": "test"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-9B56D7557BBF",
+      "split": "train"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-9F635AEA1A54",
+      "split": "train"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-A24EA5D63B08",
+      "split": "test"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-A2EB078BB901",
+      "split": "train"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-A86C1DA9591A",
+      "split": "validation"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-BD4DDFB3393E",
+      "split": "train"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-C0BE69F52323",
+      "split": "test"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-C23ECFA74D35",
+      "split": "test"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-CEC05782F913",
+      "split": "train"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-D392CDF0F7DA",
+      "split": "validation"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-D45FB32C31C5",
+      "split": "train"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-DEC0B78BE6C7",
+      "split": "test"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-E418A69DF218",
+      "split": "train"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-E5725DB00E6A",
+      "split": "test"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-E623C7296D4F",
+      "split": "train"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-EC750875EED7",
+      "split": "train"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-F6C3C6719277",
+      "split": "test"
+    },
+    {
+      "checks": {
+        "coverage": true,
+        "forbidden_claims": true,
+        "label": false,
+        "required_actions": false
+      },
+      "id": "CR-F6D79915F161",
+      "split": "test"
+    }
+  ],
+  "gold_cases": 145,
+  "metrics": {
+    "coverage": 1.0,
+    "forbidden_claims": 1.0,
+    "label": 0.6275862068965518,
+    "required_actions": 0.6275862068965518
+  },
+  "prediction_rows": 145
+}

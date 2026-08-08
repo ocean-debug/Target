@@ -1,0 +1,26 @@
+{
+  "by_family": {
+    "contextualized_target": {
+      "coverage": 1.0,
+      "forbidden_claims": 1.0,
+      "label": 1.0,
+      "required_actions": 1.0
+    },
+    "disease_target_anchor": {
+      "coverage": 1.0,
+      "forbidden_claims": 1.0,
+      "label": 1.0,
+      "required_actions": 1.0
+    }
+  },
+  "duplicate_prediction_ids": 0,
+  "failures": [],
+  "gold_cases": 145,
+  "metrics": {
+    "coverage": 1.0,
+    "forbidden_claims": 1.0,
+    "label": 1.0,
+    "required_actions": 1.0
+  },
+  "prediction_rows": 145
+}
