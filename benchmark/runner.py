@@ -182,7 +182,7 @@ def unit_paper_rag_graph_projection() -> str | None:
     )
     task = TaskSpec(
         task_type="disease_to_target",
-        question="q",
+        question="test question",
         context=TaskContext(disease="test disease", tissue="lung", cell_type="T cell"),
     )
     result = synthesize_evidence_graph(
