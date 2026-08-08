@@ -204,20 +204,22 @@ coverage and source IDs are visible while candidates, evidence text and ranking 
 checksum-bound scientific artifacts. `checkpointed` projects require plan and release acceptance;
 `supervised` projects additionally require each work-item acceptance.
 
-The optional stdio MCP server exposes the same durable project service to Codex, SciForge,
-OpenScience, Wisp and other MCP hosts:
+The optional MCP server exposes the same durable project service to Codex, SciForge,
+OpenScience, Wisp and other MCP hosts over stdio or the official Streamable HTTP transport:
 
 ```bash
-target-agent mcp-serve
-# equivalent dedicated entry point:
+target-agent mcp-serve                                  # stdio (default)
+target-agent mcp-serve --transport streamable-http --host 127.0.0.1 --port 8000 --path /mcp
+# equivalent dedicated entry points:
 target-agent-mcp
+target-agent-mcp --transport streamable-http --port 8000
 ```
 
 It provides typed operations to create a disease project, advance it to the next checkpoint,
 inspect state/events/domain activities and repair records, approve or reject one exact repair snapshot,
 accept a frozen checkpoint and read checksum-verified text artifacts.
-It does not expose arbitrary shell or model-generated code execution. Streamable HTTP MCP,
-remote registry publication and host-specific installation bundles remain future integration work.
+It does not expose arbitrary shell or model-generated code execution. Remote registry
+publication and host-specific installation bundles remain future integration work.
 
 ## Demo workbench
 

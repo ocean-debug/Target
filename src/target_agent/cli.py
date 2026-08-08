@@ -347,10 +347,15 @@ def main() -> None:
     inspect_cmd = sub.add_parser("project-package-inspect", help="Show package metadata without importing")
     inspect_cmd.add_argument("--input", type=Path, required=True)
 
-    sub.add_parser(
+    mcp_serve = sub.add_parser(
         "mcp-serve",
-        help="Expose durable Target project operations through the official stdio MCP transport",
+        help="Expose durable Target project operations through MCP (stdio or streamable HTTP)",
     )
+    mcp_serve.add_argument("--transport", choices=["stdio", "streamable-http"], default="stdio",
+                           dest="mcp_transport")
+    mcp_serve.add_argument("--host", default="127.0.0.1", dest="mcp_host")
+    mcp_serve.add_argument("--port", type=int, default=8000, dest="mcp_port")
+    mcp_serve.add_argument("--path", default="/mcp", dest="mcp_path")
 
     args = parser.parse_args()
     settings = load_settings(args.env_file)
@@ -904,9 +909,15 @@ def main() -> None:
         print(json.dumps(inspect_package(args.input), indent=2, ensure_ascii=False))
     elif args.command == "mcp-serve":
         try:
-            from .mcp_server import create_mcp_server
+            from .mcp_server import _serve, create_mcp_server
 
-            create_mcp_server(runtime=ResearchProjectRuntime(settings=settings)).run(transport="stdio")
+            _serve(
+                create_mcp_server(runtime=ResearchProjectRuntime(settings=settings)),
+                transport=args.mcp_transport,
+                host=args.mcp_host,
+                port=args.mcp_port,
+                path=args.mcp_path,
+            )
         except RuntimeError as exc:
             raise SystemExit(str(exc)) from exc
 

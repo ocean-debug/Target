@@ -283,3 +283,14 @@ typed transient failure
 - 可选模块（如 disease_to_target 模板中的 literature_search / hypothesis_generation）只允许 LLM 在模板内增加，确定性回退不执行它们。
 - 模板是产品契约；新增工作流 = 模板 YAML + 已注册模块，不需要改 Planner/Runtime 主链。
 - 对齐数据生成与 Planner/Reviewer 小模型训练（P3）仍按团队决定最后阶段执行。
+
+## 12. Streamable HTTP MCP（P2.11，2026-08-08）
+
+### 12.1 已完成
+- `target-agent-mcp` 与 `target-agent mcp-serve` 支持 `--transport stdio|streamable-http`、`--host/--port/--path`；同一 `ResearchProjectService` 薄适配器无第二套逻辑。
+- `mcp_server._serve()` 统一路由两种传输，新增 `tests/test_mcp_http.py` 覆盖参数路由与 server 可运行性。
+- README 与产品重构文档同步更新；HTTP MCP 让 Target 可嵌入 OpenScience/Wisp/SciForge 等宿主工作台。
+
+### 12.2 边界
+- HTTP MCP 仍是本地/可信网络绑定（默认 127.0.0.1）；认证与多租户属于后续平台化增量。
+- 不暴露任意 shell/模型生成代码执行，工具面与 stdio 完全一致。

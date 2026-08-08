@@ -42,10 +42,15 @@
 - 产品面：`target-agent workflows list|show`、`init --workflow`、Web `GET /api/workflows`、工作台“研究工作流”下拉框（Web 端创建项目时绑定模板与摘要）。
 - 测试：`tests/test_workflow_catalog.py` 覆盖模板契约、DAG、allowlist、planner 模板路径、运行时 fail-closed、服务构建器与摘要绑定。
 
+### P2.11 Streamable HTTP MCP（已完成，2026-08-08）
+
+- `target-agent-mcp --transport streamable-http --host/--port/--path` 与 `target-agent mcp-serve --transport ...`：同一薄适配器同时支持 stdio 与官方 Streamable HTTP 传输，服务面不变（create/run/inspect/approve/repair/fork/artifact）。
+- 新增 `_serve()` 帮助函数与 `tests/test_mcp_http.py`（stdio 与 streamable-http 参数路由、server 可运行性）。
+- 意义：Target 现在可作为 HTTP MCP 服务嵌入 OpenScience/Wisp/SciForge 等科研工作台，不需要宿主理解内部存储。
+
 ## 4. 下一步增量（按价值排序）
 
 1. **研究会话层（聊天式工作台）**：把项目控制台升级为可对话工作区——用户随时提问、要求解释中间证据、在 checkpoint 用自然语言批准/拒绝/补充输入；会话是视图，项目账本仍是系统真相。
-2. **Streamable HTTP MCP**：从 stdio 升级到 HTTP + 连接器 SDK，让 Target 能嵌入现有科研工作台（OpenScience/Wisp 式生态）。
 3. **部署与密钥管理**：Docker/单命令启动、OS keyring 密钥（Wisp 式）、只读分享包（OpenAI4S 式）。
 4. **多用户与配额**：认证、多租户、资源配额（P2 平台化，仅在真实多用户部署需要时做）。
 5. **对齐数据（P3，最后）**：以已评审 CaseRecord 与论文策略模式为来源生成 Planner SFT / Reviewer 偏好对，训练 Reviewer/Planner 小模型并做 blind benchmark 消融。

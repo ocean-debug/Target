@@ -228,12 +228,42 @@ def create_mcp_server(
     return server
 
 
-def main() -> None:
-    """Run Target as a local stdio MCP server."""
-    create_mcp_server().run(transport="stdio")
+def _serve(server: Any, *, transport: str, host: str, port: int, path: str) -> None:
+    """Run an MCP server over stdio or the official Streamable HTTP transport."""
+    if transport == "stdio":
+        server.run(transport="stdio")
+    else:
+        server.run(
+            transport="streamable-http",
+            host=host,
+            port=port,
+            streamable_http_path=path,
+        )
 
 
-__all__ = ["create_mcp_server", "main"]
+def main(argv: list[str] | None = None) -> None:
+    """Run Target as a local MCP server (stdio or streamable HTTP)."""
+    import argparse
+
+    parser = argparse.ArgumentParser(prog="target-agent-mcp")
+    parser.add_argument(
+        "--transport", choices=["stdio", "streamable-http"], default="stdio",
+        help="MCP transport; streamable-http exposes the same product operations over HTTP",
+    )
+    parser.add_argument("--host", default="127.0.0.1", help="Bind host for streamable-http")
+    parser.add_argument("--port", type=int, default=8000, help="Bind port for streamable-http")
+    parser.add_argument("--path", default="/mcp", help="Streamable HTTP endpoint path")
+    args = parser.parse_args(argv)
+    _serve(
+        create_mcp_server(),
+        transport=args.transport,
+        host=args.host,
+        port=args.port,
+        path=args.path,
+    )
+
+
+__all__ = ["_serve", "create_mcp_server", "main"]
 
 
 if __name__ == "__main__":  # pragma: no cover
