@@ -69,3 +69,27 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .kernel-code-label{display:grid;gap:6px;font-size:12px;color:var(--muted)}
 .kernel-code-label textarea{background:#08141f;border:1px solid var(--line);border-radius:10px;padding:10px;color:#d5e5f7;font:12px/1.5 Consolas,"Courier New",monospace;resize:vertical}
 .kernel-output{white-space:pre-wrap;word-break:break-word;background:#08141f;border:1px solid var(--line);border-radius:10px;padding:12px;font:12px/1.55 Consolas,"Courier New",monospace;color:#d5e5f7;min-height:120px;max-height:320px;overflow:auto;margin:0}
+
+/* research session panel */
+.session-layout{display:grid;grid-template-columns:250px 1fr;gap:16px}
+.session-side{display:flex;flex-direction:column;gap:8px;min-height:280px}
+.session-list{display:flex;flex-direction:column;gap:6px;overflow:auto;max-height:430px;padding-right:4px}
+.session-card{display:block;width:100%;text-align:left;padding:11px 13px;border:1px solid var(--line);border-radius:12px;background:#0b1d30;color:var(--text);cursor:pointer}
+.session-card.active{border-color:var(--cyan);background:#10263b}
+.session-card b,.session-card small{display:block}
+.session-card small{color:var(--muted);font-size:10px;margin-top:3px}
+.session-main{display:flex;flex-direction:column;gap:10px;min-height:320px}
+.session-messages{display:flex;flex-direction:column;gap:8px;overflow:auto;max-height:430px;padding:12px;border:1px solid var(--line);border-radius:14px;background:#0a1a2b}
+.msg{max-width:84%;padding:10px 13px;border-radius:13px;border:1px solid var(--line);background:#0b1d30}
+.msg.user{align-self:flex-end;background:linear-gradient(135deg,rgba(54,127,240,.28),rgba(54,185,177,.18));border-color:#2d5f8f}
+.msg.assistant{align-self:flex-start}
+.msg.system{align-self:flex-start;opacity:.85;font-size:13px;background:#10263b}
+.msg-head{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:3px}
+.msg-head small{margin-left:8px;color:var(--cyan);text-transform:none}
+.msg-text{white-space:pre-wrap;word-break:break-word}
+.session-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;min-height:34px}
+.session-actions button{font-size:12px;padding:7px 12px;border-radius:8px;cursor:pointer}
+.session-input-row{display:flex;gap:10px;align-items:flex-end}
+.session-input-row textarea{flex:1;resize:vertical;border:1px solid var(--line);border-radius:10px;background:#071523;color:var(--text);padding:10px}
+.session-buttons{display:flex;flex-direction:column;gap:6px}
+.session-buttons button{white-space:nowrap}

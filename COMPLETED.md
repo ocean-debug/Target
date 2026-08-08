@@ -303,7 +303,9 @@ typed transient failure
 - Web API：`POST/GET /api/projects/<id>/sessions`、`GET /api/projects/<id>/sessions/<id>`、`POST /api/projects/<id>/sessions/<id>/messages`；项目不存在返回 404，空文本/非法 ID 返回 400。
 - 测试：`tests/test_research_session.py` 覆盖账本往返、篡改检测、服务层错误路径、确定性摘要与 Web 四端点；远程全套 401 passed / 0 failed / 2 skipped。
 
+- 会话式干预（P2.13）：`POST /api/projects/<id>/sessions/<session_id>/interventions` 用显式、确定性的动作路由（`accept_checkpoint` / `decide_repair` / `decide_fork`）执行审批，自然语言只作为 rationale 写入决策；决策仍由 ResearchProjectService 写入项目账本，会话仅追加记录用户指令与结果视图；批准类动作自动排队恢复执行。
+- Web 工作台新增“研究会话”面板：选择项目自动创建会话、消息气泡展示、发送/询问 Agent、按 next_actions 一键“批准/拒绝检查点、修复、回退”并记录到会话；前端资产测试同步扩展。
 ### 13.2 边界
 - 会话是“视图”，计划、结果、证据、决策与发布仍以项目账本为唯一真相；Agent 回答永不写入科学状态。
-- 对话式干预（自然语言批准/拒绝/补充输入）尚未接入 checkpoint 流程，仍通过现有 decisions/repairs API 操作。
-- 前端工作台会话面板与 MCP 会话工具属于下一增量。
+- 自然语言批准/拒绝已通过干预端点接入 checkpoint 流程；会话内“补充输入”（为检查点补字段后继续）尚未接入，仍通过现有 decisions/repairs/fork API 操作。
+- “补充输入”（会话内为检查点补字段后继续）与 MCP 会话工具属于下一增量。

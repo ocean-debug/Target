@@ -132,3 +132,178 @@ def test_session_web_endpoints_create_read_and_post(tmp_path):
         json={"text": "  "},
     )
     assert empty.status_code == 400
+
+def test_session_intervention_forwards_accept_checkpoint_and_records_ledger(tmp_path, monkeypatch):
+    runtime, project = _completed_runtime(tmp_path)
+    service = ResearchSessionService(runtime)
+    session_id = service.create(project.project_id, title="干预")["session"]["session_id"]
+
+    captured = {}
+
+    def fake_accept(*, project_id, target_id, actor, rationale, resume=False):
+        captured.update(project_id=project_id, target_id=target_id, actor=actor, rationale=rationale)
+        return {
+            "decision": {
+                "decision_id": "decision-abcdefabcdef",
+                "action": "accept",
+                "target_ids": [target_id],
+            },
+            "project": {},
+        }
+
+    monkeypatch.setattr(service.projects_service, "accept_checkpoint", fake_accept)
+    result = service.intervene(
+        project.project_id,
+        session_id,
+        action="accept_checkpoint",
+        rationale="证据充分，批准继续",
+        actor="reviewer",
+        target_id="plan-xyz",
+    )
+    assert captured == {
+        "project_id": project.project_id,
+        "target_id": "plan-xyz",
+        "actor": "reviewer",
+        "rationale": "证据充分，批准继续",
+    }
+    assert result["decision"]["decision_id"] == "decision-abcdefabcdef"
+    assert [m["kind"] for m in result["messages"]] == ["intervention", "intervention_result"]
+    assert result["messages"][1]["role"] == "system"
+    assert result["messages"][1]["references"] == [
+        f"project:{project.project_id}",
+        "decision:decision-abcdefabcdef",
+    ]
+    assert "批准" in result["messages"][1]["text"]
+    assert len(service.messages(project.project_id, session_id)["messages"]) == 2
+
+
+def test_session_intervention_forwards_repair_rejection(tmp_path, monkeypatch):
+    runtime, project = _completed_runtime(tmp_path)
+    service = ResearchSessionService(runtime)
+    session_id = service.create(project.project_id, title="修复拒绝")["session"]["session_id"]
+
+    captured = {}
+
+    def fake_decide_repair(*, project_id, repair_request_id, trigger_snapshot_digest, approve, actor, rationale, resume=False):
+        captured.update(
+            project_id=project_id,
+            repair_request_id=repair_request_id,
+            trigger_snapshot_digest=trigger_snapshot_digest,
+            approve=approve,
+            actor=actor,
+            rationale=rationale,
+        )
+        return {
+            "decision": {
+                "decision_id": "decision-repair-deadbeef",
+                "action": "reject",
+                "target_ids": [repair_request_id],
+            },
+            "project": {},
+        }
+
+    monkeypatch.setattr(service.projects_service, "decide_repair", fake_decide_repair)
+    result = service.intervene(
+        project.project_id,
+        session_id,
+        action="decide_repair",
+        rationale="设计有误，拒绝该修复",
+        actor="reviewer",
+        target_id="repair-abcdefabcdef123456789012",
+        approve=False,
+        snapshot_digest="a" * 64,
+    )
+    assert captured["approve"] is False
+    assert captured["trigger_snapshot_digest"] == "a" * 64
+    assert "拒绝" in result["messages"][1]["text"]
+
+
+def test_session_intervention_rejects_unsupported_or_incomplete_actions(tmp_path):
+    runtime, project = _completed_runtime(tmp_path)
+    service = ResearchSessionService(runtime)
+    session_id = service.create(project.project_id, title="错误路径")["session"]["session_id"]
+
+    with pytest.raises(ValueError, match="unsupported"):
+        service.intervene(project.project_id, session_id, action="run_arbitrary_code", rationale="x")
+    with pytest.raises(ValueError, match="target_id"):
+        service.intervene(project.project_id, session_id, action="accept_checkpoint", rationale="x")
+    with pytest.raises(ValueError, match="snapshot_digest"):
+        service.intervene(
+            project.project_id,
+            session_id,
+            action="decide_repair",
+            rationale="x",
+            target_id="repair-abcdefabcdef123456789012",
+            approve=True,
+        )
+    assert service.messages(project.project_id, session_id)["messages"] == []
+
+
+def test_session_intervention_web_endpoint_queues_resume(tmp_path, monkeypatch):
+    from target_agent.research_session import ResearchSessionService
+
+    research_runtime, _ = fake_research_runtime(tmp_path)
+    client = create_app(
+        fake_target_runtime(tmp_path),
+        research_runtime=research_runtime,
+    ).test_client()
+    project = research_project("project-session-web")
+    assert client.post("/api/projects", json=project.model_dump(mode="json")).status_code == 202
+    _wait_for_project(client, project.project_id)
+    session_id = client.post(
+        f"/api/projects/{project.project_id}/sessions", json={"title": "干预"}
+    ).get_json()["session"]["session_id"]
+
+    calls = {}
+
+    def fake_intervene(self, project_id, session_id, *, action, rationale, actor, target_id, approve, snapshot_digest):
+        calls.update(
+            project_id=project_id,
+            session_id=session_id,
+            action=action,
+            rationale=rationale,
+            target_id=target_id,
+        )
+        return {
+            "project_id": project_id,
+            "session_id": session_id,
+            "messages": [
+                {
+                    "message_id": "msg-user",
+                    "role": "user",
+                    "kind": "intervention",
+                    "text": rationale,
+                    "source_bound": False,
+                },
+                {
+                    "message_id": "msg-result",
+                    "role": "system",
+                    "kind": "intervention_result",
+                    "text": "已记录决策",
+                    "references": [f"decision:{'decision-abcdefabcdef'}"],
+                    "source_bound": False,
+                },
+            ],
+            "decision": {
+                "decision_id": "decision-abcdefabcdef",
+                "action": "accept",
+                "target_ids": [target_id],
+            },
+        }
+
+    monkeypatch.setattr(ResearchSessionService, "intervene", fake_intervene)
+    response = client.post(
+        f"/api/projects/{project.project_id}/sessions/{session_id}/interventions",
+        json={
+            "action": "accept_checkpoint",
+            "rationale": "会话中批准",
+            "actor": "reviewer",
+            "target_id": "plan-xyz",
+        },
+    )
+    assert response.status_code == 202
+    payload = response.get_json()
+    assert payload["decision_persisted"] is True
+    assert payload["resume_queued"] is True
+    assert calls["action"] == "accept_checkpoint"
+    assert payload["status_url"] == f"/api/projects/{project.project_id}"

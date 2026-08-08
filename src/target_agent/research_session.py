@@ -29,7 +29,7 @@ class SessionMessage(ResearchContract):
     role: str = Field(pattern="^(user|assistant|system)$")
     text: str = Field(min_length=1, max_length=20000)
     created_at: str = Field(default_factory=utc_now)
-    kind: str = Field(default="plain", pattern="^(plain|question|answer|action_suggestion)$")
+    kind: str = Field(default="plain", pattern="^(plain|question|answer|action_suggestion|intervention|intervention_result)$")
     source_bound: bool = False
     references: list[str] = Field(default_factory=list)
     content_sha256: str = Field(default="")
@@ -205,6 +205,116 @@ class ResearchSessionService:
             messages.append(self.answer(project_id, session_id, actor=actor))
         return {"project_id": project_id, "session_id": session_id, "messages": messages}
 
+
+    def intervene(
+        self,
+        project_id: str,
+        session_id: str,
+        *,
+        action: str,
+        rationale: str,
+        actor: str = "researcher",
+        target_id: str | None = None,
+        approve: bool | None = None,
+        snapshot_digest: str | None = None,
+    ) -> dict[str, Any]:
+        """Execute one structured control-plane action and record it in the session.
+
+        Only explicit, deterministic actions are routed here (accept_checkpoint,
+        decide_repair, decide_fork). Natural-language text is carried as the
+        decision rationale; the decision itself is written by
+        ResearchProjectService into the durable project ledger, which remains
+        the system of record. The session only records the instruction and the
+        outcome view.
+        """
+        if not action.strip():
+            raise ValueError("action is required")
+        if not rationale.strip():
+            raise ValueError("rationale is required")
+        if not actor.strip():
+            raise ValueError("actor is required")
+        self.projects_service.snapshot(project_id)  # 404 if project missing
+        self.store.read_session(project_id, session_id)
+
+        if action == "accept_checkpoint":
+            if not target_id:
+                raise ValueError("target_id is required for accept_checkpoint")
+            decided = self.projects_service.accept_checkpoint(
+                project_id=project_id,
+                target_id=target_id,
+                actor=actor,
+                rationale=rationale,
+            )
+        elif action == "decide_repair":
+            if not target_id or not snapshot_digest or not isinstance(approve, bool):
+                raise ValueError(
+                    "target_id, snapshot_digest and boolean approve are required for decide_repair"
+                )
+            decided = self.projects_service.decide_repair(
+                project_id=project_id,
+                repair_request_id=target_id,
+                trigger_snapshot_digest=snapshot_digest,
+                approve=approve,
+                actor=actor,
+                rationale=rationale,
+            )
+        elif action == "decide_fork":
+            if not target_id or not isinstance(approve, bool):
+                raise ValueError("target_id and boolean approve are required for decide_fork")
+            decided = self.projects_service.decide_fork(
+                project_id=project_id,
+                branch_id=target_id,
+                approve=approve,
+                actor=actor,
+                rationale=rationale,
+            )
+        else:
+            raise ValueError(f"unsupported intervention action: {action!r}")
+
+        decision = decided["decision"]
+        decision_id = str(decision.get("decision_id") or "")
+        decision_action = str(decision.get("action") or "decided")
+        verb = "批准" if decision_action == "accept" else "拒绝" if decision_action == "reject" else decision_action
+        user_message = self.store.append_message(
+            project_id,
+            SessionMessage(
+                message_id=new_id("msg"),
+                session_id=session_id,
+                project_id=project_id,
+                role="user",
+                text=rationale,
+                kind="intervention",
+                references=[f"project:{project_id}"],
+                source_bound=False,
+            ),
+        )
+        result_text = (
+            f"已记录决策 {decision_id}：{verb}（{decision_action}），"
+            f"目标 {', '.join(str(row) for row in decision.get('target_ids') or [])}；"
+            f"由 {actor} 提交，审批已写入项目账本。"
+        )
+        result_message = self.store.append_message(
+            project_id,
+            SessionMessage(
+                message_id=new_id("msg"),
+                session_id=session_id,
+                project_id=project_id,
+                role="system",
+                text=result_text,
+                kind="intervention_result",
+                references=[f"project:{project_id}", f"decision:{decision_id}"],
+                source_bound=False,
+            ),
+        )
+        return {
+            "project_id": project_id,
+            "session_id": session_id,
+            "messages": [
+                user_message.model_dump(mode="json"),
+                result_message.model_dump(mode="json"),
+            ],
+            "decision": decision,
+        }
     def answer(self, project_id: str, session_id: str, *, actor: str = "researcher") -> dict[str, Any]:
         """Produce a bounded, deterministic answer from the durable snapshot.
 

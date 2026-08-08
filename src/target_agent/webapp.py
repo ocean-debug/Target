@@ -462,6 +462,63 @@ def create_app(
         except ValueError as exc:
             return jsonify({"error": str(exc)}), 400
 
+    @app.post("/api/projects/<project_id>/sessions/<session_id>/interventions")
+    def post_session_intervention(project_id: str, session_id: str):
+        project_id = _safe_project_id(project_id)
+        if not session_id or Path(session_id).name != session_id:
+            return jsonify({"error": "invalid session id"}), 400
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            return jsonify({"error": "request body must be a JSON object"}), 400
+        action = str(payload.get("action") or "").strip()
+        rationale = str(payload.get("rationale") or "").strip()
+        actor = str(payload.get("actor") or "researcher").strip()
+        target_id = str(payload.get("target_id") or "").strip() or None
+        approve = payload.get("approve")
+        snapshot_digest = str(payload.get("snapshot_digest") or "").strip() or None
+        if not action or not rationale or not target_id:
+            return jsonify({"error": "action, rationale and target_id are required"}), 400
+        try:
+            result = session_service.intervene(
+                project_id=project_id,
+                session_id=session_id,
+                action=action,
+                rationale=rationale,
+                actor=actor,
+                target_id=target_id,
+                approve=approve,
+                snapshot_digest=snapshot_digest,
+            )
+        except ResearchProjectNotFound:
+            return jsonify({"error": "session or project not found"}), 404
+        except ResearchDecisionError as exc:
+            status = 409 if "stale" in str(exc).lower() else 400
+            return jsonify({"error": str(exc)}), status
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+
+        resume_needed = action == "accept_checkpoint" or (
+            approve is True and action in {"decide_repair", "decide_fork"}
+        )
+        queued = False
+        if resume_needed:
+            store = ResearchProjectStore(research_runtime.projects_dir, project_id)
+            spec = store.load_spec()
+            assert spec is not None
+
+            def resume_session_worker() -> None:
+                try:
+                    research_runtime.run(spec, resume=True)
+                except Exception:
+                    return
+
+            queued = pool.submit(resume_session_worker)
+        return jsonify({
+            **result,
+            "decision_persisted": True,
+            "resume_queued": queued,
+            "status_url": f"/api/projects/{project_id}",
+        }), 202
     @app.post("/api/projects/<project_id>/resume")
     def resume_project(project_id: str):
         project_id = _safe_project_id(project_id)

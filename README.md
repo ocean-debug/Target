@@ -209,6 +209,13 @@ and `POST /api/projects/{project_id}/sessions/{session_id}/messages`. Sessions a
 append-only conversation views over a durable project: messages carry content SHA-256,
 and `ask_agent` returns a deterministic snapshot summary explicitly marked
 `source_bound=false` — the session can never create or mutate scientific state.
+Interventions close the loop from inside a session:
+`POST /api/projects/{project_id}/sessions/{session_id}/interventions` accepts
+`{action, rationale, actor, target_id}` with action in
+`accept_checkpoint | decide_repair | decide_fork` (repair/fork decisions also
+carry `approve`; repair additionally carries `snapshot_digest`). The decision is
+persisted to the project ledger and, for approvals, the runtime resumes
+automatically; the session records the user instruction and the decision result.
 
 The optional MCP server exposes the same durable project service to Codex, SciForge,
 OpenScience, Wisp and other MCP hosts over stdio or the official Streamable HTTP transport:

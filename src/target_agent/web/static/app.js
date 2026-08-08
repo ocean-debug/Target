@@ -3,6 +3,7 @@
 const $ = (id) => document.getElementById(id);
 let currentProjectId = null;
 let currentSnapshot = null;
+let currentSessionId = null;
 let pollTimer = null;
 let kernelId = null;
 
@@ -241,6 +242,7 @@ async function selectProject(projectId) {
   $('workspace').classList.remove('hidden');
   $('workspace').scrollIntoView({ behavior: 'smooth', block: 'start' });
   await pollProject();
+  await loadSessions(projectId);
   if (pollTimer) clearInterval(pollTimer);
   pollTimer = setInterval(pollProject, 1500);
 }
@@ -441,6 +443,7 @@ function renderSnapshot(snap) {
   renderGraph(snap);
   renderMechanismGraph(snap);
   renderFiles(snap);
+  renderSessionActions(snap);
 }
 
 function renderNextActions(snap) {
@@ -762,6 +765,163 @@ async function proposeFork() {
   setTimeout(pollProject, 300);
 }
 
+// ---------- research session ----------
+
+async function loadSessions(projectId) {
+  const data = await api(`/api/projects/${projectId}/sessions`);
+  let sessions = data.sessions || [];
+  const host = $('session-list');
+  if (!sessions.length) {
+    const created = await api(`/api/projects/${projectId}/sessions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: '研究对话' }),
+    });
+    sessions = [created.session];
+    toast('已自动创建研究会话');
+  }
+  host.innerHTML = sessions.map((row) => `
+    <button class="session-card${row.session_id === currentSessionId ? ' active' : ''}" data-session="${esc(row.session_id)}">
+      <b>${esc(row.title)}</b>
+      <small>${row.message_count} 条消息</small>
+    </button>`).join('');
+  host.querySelectorAll('button[data-session]').forEach((button) => {
+    button.addEventListener('click', () => selectSession(projectId, button.dataset.session));
+  });
+  if (!sessions.some((row) => row.session_id === currentSessionId)) {
+    currentSessionId = sessions[0].session_id;
+  }
+  await loadSessionMessages(projectId, currentSessionId);
+}
+
+async function selectSession(projectId, sessionId) {
+  currentSessionId = sessionId;
+  await loadSessions(projectId);
+}
+
+async function loadSessionMessages(projectId, sessionId) {
+  const host = $('session-messages');
+  if (!sessionId) {
+    host.innerHTML = '<p class="muted">等待选择会话…</p>';
+    return;
+  }
+  const data = await api(`/api/projects/${projectId}/sessions/${sessionId}`);
+  const messages = data.messages || [];
+  if (!messages.length) {
+    host.innerHTML = '<p class="muted">会话为空，开始提问吧。</p>';
+    return;
+  }
+  host.innerHTML = messages.map((row) => {
+    const cls = row.role === 'user' ? 'user' : row.role === 'system' ? 'system' : 'assistant';
+    const tag = row.kind === 'intervention_result' ? '决策结果'
+      : row.kind === 'intervention' ? '审批指令'
+      : row.kind === 'answer' ? 'Agent 摘要' : '';
+    return `<div class="msg ${cls}"><div class="msg-head">${esc(row.role)}${tag ? `<small>${esc(tag)}</small>` : ''}</div><div class="msg-text">${esc(row.text).replaceAll('\n', '<br>')}</div></div>`;
+  }).join('');
+  host.scrollTop = host.scrollHeight;
+}
+
+async function sendSessionMessage(askAgent) {
+  if (!currentProjectId || !currentSessionId) {
+    toast('请先选择项目与会话', 'error');
+    return;
+  }
+  const input = $('session-input');
+  const text = input.value.trim();
+  if (!text) {
+    toast('消息不能为空', 'error');
+    return;
+  }
+  try {
+    await api(`/api/projects/${currentProjectId}/sessions/${currentSessionId}/messages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, ask_agent: askAgent, actor: 'researcher' }),
+    });
+    input.value = '';
+    await loadSessionMessages(currentProjectId, currentSessionId);
+    if (askAgent) toast('Agent 摘要已生成');
+  } catch (error) {
+    toast(error.message, 'error');
+  }
+}
+
+function renderSessionActions(snap) {
+  const host = $('session-actions');
+  host.innerHTML = '';
+  const actions = snap.next_actions || [];
+  if (!actions.length) {
+    host.innerHTML = '<span class="muted">当前没有待办审批</span>';
+    return;
+  }
+  const intro = document.createElement('span');
+  intro.className = 'muted';
+  intro.textContent = '会话内审批：';
+  host.appendChild(intro);
+  for (const action of actions) {
+    if (action.action === 'accept_checkpoint') {
+      host.appendChild(sessionActionButton(snap, action, true, '批准检查点'));
+    } else if (action.action === 'decide_repair') {
+      host.appendChild(sessionActionButton(snap, action, true, '批准修复'));
+      host.appendChild(sessionActionButton(snap, action, false, '拒绝修复'));
+    } else if (action.action === 'decide_fork') {
+      host.appendChild(sessionActionButton(snap, action, true, '批准回退'));
+      host.appendChild(sessionActionButton(snap, action, false, '拒绝回退'));
+    }
+  }
+}
+
+function sessionActionButton(snap, action, approve, label) {
+  const button = document.createElement('button');
+  button.className = approve ? 'primary' : 'ghost';
+  button.type = 'button';
+  button.textContent = label;
+  button.title = action.reason || '';
+  button.addEventListener('click', () => runSessionIntervention(snap, action, approve));
+  return button;
+}
+
+async function runSessionIntervention(snap, action, approve) {
+  if (!currentProjectId) return;
+  const rationale = $('session-input').value.trim()
+    || (approve ? '在会话中批准该决策。' : '在会话中拒绝该决策。');
+  let sessionId = currentSessionId;
+  try {
+    if (!sessionId) {
+      const created = await api(`/api/projects/${currentProjectId}/sessions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: '研究对话' }),
+      });
+      sessionId = created.session.session_id;
+      currentSessionId = sessionId;
+    }
+    const targetId = action.action === 'decide_repair' ? action.repair_request_id
+      : action.action === 'decide_fork' ? action.branch_id : action.target_id;
+    const body = {
+      action: action.action,
+      rationale,
+      actor: 'reviewer',
+      target_id: targetId,
+    };
+    if (action.action === 'decide_repair') {
+      body.approve = approve;
+      body.snapshot_digest = action.trigger_snapshot_digest;
+    }
+    if (action.action === 'decide_fork') body.approve = approve;
+    await api(`/api/projects/${currentProjectId}/sessions/${sessionId}/interventions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    $('session-input').value = '';
+    toast(approve ? '决策已批准并记录到会话' : '决策已拒绝并记录到会话');
+  } catch (error) {
+    toast(error.message, 'error');
+  }
+  await loadSessions(currentProjectId);
+  setTimeout(pollProject, 300);
+}
 // ---------- init ----------
 
 async function init() {
@@ -772,6 +932,18 @@ async function init() {
   loadWorkflows();
   $('draft-from-question').addEventListener('click', draftFromQuestion);
   $('propose-fork').addEventListener('click', proposeFork);
+  $('new-session').addEventListener('click', async () => {
+    if (!currentProjectId) { toast('请先选择项目', 'error'); return; }
+    const created = await api(`/api/projects/${currentProjectId}/sessions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: '研究对话' }),
+    });
+    currentSessionId = created.session.session_id;
+    await loadSessions(currentProjectId);
+  });
+  $('session-send').addEventListener('click', () => sendSessionMessage(false));
+  $('session-ask').addEventListener('click', () => sendSessionMessage(true));
   $('fork-mode').addEventListener('change', () => {
     if (currentSnapshot) renderForkAttempts(currentSnapshot);
   });
