@@ -292,8 +292,11 @@ class HypothesisGenerationModule:
                    for row in records[:12]]
         system = (
             "Generate up to five falsifiable life-science hypotheses using only the supplied records. "
-            "Return JSON {hypotheses:[{statement,rationale,source_ids,falsification_test,assumptions}]}. "
-            "Every source_id must be copied from the input. Separate observations from inference and do not add facts."
+            "Return JSON with a single key hypotheses whose value is an array of objects. "
+            "Each object has exactly these fields: statement (string), rationale (string), "
+            "source_ids (array of strings, every value copied from the input records), "
+            "falsification_test (string), assumptions (array of strings; empty array when none). "
+            "Separate observations from inference and do not add facts."
         )
         try:
             raw = self.client.json_completion(system, json.dumps({
