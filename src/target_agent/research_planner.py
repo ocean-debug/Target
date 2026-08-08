@@ -71,11 +71,15 @@ class ResearchPlanner:
         few_shot_top_k: int = 3,
         skill_catalog: SkillCatalog | None = None,
         skill_hint_top_k: int = 3,
+        paper_rag: Any | None = None,
+        paper_top_k: int = 2,
     ):
         self.registry = registry
         self.client = client
         self.pattern_store = pattern_store
-        self.few_shot = PlannerFewShotBuilder(pattern_store, few_shot_top_k)
+        self.few_shot = PlannerFewShotBuilder(
+            pattern_store, few_shot_top_k, paper_rag=paper_rag, paper_top_k=paper_top_k,
+        )
         self.skill_hints = SkillHintBuilder(skill_catalog, skill_hint_top_k)
 
     @property
@@ -313,9 +317,18 @@ class ResearchPlanner:
             if isinstance(project.context.get("target_task_spec"), dict) else {}
         )
         evidence_strategy_patterns: list[dict[str, Any]] = []
-        if self.pattern_store is not None and isinstance(target_context, dict):
+        paper_evidence: list[dict[str, Any]] = []
+        availability = None
+        if isinstance(target_context, dict):
             availability = infer_data_availability(target_context)
-            evidence_strategy_patterns = self.few_shot.build(
+            if self.pattern_store is not None:
+                evidence_strategy_patterns = self.few_shot.build(
+                    disease=str(target_context.get("disease") or project.goal.question),
+                    tissue=target_context.get("tissue") if isinstance(target_context.get("tissue"), str) else None,
+                    cell_type=target_context.get("cell_type") if isinstance(target_context.get("cell_type"), str) else None,
+                    data_availability=availability,
+                )
+            paper_evidence = self.few_shot.build_paper_evidence(
                 disease=str(target_context.get("disease") or project.goal.question),
                 tissue=target_context.get("tissue") if isinstance(target_context.get("tissue"), str) else None,
                 cell_type=target_context.get("cell_type") if isinstance(target_context.get("cell_type"), str) else None,
@@ -325,8 +338,8 @@ class ResearchPlanner:
         if isinstance(target_context, dict):
             from .paper_strategy import infer_data_availability as _infer_availability
 
-            availability = _infer_availability(target_context)
-            available_lanes = [lane for lane, available in (availability or {}).items() if available]
+            skill_availability = _infer_availability(target_context)
+            available_lanes = [lane for lane, available in (skill_availability or {}).items() if available]
             skill_hints = self.skill_hints.build(
                 lanes=available_lanes or None,
                 scopes=["disease_target_discovery"],
@@ -345,6 +358,7 @@ class ResearchPlanner:
             "registered_capabilities": self.capabilities,
             "max_work_items": project.max_work_items,
             "evidence_strategy_patterns": evidence_strategy_patterns,
+            "paper_evidence": paper_evidence,
             "skill_hints": skill_hints,
             "required_template": {
                 "items": [item.model_dump(mode="json") for item in template.items],
@@ -357,6 +371,8 @@ class ResearchPlanner:
             backend = f"step:{self.client.model}"
             if evidence_strategy_patterns:
                 backend += f"+pattern-fewshot:{len(evidence_strategy_patterns)}"
+            if paper_evidence:
+                backend += f"+paper-rag:{len(paper_evidence)}"
             if skill_hints:
                 backend += f"+skills:{len(skill_hints)}"
             plan = ResearchPlan(
@@ -365,6 +381,7 @@ class ResearchPlanner:
                 planner_backend=backend,
                 rationale=payload.rationale,
                 evidence_strategy_patterns=evidence_strategy_patterns,
+                paper_evidence=paper_evidence,
             )
             self._validate(project, plan, canonical_template=template)
             return plan

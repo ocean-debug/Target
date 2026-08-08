@@ -280,6 +280,9 @@ class ResearchPlan(ResearchContract):
     # (see paper_strategy.PlannerFewShotBuilder). They are strategy hints for
     # evidence order and stop rules, never evidence for the current task.
     evidence_strategy_patterns: list[dict[str, Any]] = Field(default_factory=list)
+    # Bounded abstract chunks retrieved by the paper RAG store; also strategy
+    # context only. Stored so plan provenance shows which papers were retrieved.
+    paper_evidence: list[dict[str, Any]] = Field(default_factory=list)
     created_at: str = Field(default_factory=utc_now)
 
     @model_validator(mode="after")

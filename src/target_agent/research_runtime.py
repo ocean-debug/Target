@@ -20,6 +20,7 @@ from .research_contracts import (
     WorkerLease,
 )
 from .paper_strategy import pattern_store_from_path
+from .paper_rag import paper_rag_store_from_path
 from .research_modules import ModuleContext, ResearchModuleRegistry, default_research_registry
 from .research_planner import ResearchPlanner
 from .research_projection import DomainActivityProjection
@@ -114,6 +115,8 @@ class ResearchProjectRuntime:
             few_shot_top_k=self.settings.pattern_few_shot_top_k,
             skill_catalog=self.skill_catalog,
             skill_hint_top_k=self.settings.skill_hint_top_k,
+            paper_rag=paper_rag_store_from_path(self.settings.paper_rag_path),
+            paper_top_k=self.settings.paper_rag_top_k,
         )
         self.worker_id = "research_runtime"
         self._graph = self._build_graph()

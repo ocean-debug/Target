@@ -54,6 +54,14 @@
 - 接口：GET /api/projects/<id>/mechanism-graph 返回 graph + synthesis_findings + reviewer_findings + lane_coverage + pattern_links；Web 工作台证据图区改为“工作流 DAG / 机制证据图”双面板，支持模式链接、预测/推断边、证据层节点筛选，前端不创造任何后端不存在的数字；
 - 合同：GraphNode 新增 lane 类型，GraphEdge 新增 attributes，schemas/causal_graph.schema.json 同步更新（兼容读取旧图）。
 
+### 1.7 论文摘要 RAG 与 Planner few-shot 增强（P2.6）
+
+- 新增 src/target_agent/paper_rag.py：把近年 CNS 论文的公开摘要切成有界分块（PaperChunk，默认 700 字符、90 字符重叠），每块带 PMID/DOI/PMCID、期刊、年份、证据层标签与 SHA-256 digest；存储为 append-only JSONL（paper_strategy/rag/chunks.jsonl）并生成 MANIFEST；
+- 检索为确定性词法评分：疾病词、查询词、数据可得性证据层、论文新旧、期刊权重，无 embedding、无网络依赖；PaperRagStore.search 返回 PaperChunkHit（分数 + 命中原因）；
+- PlannerFewShotBuilder 新增 build_paper_evidence：模式命中与论文证据同时注入 Planner prompt；两端 Planner（领域 Planner 与项目 ResearchPlanner）都会把 paper_evidence 放进请求、持久化进 ResearchPlan、并把命中数写入 planner_backend（+paper-rag:N）；
+- LangGraph 运行时会以 planner_paper_evidence trace 记录 chunk_id/PMID，领域活动投影允许该事件类型；Web 工作台新增“论文证据（RAG）”面板，展示 chunk、得分、证据层与命中原因，并明确标注“策略提示非证据”；
+- 只持久化摘要分块：Methods/全文仅在抽取时驻留内存，绝不落盘；对齐数据生成与 Planner/Reviewer 小模型训练仍按团队决定延后到最终阶段。
+
 ## 2. 已完成的可靠性控制面
 
 ### 2.1 持久项目模型

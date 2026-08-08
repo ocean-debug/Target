@@ -225,6 +225,24 @@ def main() -> None:
     corpus_status = corpus_sub.add_parser("status", help="Show candidate corpus counts")
     corpus_status.add_argument("--store", type=Path, default=Path("paper_strategy") / "corpus" / "corpus.jsonl")
 
+    rag_cmd = pattern_sub.add_parser("rag", help="Maintain the paper-abstract RAG store for planner few-shot")
+    rag_sub = rag_cmd.add_subparsers(dest="paper_rag_command", required=True)
+    rag_refresh = rag_sub.add_parser("refresh", help="Fetch and append bounded abstracts for corpus PMIDs")
+    rag_refresh.add_argument("--store", type=Path, default=Path("paper_strategy") / "rag" / "chunks.jsonl")
+    rag_refresh.add_argument("--corpus", type=Path, default=Path("paper_strategy") / "corpus" / "corpus.jsonl")
+    rag_refresh.add_argument("--pmids", default="", help="Comma-separated PMIDs; defaults to candidate records")
+    rag_refresh.add_argument("--limit", type=int, default=0, help="Max papers to fetch (0 = all)")
+    rag_refresh.add_argument("--chunk-size", type=int, default=700)
+    rag_refresh.add_argument("--overlap", type=int, default=90)
+    rag_search = rag_sub.add_parser("search", help="Retrieve paper-abstract chunks for planner context")
+    rag_search.add_argument("--disease", required=True)
+    rag_search.add_argument("--query", default="")
+    rag_search.add_argument("--lanes", default="", help="Comma-separated available evidence lanes")
+    rag_search.add_argument("--top-k", type=int, default=5)
+    rag_search.add_argument("--store", type=Path, default=Path("paper_strategy") / "rag" / "chunks.jsonl")
+    rag_status = rag_sub.add_parser("status", help="Show RAG store card")
+    rag_status.add_argument("--store", type=Path, default=Path("paper_strategy") / "rag" / "chunks.jsonl")
+
     diseases_cmd = sub.add_parser("diseases", help="List the OLS-verified disease library")
     diseases_cmd.add_argument("--json", action="store_true", help="Emit machine-readable JSON")
 
@@ -462,6 +480,77 @@ def main() -> None:
                 "pattern_id": payload.get("pattern_id") if isinstance(payload, dict) else None,
                 "path": str(store.path),
             }, indent=2, ensure_ascii=False))
+        elif args.pattern_command == "rag":
+            from .paper_corpus import CorpusStore
+            from .paper_rag import PaperRagStore, build_chunks
+            from .pattern_extraction import EuropePmcMetaFetcher
+
+            rag_store = PaperRagStore(args.store)
+            if args.paper_rag_command == "refresh":
+                fetcher = EuropePmcMetaFetcher()
+                all_papers = CorpusStore(args.corpus).all()
+                pmid_values = [value.strip() for value in args.pmids.split(",") if value.strip()]
+                if pmid_values:
+                    wanted = set(pmid_values)
+                    papers = [row for row in all_papers if row.pmid in wanted]
+                else:
+                    papers = [row for row in all_papers if row.status == "candidate"]
+                if args.limit and args.limit > 0:
+                    papers = papers[: args.limit]
+                existing = {chunk.pmid for chunk in rag_store.all()}
+                added_chunks = 0
+                skipped_chunks = 0
+                failed: list[dict[str, str]] = []
+                for row in papers:
+                    if row.pmid in existing:
+                        skipped_chunks += 1
+                        continue
+                    try:
+                        meta = fetcher.fetch(row.pmid)
+                        if meta is None:
+                            failed.append({"pmid": row.pmid, "error": "no Europe PMC record"})
+                            continue
+                        chunks = build_chunks(
+                            meta,
+                            context_tags=row.query_buckets,
+                            chunk_size=args.chunk_size,
+                            overlap=args.overlap,
+                        )
+                        result = rag_store.add_many(chunks)
+                        added_chunks += result["added"]
+                        skipped_chunks += result["skipped"]
+                    except Exception as exc:
+                        failed.append({"pmid": row.pmid, "error": str(exc)[:200]})
+                manifest = rag_store.write_manifest()
+                print(json.dumps({
+                    "added_chunks": added_chunks,
+                    "skipped_chunks": skipped_chunks,
+                    "failed_papers": failed,
+                    "manifest_count": manifest["chunks"],
+                    "card": rag_store.corpus_card(),
+                }, indent=2, ensure_ascii=False))
+            elif args.paper_rag_command == "search":
+                lanes = {item.strip().lower() for item in args.lanes.split(",") if item.strip()}
+                hits = rag_store.search(
+                    query=args.query, disease=args.disease,
+                    lanes_available=lanes or None, top_k=args.top_k,
+                )
+                print(json.dumps([
+                    {
+                        "chunk_id": hit.chunk.chunk_id,
+                        "pmid": hit.chunk.pmid,
+                        "title": hit.chunk.title,
+                        "journal": hit.chunk.journal,
+                        "year": hit.chunk.year,
+                        "lane_tags": hit.chunk.lane_tags,
+                        "score": round(hit.score, 2),
+                        "snippet": (hit.chunk.text[:420] + "...") if len(hit.chunk.text) > 420 else hit.chunk.text,
+                        "matched_reason": hit.matched_reason,
+                    }
+                    for hit in hits
+                ], indent=2, ensure_ascii=False))
+            else:
+                print(json.dumps(rag_store.corpus_card(), indent=2, ensure_ascii=False))
         elif args.pattern_command == "corpus":
             from .paper_corpus import CorpusStore, RequestsEutilsClient, fetch_candidates
 

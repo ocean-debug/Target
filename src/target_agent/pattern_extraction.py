@@ -134,6 +134,7 @@ class PaperMeta(BaseModel):
     year: int = Field(ge=1900, le=2100)
     doi: str | None = None
     pmcid: str | None = None
+    abstract: str | None = None
     source_text: str = Field(min_length=1)
     source_material: Literal["methods", "abstract"] = "abstract"
 
@@ -215,6 +216,7 @@ class EuropePmcMetaFetcher:
             year=year,
             doi=(row.get("doi") or "").strip() or None,
             pmcid=pmcid,
+            abstract=abstract,
             source_text=source_text[: self._MAX_METHOD_CHARS + 2000] if source_material == "abstract" else source_text[:_MAX_METHOD_CHARS],
             source_material=source_material,
         )

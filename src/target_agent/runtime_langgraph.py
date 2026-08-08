@@ -38,6 +38,7 @@ from .graphs import build_mechanistic_graph
 from .llm import StepClient
 from .legacy import migrate_current_contract
 from .paper_strategy import pattern_store_from_path
+from .paper_rag import paper_rag_store_from_path
 from .planner import Planner
 from .ranking import RankedTarget, rank_targets
 from .repair import latest_tool_results, repair_transient_connector_failures
@@ -122,6 +123,8 @@ class LangGraphRuntime:
                 self.registry,
                 pattern_store=pattern_store_from_path(self.settings.pattern_store_path),
                 few_shot_top_k=self.settings.pattern_few_shot_top_k,
+                paper_rag=paper_rag_store_from_path(self.settings.paper_rag_path),
+                paper_top_k=self.settings.paper_rag_top_k,
             )
         self.planner = planner
         self.trace_observer = trace_observer
@@ -242,6 +245,15 @@ class LangGraphRuntime:
                     "count": len(hints),
                     "pattern_ids": pattern_ids,
                 }, related_ids=pattern_ids)
+            paper_evidence = getattr(self.planner, "last_paper_evidence", None) or []
+            if paper_evidence:
+                chunk_ids = [str(row.get("chunk_id")) for row in paper_evidence if row.get("chunk_id")]
+                pmids = sorted({str(row.get("pmid")) for row in paper_evidence if row.get("pmid")})
+                self._trace(store, state["run_id"], task, "planner_paper_evidence", "planned", {
+                    "count": len(paper_evidence),
+                    "chunk_ids": chunk_ids,
+                    "pmids": pmids,
+                }, related_ids=chunk_ids)
         completed_steps, candidate_genes, tool_calls = restore_checkpoint_state(
             task=task,
             plan=plan,

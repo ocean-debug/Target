@@ -31,6 +31,25 @@ cross-validate and stop, then store that as a conditional strategy pattern.
   Planner/Reviewer small-model training stay last; curated patterns are the
   future training source.
 
+## Paper RAG store
+
+- PaperRagStore (src/target_agent/paper_rag.py) stores bounded abstract chunks
+  from the candidate corpus (paper_strategy/rag/chunks.jsonl, per-chunk SHA-256
+  digest + MANIFEST). Methods/full text is never persisted.
+- Retrieval is deterministic lexical scoring: disease tokens, query tokens,
+  available evidence lanes, recency and journal premium. No embeddings and no
+  network at query time.
+- PlannerFewShotBuilder.build_paper_evidence() injects top chunks into the
+  domain Planner and the project ResearchPlanner; hits are stored in
+  ResearchPlan.paper_evidence and traced as planner_paper_evidence.
+- CLI:
+  - target-agent pattern rag refresh --limit 50 (fetch abstracts for corpus
+    candidates; use --pmids to select)
+  - target-agent pattern rag search --disease "ulcerative colitis" --lanes genetics,omics
+  - target-agent pattern rag status
+  - python scripts/build_paper_rag.py (remote batch refresh; env knobs
+    PAPER_RAG_ONLY_GOLD, PAPER_RAG_PMIDS, PAPER_RAG_LIMIT)
+
 ## Rules
 
 - Patterns are strategy hints, never evidence for the current task.

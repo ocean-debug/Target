@@ -441,11 +441,24 @@ class PatternStore:
 
 
 class PlannerFewShotBuilder:
-    """Build a compact, auditable few-shot block for the project Planner."""
+    """Build a compact, auditable few-shot block for the project Planner.
 
-    def __init__(self, store: PatternStore | None = None, top_k: int = 3):
+    store supplies StrategyPattern hints; paper_rag (a PaperRagStore) supplies
+    bounded abstract chunks from recent CNS papers. Both are strategy context,
+    never evidence for the current task.
+    """
+
+    def __init__(
+        self,
+        store: PatternStore | None = None,
+        top_k: int = 3,
+        paper_rag: Any | None = None,
+        paper_top_k: int = 2,
+    ):
         self.store = store
         self.top_k = max(0, min(top_k, 8))
+        self.paper_rag = paper_rag
+        self.paper_top_k = max(0, min(paper_top_k, 8))
 
     def build(
         self,
@@ -467,6 +480,51 @@ class PlannerFewShotBuilder:
             min_score=0.5,
         )
         return [self._render(hit) for hit in hits]
+
+    def build_paper_evidence(
+        self,
+        *,
+        disease: str,
+        tissue: str | None = None,
+        cell_type: str | None = None,
+        data_availability: dict[str, bool] | None = None,
+    ) -> list[dict[str, Any]]:
+        """Retrieve bounded paper-abstract chunks as RAG few-shot context."""
+        if self.paper_rag is None or self.paper_top_k == 0 or not disease:
+            return []
+        available = {lane for lane, flag in (data_availability or {}).items() if flag}
+        query = " ".join(part for part in (disease, tissue or "", cell_type or "") if part)
+        hits = self.paper_rag.search(
+            query=query,
+            disease=disease,
+            lanes_available=available or None,
+            top_k=self.paper_top_k,
+            min_score=0.0,
+        )
+        return [self._render_paper(hit) for hit in hits]
+
+    @staticmethod
+    def _render_paper(hit: Any) -> dict[str, Any]:
+        chunk = hit.chunk
+        snippet = chunk.text
+        if len(snippet) > 420:
+            snippet = snippet[:420] + "..."
+        return {
+            "kind": "paper_rag",
+            "chunk_id": chunk.chunk_id,
+            "pmid": chunk.pmid,
+            "title": chunk.title,
+            "journal": chunk.journal,
+            "year": chunk.year,
+            "doi": getattr(chunk, "doi", None),
+            "pmcid": getattr(chunk, "pmcid", None),
+            "source_material": chunk.source_material,
+            "lane_tags": chunk.lane_tags,
+            "snippet": snippet,
+            "score": round(float(hit.score), 2),
+            "matched_reason": hit.matched_reason[:4],
+            "strategy_hint_not_evidence": True,
+        }
 
     @staticmethod
     def _render(hit: PatternHit) -> dict[str, Any]:

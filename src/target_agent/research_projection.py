@@ -30,6 +30,7 @@ _DIMENSION_STAGE = {
 _SAFE_DETAIL_KEYS = {
     "state_transition": ("resume",),
     "plan": ("planner_backend", "fallback_used", "steps"),
+    "planner_paper_evidence": ("count", "chunk_ids", "pmids"),
     "tool_call": ("tool", "step_id", "repair_round", "reason"),
     "tool_result": (
         "tool", "status", "coverage_status", "context_match_score",

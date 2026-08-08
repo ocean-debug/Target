@@ -352,6 +352,7 @@ function renderSnapshot(snap) {
   renderContext(snap);
   renderPlan(snap);
   renderStrategyPatterns(snap);
+  renderPaperEvidence(snap);
   renderResults(snap);
   renderBranches(snap);
   renderArtifacts(snap);
@@ -497,6 +498,26 @@ function renderStrategyPatterns(snap) {
         <small class="muted">策略提示非证据 · ${esc((p.matched_reason || []).join('; '))}</small>
       </div>
     </article>`).join('') : '<p class="muted empty">暂无模式</p>';
+}
+
+function renderPaperEvidence(snap) {
+  const rows = (snap.plan && snap.plan.paper_evidence) || [];
+  const count = $('paper-evidence-count');
+  const host = $('paper-evidence');
+  if (!count || !host) return;
+  count.textContent = rows.length
+    ? `命中 ${rows.length} 个论文分块 · 仅作策略提示`
+    : '未检索到论文分块（确定性流程不受影响）';
+  host.innerHTML = rows.length ? rows.map((row) => `
+    <article class="plan-step">
+      <div>
+        <b>${esc(row.title)}</b>
+        <small>${esc(row.chunk_id)} · ${esc(row.journal)} · ${esc(row.year)} · 得分 ${esc(row.score)}</small>
+        <i>${esc(row.snippet || '')}</i>
+        <small>证据层: ${esc((row.lane_tags || []).join(' · ') || '无')} · 命中原因: ${esc((row.matched_reason || []).join('; '))}</small>
+        <small class="muted">策略提示非证据 · PMID ${esc(row.pmid)}</small>
+      </div>
+    </article>`).join('') : '<p class="muted empty">暂无论文证据</p>';
 }
 
 function renderResults(snap) {

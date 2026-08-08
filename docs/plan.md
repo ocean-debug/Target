@@ -466,6 +466,7 @@ Pattern 中的 `data_integration` 将被转换为 `EvidenceLink` 建议，供 `e
 10. 垂直子工作流注入：LangGraphRuntime 的域内 Planner 现在从配置的模式库构建 few-shot 提示并持久化命中 trace（`planner_pattern_hints`）；项目级 Planner 沿用原注入路径。
 11. 消融回归：`benchmark/pattern_ablation.py` 在公开疾病金标准上离线度量模式覆盖率与确定性计划有效性，并支持 `--llm` 对比真实 Step Planner 在有/无模式提示下的计划形状；新增 benchmark 单元检查 BM-12。
 12. 证据合成与机制证据图（P2.5）：确定性投影 Evidence Store 为实体/证据层/模式链接三层图；方向冲突与证据依赖质量门拦截模式链接；Web 工作台新增“机制证据图”面板与 `GET /api/projects/<id>/mechanism-graph` 接口。
+13. 论文摘要 RAG（P2.6）：PaperRagStore 存储有界摘要分块（paper_strategy/rag/chunks.jsonl + MANIFEST），确定性词法检索（疾病/查询/数据可得性/年份/期刊），PlannerFewShotBuilder.build_paper_evidence 注入两端 Planner，ResearchPlan.paper_evidence 持久化，planner_paper_evidence trace，Web 新增“论文证据（RAG）”面板；仅存摘要、不存全文。
 
 ### 延后（P3，按团队决定最后再做）
 
@@ -474,6 +475,7 @@ Pattern 中的 `data_integration` 将被转换为 `EvidenceLink` 建议，供 `e
 
 ### 下一步
 
+0. 论文 RAG 已落地（P2.6）：`target-agent pattern rag refresh|search|status`；下一步扩充摘要分库（建议 30-50 篇 gold 论文优先），并把 RAG 命中纳入机制证据图与盲测回退分析。
 1. 机制证据图回归：在真实 AD / 肺腺癌 / UC 运行上检查实体节点、证据层覆盖、模式链接与 synthesis findings，确认 UI 展示与后端数据一致。
 2. 人工挑选 30-50 篇 Gold 论文：`target-agent pattern curate --pmid <PMID> --status gold --rationale "..." --role life_science|engineering`，科学+工程双人标注。
 2. 批量抽取：`target-agent pattern extract`（需配置 Step 提供商），随后 `target-agent pattern review` 完成双人复核；每条抽取失败记录进入 `paper_strategy/extractions.jsonl` 供复盘。

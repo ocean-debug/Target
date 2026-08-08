@@ -97,12 +97,17 @@ class Planner:
         registry: ToolRegistry | None = None,
         pattern_store: PatternStore | None = None,
         few_shot_top_k: int = 3,
+        paper_rag: Any | None = None,
+        paper_top_k: int = 2,
     ):
         self.client = client
         self.registry = registry
         self.pattern_store = pattern_store
-        self.few_shot = PlannerFewShotBuilder(pattern_store, few_shot_top_k)
+        self.few_shot = PlannerFewShotBuilder(
+            pattern_store, few_shot_top_k, paper_rag=paper_rag, paper_top_k=paper_top_k,
+        )
         self.last_pattern_hints: list[dict[str, Any]] = []
+        self.last_paper_evidence: list[dict[str, Any]] = []
 
     @property
     def allowed_tools(self) -> set[str]:
@@ -248,36 +253,49 @@ class Planner:
 
     def create_plan(self, task: TaskSpec) -> ExecutionPlan:
         self.last_pattern_hints = []
+        self.last_paper_evidence = []
         if not self.client:
             return self.deterministic(task, "Step API not configured")
         template = self.deterministic(task)
         capabilities = self.registry.public_capabilities() if self.registry else [{"tool_id": name} for name in sorted(self.allowed_tools)]
+        context = task.context.model_dump(mode="json") if hasattr(task.context, "model_dump") else {}
+        availability_context = dict(context)
+        if task.genetics_inputs:
+            availability_context["genetics_available"] = True
+        if task.omics_inputs:
+            availability_context["omics_available"] = True
+        availability = infer_data_availability(availability_context)
+        disease = str(task.context.disease or task.question) if getattr(task.context, "disease", None) else task.question
+        tissue = getattr(task.context, "tissue", None) or None
+        cell_type = getattr(task.context, "cell_type", None) or None
         hints: list[dict[str, Any]] = []
         if self.pattern_store is not None:
-            context = task.context.model_dump(mode="json") if hasattr(task.context, "model_dump") else {}
-            availability_context = dict(context)
-            if task.genetics_inputs:
-                availability_context["genetics_available"] = True
-            if task.omics_inputs:
-                availability_context["omics_available"] = True
-            availability = infer_data_availability(availability_context)
             hints = self.few_shot.build(
-                disease=str(task.context.disease or task.question) if getattr(task.context, "disease", None) else task.question,
-                tissue=getattr(task.context, "tissue", None) or None,
-                cell_type=getattr(task.context, "cell_type", None) or None,
+                disease=disease,
+                tissue=tissue,
+                cell_type=cell_type,
                 data_availability=availability,
             )
+        paper_evidence = self.few_shot.build_paper_evidence(
+            disease=disease,
+            tissue=tissue,
+            cell_type=cell_type,
+            data_availability=availability,
+        )
         self.last_pattern_hints = hints
+        self.last_paper_evidence = paper_evidence
         system = (
             "You are a life-science workflow planner. Return only an ExecutionPlan-compatible JSON object. "
             "Use only the supplied typed tool capabilities. Preserve the generic dataset discovery, metadata audit, "
             "review and provenance steps. Never generate shell commands or analysis code. "
-            "When pattern_hints are provided, treat them only as strategy hints distilled from high-impact papers; "
-            "they are never evidence for the current task and never justify removing a protected safety or review step."
+            "When pattern_hints or paper_evidence are provided, treat them only as strategy hints distilled "
+            "from high-impact papers; they are never evidence for the current task and never justify removing "
+            "a protected safety or review step."
         )
         user = json.dumps({
             "task": task.model_dump(mode="json"), "tool_capabilities": capabilities,
             "pattern_hints": hints,
+            "paper_evidence": paper_evidence,
             "required_template": template.model_dump(mode="json"),
             "limits": {"tool_calls": task.constraints.max_tool_calls, "review_rounds": task.constraints.max_review_rounds},
         }, ensure_ascii=False)
@@ -290,6 +308,8 @@ class Planner:
                 backend = f"step:{self.client.model}"
                 if hints:
                     backend += f"+pattern-fewshot:{len(hints)}"
+                if paper_evidence:
+                    backend += f"+paper-rag:{len(paper_evidence)}"
                 backend += ":repaired" if attempt else ""
                 candidate = dict(raw)
                 candidate.update({"task_id": task.task_id, "planner_backend": backend, "fallback_used": False})

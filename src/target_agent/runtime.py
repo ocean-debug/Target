@@ -13,6 +13,8 @@ from .contracts import (
 )
 from .graphs import build_mechanistic_graph
 from .llm import StepClient
+from .paper_rag import paper_rag_store_from_path
+from .paper_strategy import pattern_store_from_path
 from .legacy import migrate_current_contract
 from .planner import Planner
 from .ranking import RankedTarget, rank_targets
@@ -42,7 +44,14 @@ class TargetDiscoveryRuntime:
         self.runs_dir = runs_dir or self.settings.runs_dir
         self.cache_dir = cache_dir or self.settings.cache_dir
         self.registry = registry or default_registry(self.settings)
-        self.planner = planner or Planner(StepClient.from_settings(self.settings), self.registry)
+        self.planner = planner or Planner(
+            StepClient.from_settings(self.settings),
+            self.registry,
+            pattern_store=pattern_store_from_path(self.settings.pattern_store_path),
+            few_shot_top_k=self.settings.pattern_few_shot_top_k,
+            paper_rag=paper_rag_store_from_path(self.settings.paper_rag_path),
+            paper_top_k=self.settings.paper_rag_top_k,
+        )
         if self.planner.registry is None:
             self.planner.registry = self.registry
         self.reviewer = Reviewer(getattr(self.planner, "client", None), settings=self.settings, cache_dir=self.cache_dir)

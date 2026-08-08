@@ -2,6 +2,15 @@
 
 Cross-module contracts, workflow choices, model boundaries and scientific-safety decisions are recorded here. Accepted decisions must not be changed silently in a feature branch.
 
+## 2026-08-08 - 论文摘要 RAG 与 Planner few-shot 增强（P2.6）
+
+- **Status:** accepted
+- 决策：新增论文摘要级 RAG 层（src/target_agent/paper_rag.py），对近年 CNS 论文的公开摘要做有界分块并以 append-only JSONL + digest 存储；检索保持确定性词法评分（疾病/查询/数据可得性/年份/期刊），运行时无模型、无网络。
+- 决策：只持久化摘要分块；Europe PMC 的 Methods/全文仅在模式抽取时驻留内存，绝不落盘，延续“不存全文”的既有边界。
+- 决策：PlannerFewShotBuilder 同时提供模式 few-shot 与论文 RAG 证据；领域 Planner 与项目 ResearchPlanner 把 paper_evidence 注入 prompt，写入 ResearchPlan.paper_evidence 与 planner_backend 后缀，并以 planner_paper_evidence trace 持久化命中，Web 工作台展示“论文证据（RAG）”面板并标注“策略提示非证据”。
+- 决策：对齐数据生成与 Planner/Reviewer 小模型训练（P3）继续按团队决定延后到最终阶段；RAG 与 few-shot 先验证策略价值，其命中记录作为未来对齐数据的可追溯来源。
+- 验收：新增 paper_rag 合同/检索/few-shot/两端 Planner 集成测试；全套 pytest、benchmark 与 schema 导出须在远程验收环境通过后再合并。
+
 ## 2026-08-08 - 机制证据图与证据合成质量门（P2.5）
 
 - **Status:** accepted

@@ -58,6 +58,13 @@ class Settings(BaseSettings):
     pattern_few_shot_top_k: int = Field(
         default=3, alias="TARGET_AGENT_PATTERN_FEW_SHOT_TOP_K", ge=0, le=8,
     )
+    paper_rag_path: Path | None = Field(
+        default=PROJECT_ROOT / "paper_strategy" / "rag" / "chunks.jsonl",
+        alias="TARGET_AGENT_PAPER_RAG_STORE",
+    )
+    paper_rag_top_k: int = Field(
+        default=2, alias="TARGET_AGENT_PAPER_RAG_TOP_K", ge=0, le=8,
+    )
     pattern_curation_path: Path = Field(
         default=PROJECT_ROOT / "paper_strategy" / "corpus" / "curation.jsonl",
         alias="TARGET_AGENT_PATTERN_CURATION",
@@ -127,6 +134,8 @@ class Settings(BaseSettings):
             "reviewer_lora_configured": bool(self.reviewer_lora_base and self.reviewer_lora_adapter),
             "pattern_store_configured": bool(self.pattern_store_path and self.pattern_store_path.is_file()),
             "pattern_few_shot_top_k": self.pattern_few_shot_top_k,
+            "paper_rag_configured": bool(self.paper_rag_path and self.paper_rag_path.is_file()),
+            "paper_rag_top_k": self.paper_rag_top_k,
             "skill_catalog_configured": bool(self.skill_catalog_path and self.skill_catalog_path.is_dir()),
             "skill_hint_top_k": self.skill_hint_top_k,
             "kernel_enabled": self.kernel_enabled,
