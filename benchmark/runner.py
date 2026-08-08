@@ -185,6 +185,7 @@ def unit_paper_rag_graph_projection() -> str | None:
         question="test question",
         context=TaskContext(disease="test disease", tissue="lung", cell_type="T cell"),
     )
+    baseline = synthesize_evidence_graph(task, [item], ["GENE1"])
     result = synthesize_evidence_graph(
         task, [item], ["GENE1"],
         paper_evidence=[{
@@ -213,8 +214,12 @@ def unit_paper_rag_graph_projection() -> str | None:
         return "paper strategy edge missing strategy_only/not_evidence markers"
     if edge.evidence_ids:
         return "paper strategy edge must carry no evidence ids"
-    if result.lane_coverage.get("GENE1"):
-        return "paper RAG hit leaked into lane coverage"
+    if result.lane_coverage != baseline.lane_coverage:
+        return "paper RAG hit changed lane coverage"
+    if result.pattern_links != baseline.pattern_links:
+        return "paper RAG hit changed pattern links"
+    if result.findings != baseline.findings:
+        return "paper RAG hit changed synthesis findings"
     if result.graph.model_statistics.get("paper_strategy_hints") != 1:
         return "paper_strategy_hints statistic missing"
     return None
