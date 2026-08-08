@@ -249,7 +249,19 @@ Replay is explicitly labelled as an acceptance-checked stored run. The acceptanc
 
 See [DEMO_GUIDE.md](docs/DEMO_GUIDE.md) for the five-minute narration, verification checklist and recovery path.
 
-## Deployment portability
+
+### One-command start and OS-keyring secrets
+
+```bash
+target-agent up --port 8888          # doctor checks, then Waitress workbench
+target-agent secrets status          # keyring backend + configured/not configured
+target-agent secrets set STEP_API_KEY --value 'sk-...'   # or omit --value and paste on stdin
+target-agent secrets delete STEP_API_KEY
+```
+
+Secret resolution is process environment > `.env` > OS keyring
+(`pip install -e ".[secrets]"` enables the keyring backend). `doctor` reports
+the backend and per-key configured state without printing values.## Deployment portability
 
 The repository contains no SSH target, remote path, Conda environment, scheduler queue, node, core count, GPU selection or service tunnel. Those values belong in an external deployment profile. Missing resource fields must fail rather than be guessed. See [REMOTE_ACCEPTANCE.md](docs/REMOTE_ACCEPTANCE.md).
 

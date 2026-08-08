@@ -129,6 +129,31 @@ class Settings(BaseSettings):
             )
         return self.step_configured
 
+    def with_keyring_secrets(self) -> "Settings":
+        """Fill missing API keys from the optional OS keyring (lowest priority).
+
+        Process environment and dotenv values are already materialized by
+        pydantic-settings; this only fills fields that are still None. The
+        keyring backend is failure-soft: unavailability returns self unchanged.
+        """
+        from . import secret_store
+
+        updates: dict[str, Any] = {}
+        for field_name, alias in (
+            ("step_api_key", "STEP_API_KEY"),
+            ("openai_api_key", "OPENAI_API_KEY"),
+            ("ncbi_api_key", "NCBI_API_KEY"),
+        ):
+            current = getattr(self, field_name)
+            if current is not None:
+                continue
+            stored = secret_store.get_secret(alias)
+            if stored:
+                updates[field_name] = SecretStr(stored)
+        if not updates:
+            return self
+        return self.model_copy(update=updates)
+
     def public_summary(self) -> dict[str, Any]:
         return {
             "llm_provider": self.llm_provider_name,
@@ -168,4 +193,6 @@ def _writable_parent(path: Path) -> bool:
 def load_settings(env_file: Path | None = None) -> Settings:
     """Load process environment first, then one explicit/default dotenv file."""
     selected = env_file if env_file is not None else PROJECT_ROOT / ".env"
-    return Settings(_env_file=selected if selected and selected.exists() else None)
+    return Settings(
+        _env_file=selected if selected and selected.exists() else None
+    ).with_keyring_secrets()

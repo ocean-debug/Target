@@ -310,3 +310,15 @@ typed transient failure
 - 会话是“视图”，计划、结果、证据、决策与发布仍以项目账本为唯一真相；Agent 回答永不写入科学状态。
 - 自然语言批准/拒绝已通过干预端点接入 checkpoint 流程；会话内“补充输入”（为检查点补字段后继续）尚未接入，仍通过现有 decisions/repairs/fork API 操作。
 - 多角色会话（研究者/审稿人/管理员）与 MCP 会话工具属于下一增量。
+
+## 14. 部署与密钥管理（P2.15，2026-08-08）
+
+### 14.1 已完成
+- 单命令启动：`target-agent up --port <port>` 先跑 `doctor`（必需依赖缺失直接拒绝启动），打印启动摘要（LLM 配置、keyring 后端、目录可写），再以 Waitress 正式启动工作台；`serve` 与 `up` 共用同一 `_start_workbench` 路径。
+- OS keyring（可选，Wisp 式）：`target-agent secrets status|set|delete`；`pip install -e ".[secrets]"` 后密钥可存系统钥匙串。解析优先级固定为 进程环境 > .env > OS keyring；keyring 后端不可用时 failure-soft，不影响 .env 部署。`doctor` 输出 keyring 后端与各密钥 configured/not configured，不打印值。
+- 只读分享包校验（OpenAI4S 式）：`project-package-inspect` 现在不导入、不落盘，逐文件校验 MANIFEST 的 SHA-256；篡改包直接报 checksum mismatch。导出本身已拒绝 secret-like 文件，导入仍先校验后提交。
+- 测试：`tests/test_secret_store.py`（伪造 keyring 后端，覆盖读写删、无后端降级、Settings 填充优先级、doctor 不泄露值）、`tests/test_cli_product.py`（up 先检查后启动、缺依赖拒绝、secrets CLI）、`tests/test_project_package.py`（inspect 篡改检测）；远程全套 419 passed / 0 failed / 2 skipped。
+
+### 14.2 边界
+- keyring 是可选依赖（extra `secrets`），无 keyring 时 .env/进程环境照常工作。
+- 单命令启动只做配置与依赖检查，不自动安装依赖、不申请端口之外的资源；多用户认证与租户隔离仍未实现。

@@ -240,11 +240,25 @@ def import_project(projects_dir: Path | str, archive: Path) -> dict:
 
 
 def inspect_package(archive: Path) -> dict:
-    """Read package metadata without importing it."""
+    """Read-only review: parse metadata and verify every manifest checksum.
+
+    No files are extracted and no project store is touched, so a reviewer can
+    validate a share package without importing it.
+    """
     with zipfile.ZipFile(archive, "r") as zf:
+        names = set(zf.namelist())
+        if "MANIFEST.json" not in names:
+            raise ValueError("package is missing MANIFEST.json")
         manifest = ProjectPackageManifest.model_validate_json(
             zf.read("MANIFEST.json").decode("utf-8")
         )
+        for entry in manifest.files:
+            member = _safe_member(entry.path)
+            if member not in names:
+                raise ValueError(f"manifest file missing from archive: {entry.path}")
+            digest = hashlib.sha256(zf.read(member)).hexdigest()
+            if digest != entry.sha256:
+                raise ValueError(f"checksum mismatch for {entry.path}")
     return {
         "project_id": manifest.project_id,
         "schema_version": manifest.schema_version,
@@ -252,4 +266,5 @@ def inspect_package(archive: Path) -> dict:
         "file_count": manifest.file_count,
         "total_bytes": manifest.total_bytes,
         "research_contract_version": manifest.research_contract_version,
+        "checksums_valid": True,
     }

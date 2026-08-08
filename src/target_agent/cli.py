@@ -66,6 +66,7 @@ def _init_readme(spec: ResearchProjectSpec) -> str:
 
 
 def _doctor(settings: Settings) -> dict:
+    from . import secret_store
     required = ["flask", "pydantic", "pydantic_settings", "requests", "waitress", "yaml"]
     optional = ["pydeseq2", "gseapy", "scanpy", "anndata", "cellxgene_census", "mcp"]
     registry = default_registry(settings)
@@ -101,6 +102,13 @@ def _doctor(settings: Settings) -> dict:
         },
         "enabled_tools": registry.names,
         "registry_contract_valid": True,
+        "keyring": {
+            "backend": secret_store.keyring_backend_name(),
+            "secrets": {
+                name: bool(secret_store.get_secret(name))
+                for name in secret_store.SECRET_NAMES
+            },
+        },
     }
 
 
@@ -122,6 +130,20 @@ def _smoke_test(settings: Settings) -> dict:
         "configured": True, "schema_valid": True, "planner_backend": plan.planner_backend,
         "step_count": len(plan.steps), "provider_request": client.last_request_meta,
     }
+
+
+def _start_workbench(settings: Settings, args: argparse.Namespace) -> None:
+    runtime_cls = LangGraphRuntime if args.runtime == "langgraph" else TargetDiscoveryRuntime
+    runtime = runtime_cls(runs_dir=args.runs_dir, cache_dir=args.cache_dir, settings=settings)
+    research_runtime = ResearchProjectRuntime(
+        projects_dir=args.projects_dir, cache_dir=args.cache_dir, settings=settings,
+    )
+    app = create_app(runtime, research_runtime)
+    if args.dev:
+        app.run(host=args.host, port=args.port, threaded=True)
+    else:
+        from waitress import serve as waitress_serve
+        waitress_serve(app, host=args.host, port=args.port, threads=settings.web_workers)
 
 
 def main() -> None:
@@ -305,6 +327,24 @@ def main() -> None:
     serve.add_argument("--cache-dir", type=Path)
     serve.add_argument("--runtime", choices=["legacy", "langgraph"], default="langgraph")
     serve.add_argument("--dev", action="store_true", help="Use Flask's development server")
+
+    up = sub.add_parser("up", help="One-command start: run capability checks, then serve the workbench")
+    up.add_argument("--host", default="127.0.0.1")
+    up.add_argument("--port", type=int, required=True, help="Bind port supplied by the external deployment profile")
+    up.add_argument("--runs-dir", type=Path)
+    up.add_argument("--projects-dir", type=Path)
+    up.add_argument("--cache-dir", type=Path)
+    up.add_argument("--runtime", choices=["legacy", "langgraph"], default="langgraph")
+    up.add_argument("--dev", action="store_true", help="Use Flask's development server")
+
+    secrets_cmd = sub.add_parser("secrets", help="Manage optional OS-keyring secrets; process env / .env still take priority")
+    secrets_sub = secrets_cmd.add_subparsers(dest="secret_command", required=True)
+    secrets_sub.add_parser("status", help="Show the keyring backend and which secrets are configured")
+    secrets_set = secrets_sub.add_parser("set", help="Store one secret in the OS keyring")
+    secrets_set.add_argument("name", help="Secret name, e.g. STEP_API_KEY")
+    secrets_set.add_argument("--value", help="Secret value; if omitted, read from stdin")
+    secrets_delete = secrets_sub.add_parser("delete", help="Delete one secret from the OS keyring")
+    secrets_delete.add_argument("name", help="Secret name, e.g. STEP_API_KEY")
 
     ask_cmd = sub.add_parser("ask", help="Turn a natural-language research question into a reviewable project draft")
     ask_cmd.add_argument("--question", required=True)
@@ -774,17 +814,41 @@ def main() -> None:
                 KernelTimeoutError) as exc:
             raise SystemExit(f"{exc.__class__.__name__}: {exc}")
     elif args.command == "serve":
-        runtime_cls = LangGraphRuntime if args.runtime == "langgraph" else TargetDiscoveryRuntime
-        runtime = runtime_cls(runs_dir=args.runs_dir, cache_dir=args.cache_dir, settings=settings)
-        research_runtime = ResearchProjectRuntime(
-            projects_dir=args.projects_dir, cache_dir=args.cache_dir, settings=settings,
-        )
-        app = create_app(runtime, research_runtime)
-        if args.dev:
-            app.run(host=args.host, port=args.port, threaded=True)
-        else:
-            from waitress import serve as waitress_serve
-            waitress_serve(app, host=args.host, port=args.port, threads=settings.web_workers)
+        _start_workbench(settings, args)
+    elif args.command == "up":
+        doctor = _doctor(settings)
+        missing_required = [
+            name for name, ok in doctor["required_dependencies"].items() if not ok
+        ]
+        if missing_required:
+            raise SystemExit("missing required dependencies: " + ", ".join(missing_required))
+        print(json.dumps({
+            "start": "up",
+            "llm_configured": doctor["settings"]["llm_configured"],
+            "keyring_backend": (doctor.get("keyring") or {}).get("backend"),
+            "projects_dir_writable": doctor["settings"]["projects_dir_writable"],
+            "dependencies_ok": True,
+        }, indent=2, ensure_ascii=False), flush=True)
+        _start_workbench(settings, args)
+    elif args.command == "secrets":
+        from . import secret_store
+        if args.secret_command == "status":
+            print(json.dumps({
+                "backend": secret_store.keyring_backend_name(),
+                "secrets": {
+                    name: "configured" if secret_store.get_secret(name) else "not_configured"
+                    for name in secret_store.SECRET_NAMES
+                },
+            }, indent=2, ensure_ascii=False))
+        elif args.secret_command == "set":
+            value = args.value
+            if value is None:
+                value = sys.stdin.read().strip()
+            secret_store.set_secret(args.name, value)
+            print(json.dumps({"stored": True, "name": args.name}, ensure_ascii=False))
+        elif args.secret_command == "delete":
+            removed = secret_store.delete_secret(args.name)
+            print(json.dumps({"deleted": removed, "name": args.name}, ensure_ascii=False))
     elif args.command == "ask":
         from .llm import StepClient
         from .question_intake import QuestionNeedsInput, build_draft, reserve_draft

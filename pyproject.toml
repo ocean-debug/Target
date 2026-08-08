@@ -35,6 +35,7 @@ omics-single-cell = [
 ]
 omics-census = ["cellxgene-census==1.17.*"]
 mcp = ["mcp>=2.0,<3"]
+secrets = ["keyring>=24,<26"]
 train = [
   "accelerate>=0.33",
   "datasets>=2.20",

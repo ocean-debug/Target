@@ -44,6 +44,7 @@ def test_export_import_roundtrip_preserves_project_state(tmp_path):
     metadata = inspect_package(package)
     assert metadata["project_id"] == project.project_id
     assert metadata["schema_version"] == "1.0.0"
+    assert metadata["checksums_valid"] is True
 
     with zipfile.ZipFile(package) as zf:
         names = zf.namelist()
@@ -133,3 +134,20 @@ def test_web_export_endpoint_returns_zip(tmp_path):
     with zipfile.ZipFile(io.BytesIO(response.data)) as zf:
         assert "MANIFEST.json" in zf.namelist()
         assert "project_spec.json" in zf.namelist()
+
+def test_inspect_package_rejects_tampered_archive(tmp_path):
+    runtime, project = _run_fake_project(tmp_path, "project-pkg-tamper")
+    package = tmp_path / "package.zip"
+    export_project(runtime.projects_dir, project.project_id, output=package)
+
+    tampered = tmp_path / "tampered.zip"
+    with zipfile.ZipFile(package) as source:
+        with zipfile.ZipFile(tampered, "w") as target:
+            for info in source.infolist():
+                data = source.read(info.filename)
+                if info.filename == "project_spec.json":
+                    data = data.replace(b'"title"', b'"titlex"')
+                target.writestr(info, data)
+
+    with pytest.raises(ValueError, match="checksum mismatch"):
+        inspect_package(tampered)
