@@ -184,6 +184,7 @@ def test_portal_payload_scrubs_secrets_and_paths():
             "autonomy_mode": "checkpointed",
             "context": {
                 "api_key": "sk-abc123",
+                "uri": "https://europepmc.org/article/MED/42123659",
                 "note": "see " + "/ho" + "me/user/x and D:\\tmp\\y and a@b" + ".com",
                 "credential": {"token": "tok-1234567890"},
             },
@@ -208,6 +209,7 @@ def test_portal_payload_scrubs_secrets_and_paths():
     })
     text = json.dumps(payload, ensure_ascii=False)
     assert "sk-abc123" not in text
+    assert "https://europepmc.org/article/MED/42123659" in text
     assert "tok-1234567890" not in text
     assert "/home/user" not in text
     assert "D:\\tmp" not in text

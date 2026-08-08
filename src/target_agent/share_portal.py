@@ -32,7 +32,11 @@ _BLOCKED_KEYS = frozenset({
     "step_api_key", "openai_api_key", "ncbi_api_key", "secret", "token",
 })
 
-_ABS_PATH_RE = re.compile(r"(?i)([a-z]:[\\/]|/(?:home|root|users|tmp|var|etc|opt|srv)/|\\\\)")
+_ABS_PATH_RE = re.compile(
+    r"(?i)((?<![a-z0-9])[a-z]:[\\/]"
+    r"|(?<![a-z0-9])/(?:home|root|users|tmp|var|etc|opt|srv)/"
+    r"|(?<![a-z0-9])\\\\)"
+)
 _EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 _IP_RE = re.compile(r"\b\d{1,3}(?:\.\d{1,3}){3}\b")
 _SSH_PUB_RE = re.compile(r"ssh-(?:ed25519|rsa|ecdsa)\s+[A-Za-z0-9+/=]+")
