@@ -65,6 +65,7 @@ from .research_repair import (
     effective_plan,
     fork_affected_item_ids,
     project_snapshot_digest,
+    verify_domain_repair_policy,
     work_item_result_digest,
 )
 
@@ -988,6 +989,7 @@ class ResearchProjectStore:
             raise ValueError(f"duplicate {label} identifiers")
 
     def assert_integrity(self) -> None:
+        verify_domain_repair_policy()
         spec = self.load_spec()
         if spec is None:
             raise ValueError("project spec is missing")
@@ -1423,6 +1425,14 @@ class ResearchProjectStore:
             if domain_repair_source:
                 if source.input_digest != request.input_digest:
                     raise ValueError("repair request source input digest mismatch")
+                if not request.no_scope_change:
+                    raise ValueError("domain repair request must declare no_scope_change")
+                if request.candidate_lane_recompute_required != (
+                    request.action == RepairAction.SWITCH_DATASET_SAME_CONTEXT
+                ):
+                    raise ValueError(
+                        "repair request candidate lane recompute flag does not match its action"
+                    )
                 overlay_chain = source.module == "domain_overlay"
                 if overlay_chain:
                     if source.status not in {
@@ -1489,6 +1499,11 @@ class ResearchProjectStore:
             )
             domain_resolution = request.action.value in DOMAIN_REPAIR_ACTION_VALUES
             if resolution.status == RepairResolutionStatus.RESOLVED:
+                if any(
+                    row.blocking and row.result == AssessmentResult.FAIL
+                    for row in active_assessments(assessments, revisions)
+                ):
+                    raise ValueError("resolved repair leaves a blocking assessment active")
                 if not verified or (not domain_resolution and root_result.input_digest != request.input_digest):
                     raise ValueError("resolved repair lacks identical-input independent verification")
                 if final_root.item_id == root.item_id:

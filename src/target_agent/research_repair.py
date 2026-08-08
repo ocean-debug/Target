@@ -10,7 +10,7 @@ from __future__ import annotations
 import hashlib
 import errno
 import json
-from typing import Any, Iterable
+from typing import Any, Iterable, get_args
 
 import requests
 from pydantic import BaseModel
@@ -20,6 +20,7 @@ from .research_contracts import (
     AssessmentRecord,
     AssessmentResult,
     AutonomyMode,
+    DomainFinding,
     FailureClass,
     ForkDirective,
     ForkMode,
@@ -67,6 +68,39 @@ FINDING_TO_ACTION: dict[str, RepairAction] = {
 # One deterministic downgrade target: derived causal/mechanistic language is
 # weakened to INFERRED; the policy never upgrades any claim.
 CLAIM_DOWNGRADE_TARGET_CLASS = "INFERRED"
+
+# Closed repair-triggering finding set: every category maps to exactly one
+# deterministic repair. Categories outside this set are either refused by the
+# policy layer (human decision required) or not yet typed.
+DOMAIN_REPAIRABLE_CATEGORIES = frozenset(FINDING_TO_ACTION)
+DOMAIN_REFUSED_CATEGORIES = frozenset({"unsupported_claim"})
+FINDING_CATEGORY_VALUES = frozenset(
+    get_args(DomainFinding.model_fields["category"].annotation)
+)
+
+
+def verify_domain_repair_policy() -> None:
+    """Executable closure assertions for the deterministic repair policy.
+
+    Raises ValueError when the typed finding categories, action map, overlay
+    payload whitelist or per-action success criteria drift out of sync, so a
+    new repair mode can never silently bypass a store integrity gate.
+    """
+    if set(FINDING_TO_ACTION) != DOMAIN_REPAIRABLE_CATEGORIES:
+        raise ValueError("FINDING_TO_ACTION keys drifted from DOMAIN_REPAIRABLE_CATEGORIES")
+    if DOMAIN_REPAIRABLE_CATEGORIES | DOMAIN_REFUSED_CATEGORIES != FINDING_CATEGORY_VALUES:
+        raise ValueError(
+            "DomainFinding.category literals drifted from the repair/refused category closure"
+        )
+    if not set(FINDING_TO_ACTION.values()).issubset(DOMAIN_REPAIR_POLICY):
+        raise ValueError("FINDING_TO_ACTION references an action missing from DOMAIN_REPAIR_POLICY")
+    if not OVERLAY_ACTIONS.issubset(DOMAIN_REPAIR_POLICY):
+        raise ValueError("OVERLAY_ACTIONS contains an action missing from DOMAIN_REPAIR_POLICY")
+    if set(OVERLAY_ALLOWED_PAYLOAD_KEYS) != OVERLAY_ACTIONS:
+        raise ValueError("OVERLAY_ALLOWED_PAYLOAD_KEYS drifted from OVERLAY_ACTIONS")
+    for action in OVERLAY_ACTIONS:
+        if not _action_success_criteria(action):
+            raise ValueError(f"overlay action {action.value} has no executable success criteria")
 
 OVERLAY_ACTIONS = frozenset({
     RepairAction.DOWNGRADE_CLAIM,
@@ -951,6 +985,7 @@ def propose_domain_repair(
             directive_id=directive.directive_id,
             directive_payload=directive.payload,
             no_scope_change=True,
+            candidate_lane_recompute_required=True,
             success_criteria=[
                 "The replacement dataset passed deterministic same-context qualification.",
                 "The frozen TaskSpec disease, tissue, cell type and stage are unchanged.",
@@ -1207,6 +1242,10 @@ __all__ = [
     "CONTEXT_SPLIT_POLICY_RULE",
     "DATASET_SWITCH_POLICY_RULE",
     "DOMAIN_REPAIR_POLICY",
+    "DOMAIN_REPAIRABLE_CATEGORIES",
+    "DOMAIN_REFUSED_CATEGORIES",
+    "FINDING_CATEGORY_VALUES",
+    "verify_domain_repair_policy",
     "EVIDENCE_DEPENDENCE_POLICY_RULE",
     "EVIDENCE_EXCLUSION_POLICY_RULE",
     "EVIDENCE_SUPPLEMENT_POLICY_RULE",

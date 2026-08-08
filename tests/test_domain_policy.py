@@ -859,3 +859,53 @@ def test_checkpointed_r2_exclusion_requires_approval_then_applies(tmp_path):
     assert overlay.outputs["domain_overlay_operations"][0]["operation"] == "exclude_evidence"
     assert "ev-genetics" not in overlay.evidence_refs
     store.assert_integrity()
+
+
+def test_integrity_rejects_domain_request_that_declares_scope_change(tmp_path):
+    runtime, settings = _runtime(tmp_path, [
+        _finding("causal_overreach", ["claim-overstated"], finding_id="finding-scope-gate"),
+    ], AutonomyMode.AUTONOMOUS)
+    project = _project("project-scope-gate", autonomy_mode=AutonomyMode.AUTONOMOUS)
+    runtime.run(project)
+    store = ResearchProjectStore(settings.projects_dir, project.project_id)
+    request = store.read_repair_requests()[0]
+    request_path = store.project_dir / "repair_requests" / f"{request.repair_request_id}.json"
+    payload = json.loads(request_path.read_text(encoding="utf-8"))
+    payload["no_scope_change"] = False
+    request_path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="must declare no_scope_change"):
+        store.assert_integrity()
+
+
+def test_integrity_rejects_resolved_repair_with_active_blocking_assessment(tmp_path):
+    runtime, settings = _runtime(tmp_path, [
+        _finding("causal_overreach", ["claim-overstated"], finding_id="finding-blocker-gate"),
+    ], AutonomyMode.AUTONOMOUS)
+    project = _project("project-blocker-gate", autonomy_mode=AutonomyMode.AUTONOMOUS)
+    runtime.run(project)
+    store = ResearchProjectStore(settings.projects_dir, project.project_id)
+    assert store.load_state().status == ProjectStatus.COMPLETED.value
+    assert all(
+        row.status == RepairResolutionStatus.RESOLVED
+        for row in store.read_repair_resolutions()
+    )
+    overlay = next(
+        row for row in store.load_work_item_results().values()
+        if row.module == "domain_overlay"
+    )
+    store.append_assessment(AssessmentRecord(
+        project_id=project.project_id,
+        target_id=overlay.item_id,
+        target_digest=work_item_result_digest(overlay),
+        dimension=AssessmentDimension.METHODOLOGY,
+        level=AssessmentLevel.A0,
+        result=AssessmentResult.FAIL,
+        actor="fake_independent_review",
+        method="typed_status_gate",
+        rationale="post-resolution blocker injected by integrity test",
+        blocking=True,
+    ))
+
+    with pytest.raises(ValueError, match="leaves a blocking assessment active"):
+        store.assert_integrity()

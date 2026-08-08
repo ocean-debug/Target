@@ -142,6 +142,26 @@ class EvidenceStore:
             missing = set(result.evidence_ids) - evidence_ids
             if missing:
                 raise ValueError(f"tool run {result.tool_run_id} references missing evidence: {sorted(missing)}")
+        for result in results:
+            prior_id = result.supersedes_tool_run_id
+            if prior_id is not None:
+                if prior_id == result.tool_run_id:
+                    raise ValueError(f"tool run {result.tool_run_id} cannot supersede itself")
+                if prior_id not in tool_ids:
+                    raise ValueError(f"tool run {result.tool_run_id} supersedes a missing tool run: {prior_id}")
+        supersession = {
+            row.tool_run_id: row.supersedes_tool_run_id
+            for row in results
+            if row.supersedes_tool_run_id is not None
+        }
+        for run_id in supersession:
+            seen: set[str] = set()
+            cursor = run_id
+            while cursor in supersession:
+                if cursor in seen:
+                    raise ValueError("tool result supersession chain contains a cycle")
+                seen.add(cursor)
+                cursor = supersession[cursor]
 
     @staticmethod
     def by_gene(items: Iterable[EvidenceItem]) -> dict[str, list[EvidenceItem]]:

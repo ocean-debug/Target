@@ -589,6 +589,10 @@ class RepairRequest(ResearchContract):
     directive_id: str | None = Field(default=None, pattern=r"^directive-[a-f0-9]{24}$")
     directive_payload: dict[str, Any] = Field(default_factory=dict)
     no_scope_change: bool = True
+    # Machine-checkable P0.4 contract: a dataset-switch repair must recompute
+    # every candidate-bound evidence lane against the replacement candidate
+    # universe. Set automatically by the policy layer; never set for other actions.
+    candidate_lane_recompute_required: bool = False
     success_criteria: list[str] = Field(min_length=1)
     rationale: str
     created_at: str = Field(default_factory=utc_now)
@@ -599,6 +603,10 @@ class RepairRequest(ResearchContract):
             raise ValueError("domain repair request requires directive_payload")
         if self.directive_id is None and self.directive_payload:
             raise ValueError("directive_payload requires directive_id")
+        if self.candidate_lane_recompute_required != (self.action == RepairAction.SWITCH_DATASET_SAME_CONTEXT):
+            raise ValueError(
+                "candidate_lane_recompute_required is only valid for switch_dataset_same_context repairs"
+            )
         return self
 
 
