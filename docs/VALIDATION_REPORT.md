@@ -148,3 +148,33 @@ The checkboxes above record the historical V2.1 remote-node baseline, not curren
 - Final remote acceptance (external GPU node, pinned conda environment, 35 cores): internal benchmark 13/13 tasks, 29/29 assertions, score 1.0; repository policy REPO_POLICY=OK; canonical schema export regenerated; TARGET_P02_ACCEPTANCE=OK.
 - RAG coverage ablation on the current 155-chunk / 59-paper seed corpus: 16/18 diseases with at least one hit (88.9%), 2.5 average hits per disease, 15/18 diseases with RAG lanes aligned to the deterministic plan. UC and psoriasis currently have no hits; they are the priority targets for the next gold-paper curation batch.
 - Teammate context-relation benchmark (PR 12; 145 cases, disease-disjoint splits, scoped contrastive labels) reviewed for sensitive content and merged into the product branch as an evaluation asset. Its main-branch PR remains draft until the author marks it ready.
+## Gold-paper nomination acceptance (2026-08-08, P2.8)
+
+- New deterministic nomination layer (src/target_agent/gold_nomination.py):
+  ranks candidate-corpus metadata by journal premium, query bucket, title
+  lane signals (genetics / perturbation / single_cell / mechanism /
+  target_drug), RAG gap-disease bonus (UC, psoriasis, SLE, ALS, melanoma)
+  and a basic-biology-only penalty. No model, no network, fully
+  reproducible; a nomination never writes to the curation ledger.
+- CLI `target-agent pattern nominate --corpus --out --limit --min-score
+  --year-min`; output `paper_strategy/nominations.jsonl` (40 advisory
+  rows, each with a self-consistent digest) plus per-line SHA-256
+  `nominations_MANIFEST.json`. Gold status still requires dual-role
+  `target-agent pattern curate` confirmation.
+- Pattern CLI dispatch fixed: curate/review/nominate previously crashed
+  on unconditional `args.store` access; a regression test now runs
+  `pattern nominate` end to end.
+- Final remote acceptance (external GPU node, pinned conda environment,
+  35 cores): full pytest 374 collected, 372 passed, 2 pre-existing
+  capability-gated skips, no failures; internal benchmark 13/13 tasks,
+  29/29 assertions, score 1.0; canonical schema export regenerated;
+  repository policy REPO_POLICY=OK; nomination witness
+  NOMINATION_WITNESS=OK; TARGET_P28_ACCEPTANCE=OK.
+- Nomination gap audit on the current 200-record corpus: 105 eligible
+  records; only two gap-disease hits exist in the pool (melanoma PMID
+  42556334 / 41606121). UC, psoriasis, SLE and ALS papers are absent
+  from the candidate corpus, which explains the P2.7 RAG zero-hit rows;
+  the next corpus refresh must add targeted queries for these diseases
+  before re-nominating.
+- Alignment-data generation and Planner/Reviewer small-model training
+  remain deferred (P3) per the team decision.
