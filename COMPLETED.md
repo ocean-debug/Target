@@ -381,3 +381,18 @@ typed transient failure
   contract and degrading the journey to needs_input. The hypothesis-generation prompt now declares
   assumptions as an array of strings; re-verified live with 15 real Europe PMC records (5/5 hypotheses
   validate). Safe rejection behavior is unchanged: no invalid hypothesis is accepted.
+
+### 18.4 Live Alzheimer target-discovery journey (2026-08-08, verified on remote GPU node)
+
+- Real Step 3.7 Flash planning (step:step-3.7-flash + pattern-fewshot + paper-rag + skills) and a real
+  child target-discovery chain: disease resolver -> GEO search/audit -> bulk omics -> pathway ->
+  omics candidates -> genetics/trials -> literature RAG -> review -> ranking -> report.
+- Output: 5 ranked candidates (APP/PSEN1/PSEN2 CONDITIONAL_GO, APOE/CR1 INSUFFICIENT_EVIDENCE),
+  5 TargetCards, 12KB traceable report, 58 evidence items, 19 Reviewer findings; project terminal
+  state completed_with_gaps with release snapshot. Export -> checksum verify -> import preserved
+  status and integrity.
+- Second live finding fixed: LangGraph runtime emitted planner_pattern_hints and
+  planner_paper_evidence trace events whenever the Step planner used pattern few-shot or paper RAG,
+  but TraceEvent.event_type did not allow them, crashing the child runtime with ValidationError at
+  intake. Both types are now part of the contract, with a regression test over the hinted-planner
+  path. Full remote suite: 430 passed / 0 failed / 2 skipped; repo policy OK; deployment assets 32/32.
