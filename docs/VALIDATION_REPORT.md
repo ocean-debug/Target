@@ -140,3 +140,11 @@ The checkboxes above record the historical V2.1 remote-node baseline, not curren
 - Alignment-data generation and Planner/Reviewer small-model training remain
   deferred (P3) per the team decision; RAG hits and pattern library are the
   future alignment-data source.
+## Paper RAG in mechanism graph and RAG ablation acceptance (2026-08-08, P2.7)
+
+- Mechanism graph now projects paper-RAG hits as strategy_paper nodes and paper_strategy_hint edges: claim_class=INFERRED, weight=0, empty evidence_ids, attributes strategy_only/not_evidence. Gene mention matching is deterministic (token-boundary) and malformed rows / unknown genes are skipped. RAG hits never alter lane_coverage, direction conflicts, dependence findings, pattern_links or ranking. GraphNode.node_type was extended with strategy_paper (additive literal).
+- Web workbench mechanism panel shows a paper_strategy_hints metric and an explicit note that RAG hits are strategy hints, not evidence and not ranked.
+- benchmark/pattern_ablation.py gained --rag/--paper-top-k; offline report now includes RAG hit counts, coverage, average hits and lane-alignment per disease. Benchmark goldset gained BM-13 (paper_rag_graph_projection unit check).
+- Final remote acceptance (gpu03, agenttest, 35 cores): internal benchmark 13/13 tasks, 29/29 assertions, score 1.0; repository policy REPO_POLICY=OK; canonical schema export regenerated; TARGET_P02_ACCEPTANCE=OK.
+- RAG coverage ablation on the current 155-chunk / 59-paper seed corpus: 16/18 diseases with at least one hit (88.9%), 2.5 average hits per disease, 15/18 diseases with RAG lanes aligned to the deterministic plan. UC and psoriasis currently have no hits; they are the priority targets for the next gold-paper curation batch.
+- Teammate context-relation benchmark (PR 12; 145 cases, disease-disjoint splits, scoped contrastive labels) reviewed for sensitive content and merged into the product branch as an evaluation asset. Its main-branch PR remains draft until the author marks it ready.
