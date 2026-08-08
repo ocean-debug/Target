@@ -2,6 +2,14 @@
 
 Cross-module contracts, workflow choices, model boundaries and scientific-safety decisions are recorded here. Accepted decisions must not be changed silently in a feature branch.
 
+## 2026-08-08 - PR 12 合并与产品发布路径收口
+
+- **Status:** accepted
+- PR #12（contextual disease-target relation benchmark，939d9b9）通过远程验收（4/4）与静态审查后，按用户"审查并合并队友 PR"的要求合入 main（ffe8801）。
+- 该基准已同时存在于产品分支（p2.7 合并），PR #11 合入 main 后不会遗漏该资产；PR #11 与最新 main 经 merge-tree 验证无冲突。
+- 门户脱敏修复（保留证据来源 URL，不再误伤 https://）通过远程全量 pytest（430 passed），已推入产品分支并随 PR #11 发布。
+- PR #11（产品化核心，87 提交）保持 draft，由用户确认后合入 main；对齐数据训练（P3）按用户要求延后到最后阶段。
+
 
 
 
