@@ -304,7 +304,12 @@ def test_resume_reuses_digest_matched_candidate_bound_result(tmp_path):
     assert status["terminal_status"] == "completed"
     rows = _jsonl(run_dir / "tool_results.jsonl")
     literature = [row for row in rows if row["tool_name"] == "europe_pmc_rag"]
+    # digest-matched completed steps are skipped without re-execution
     assert len(literature) == 1
+    final_checkpoint = json.loads((run_dir / "checkpoint.json").read_text(encoding="utf-8"))
+    assert final_checkpoint["candidate_digest"] == matched_digest
     trace = _jsonl(run_dir / "trace.jsonl")
-    assert any(row["event_type"] == "tool_result_reused" for row in trace)
     assert not any(row["event_type"] == "evidence_superseded" for row in trace)
+    assert not any(
+        row["event_type"] == "replan" and row["state"] == "resume" for row in trace
+    )

@@ -312,18 +312,6 @@ class LangGraphRuntime:
             candidate_bound_digest = (
                 candidate_universe_digest(candidate_genes) if step.candidate_bound else None
             )
-            if candidate_bound_digest is not None:
-                active = self._active_candidate_bound_result(
-                    prior_results, step.step_id, candidate_bound_digest,
-                )
-                if active is not None:
-                    completed_steps.add(step.step_id)
-                    self._trace(store, run_id, task, "tool_result_reused", "tool_execution", {
-                        "tool": step.tool, "step_id": step.step_id,
-                        "candidate_digest": candidate_bound_digest,
-                        "evidence_lane": step.evidence_lane,
-                    }, [active.tool_run_id])
-                    continue
             tool = self.registry.get(step.tool)
             self._trace(store, run_id, task, "tool_call", "tool_execution",
                         {"tool": step.tool, "step_id": step.step_id,
