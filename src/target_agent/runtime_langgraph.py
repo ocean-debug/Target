@@ -535,7 +535,9 @@ class LangGraphRuntime:
         store.save_case(case)
         final_checkpoint = {
             "stage": "terminal", "completed_steps": sorted(state["completed_steps"]),
-            "candidate_genes": state["candidate_genes"], "tool_calls": state["tool_calls"],
+            "candidate_genes": state["candidate_genes"],
+            "candidate_digest": candidate_universe_digest(state["candidate_genes"]),
+            "tool_calls": state["tool_calls"],
             "terminal_status": status.value, "revision_history": state["revision_history"],
         }
         store.checkpoint(final_checkpoint)
