@@ -2,6 +2,14 @@
 
 Cross-module contracts, workflow choices, model boundaries and scientific-safety decisions are recorded here. Accepted decisions must not be changed silently in a feature branch.
 
+## 2026-08-08 - 论文模式语料管线与策略可见性（P1）
+
+- **Status:** accepted
+- 决策：候选语料只存元数据（PMID/标题/期刊/年份/DOI/PMCID/查询桶），不存摘要与全文；期刊白名单与查询桶是确定性常量，过滤规则可测试；append-only 按 PMID 去重并逐条 SHA-256。
+- 决策：ResearchPlan 新增 `evidence_strategy_patterns` 字段，Planner few-shot 命中随计划持久化，项目快照与 Web 工作台展示“论文模式 → 策略 → 执行”链路，并明确标注为策略提示而非证据。
+- 决策：语料刷新通过 NCBI E-utilities（esearch + esummary）完成，邮箱/API Key 只从环境或命令行注入，不进入仓库与日志。
+- 验收：新增语料管线测试（过滤/去重/分桶/上限/append-only/digest/状态绑定）与 Planner 持久化测试；全量 pytest、benchmark、schema 导出与仓库策略检查在远程验收环境执行通过。
+
 ## 2026-08-08 - 修复策略可执行闭包门禁（P0.4）
 
 - **Status:** accepted

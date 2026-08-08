@@ -161,6 +161,8 @@ typed transient failure
 - Planner/Reviewer SFT、偏好和 held-out 资产具有角色字段与 promotion gate；现有 120 条 SFT 是 6 个模板各 20 个索引变体，科学与工程角色由同一负责人完成，不是独立双人审核；
 - benchmark runner 已读取权威 `reviewer_findings.jsonl`，并支持显式 `finding_category` 断言；
 - 论文策略 P0/P1：`paper_strategy.py` 的 ObservedWorkflow/StrategyPattern/BestPracticePattern 合同、append-only 确定性 PatternStore 与 Planner few-shot；种子库 10 条 discovery patterns 与 checksum manifest；
+- 论文语料管线（P1）：`paper_corpus.py` 通过 NCBI E-utilities 按 4 个查询桶 × 期刊白名单检索近 5 年 CNS/高影响力论文，esummary 批量取元数据，确定性过滤（期刊/年份/标题排除 review 与 methods-only），append-only `CorpusStore` 按 PMID 去重并逐条 SHA-256；CLI `pattern corpus refresh|status` 与 `scripts/build_paper_corpus.py`；
+- 证据策略可见性（P1）：ResearchPlan 持久化 `evidence_strategy_patterns`（few-shot 命中），项目快照与 Web 工作台展示“论文模式 → 策略 → 执行”链路，前端明确标注“策略提示非证据”；
 - P3 对齐数据生成与 Planner/Reviewer LoRA 训练按团队决定延后至最后阶段，以论文策略沉淀为数据来源。
 
 重要限定：历史 18 疾病 `conflicting_evidence` 桶的 54/54 仅验证终态、provenance 和报告存在；当时 `expectation.reviewer_categories` 未作为可执行断言，因此不能证明冲突识别或修复。公共疾病库也不能作为最终盲测集。当前没有外部 evaluator 控制、独立专家标注的生物学性能结果。

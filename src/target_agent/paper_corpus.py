@@ -209,13 +209,18 @@ class PaperCandidate(BaseModel):
         return hashlib.sha256(encoded).hexdigest()
 
 
+def _normalize_journal(name: str | None) -> str:
+    """Normalize NCBI full journal names, e.g. 'Science (New York, N.Y.)' -> 'science'."""
+    return re.split(r"\s*\(", str(name or "").strip().lower(), maxsplit=1)[0].strip()
+
+
 def _classify(
     row: dict[str, Any],
     *,
     year_min: int,
     year_max: int,
 ) -> tuple[Literal["candidate", "excluded"], str | None]:
-    journal = str(row.get("fulljournalname") or "").strip().lower()
+    journal = _normalize_journal(row.get("fulljournalname"))
     if journal not in JOURNAL_WHITELIST:
         return "excluded", f"journal not in whitelist: {journal or 'unknown'}"
     year = parse_year(str(row.get("pubdate") or ""))
@@ -389,5 +394,6 @@ def corpus_store_from_path(path: Path | str | None) -> CorpusStore | None:
 __all__ = [
     "CORPUS_CONTRACT_VERSION", "CorpusStore", "EutilsClient",
     "JOURNAL_WHITELIST", "PaperCandidate", "QUERY_BUCKETS",
-    "RequestsEutilsClient", "corpus_store_from_path", "fetch_candidates", "parse_year",
+    "RequestsEutilsClient", "corpus_store_from_path", "fetch_candidates",
+    "parse_year", "_normalize_journal",
 ]

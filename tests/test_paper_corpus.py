@@ -9,7 +9,7 @@ import json
 import pytest
 
 from target_agent.paper_corpus import (
-    CorpusStore, PaperCandidate, QUERY_BUCKETS, fetch_candidates,
+    CorpusStore, PaperCandidate, QUERY_BUCKETS, fetch_candidates, _normalize_journal,
 )
 
 
@@ -71,6 +71,19 @@ def test_fetch_filters_journal_year_and_title():
     # candidates first (year desc, pmid asc), then excluded records
     assert [row.status for row in records] == ["candidate", "excluded", "excluded", "excluded"]
     assert by_pmid["1"].doi is None and by_pmid["1"].pmcid is None
+
+
+def test_journal_normalization_accepts_parenthical_ncbi_names():
+    assert _normalize_journal("Science (New York, N.Y.)") == "science"
+    assert _normalize_journal("Nature Genetics") == "nature genetics"
+    assert _normalize_journal("") == ""
+    client = FakeEutils(
+        found={("gwas_target", "science"): ["7"]},
+        summaries={"7": _row("7", "Causal dissection of disease by genetics", "Science (New York, N.Y.)", "2023 May")},
+    )
+    records = fetch_candidates(client, year_min=2021, year_max=2026)
+    assert records[0].status == "candidate"
+    assert records[0].journal.startswith("Science")
 
 
 def test_fetch_merges_query_buckets_and_article_ids():
