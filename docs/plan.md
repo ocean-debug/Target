@@ -468,6 +468,7 @@ Pattern 中的 `data_integration` 将被转换为 `EvidenceLink` 建议，供 `e
 12. 证据合成与机制证据图（P2.5）：确定性投影 Evidence Store 为实体/证据层/模式链接三层图；方向冲突与证据依赖质量门拦截模式链接；Web 工作台新增“机制证据图”面板与 `GET /api/projects/<id>/mechanism-graph` 接口。
 13. 论文摘要 RAG（P2.6）：PaperRagStore 存储有界摘要分块（paper_strategy/rag/chunks.jsonl + MANIFEST），确定性词法检索（疾病/查询/数据可得性/年份/期刊），PlannerFewShotBuilder.build_paper_evidence 注入两端 Planner，ResearchPlan.paper_evidence 持久化，planner_paper_evidence trace，Web 新增“论文证据（RAG）”面板；仅存摘要、不存全文。
 14. 论文RAG入图与盲测RAG覆盖率（P2.7）：机制证据图新增 strategy_paper 节点与 paper_strategy_hint 边（strategy_only/not_evidence、weight=0、不进入 lane_coverage/pattern_links/排名）；pattern_ablation 新增 --rag 离线分析；runner 新增 paper_rag_graph_projection 单元检查；队友 PR 12 上下文关系基准（145 例）经审查并入产品分支。
+15. Gold 论文提名工具（P2.8）：`gold_nomination.py` 对候选语料做确定性 advisory 提名（期刊权重、查询桶、标题证据层信号、RAG 缺口疾病加分、基础生物学惩罚），输出 `paper_strategy/nominations.jsonl` + 逐行 SHA-256 manifest；CLI `target-agent pattern nominate`；提名不写 curation 台账，gold 判定仍由双人 `pattern curate` 完成。
 
 ### 延后（P3，按团队决定最后再做）
 
@@ -478,7 +479,7 @@ Pattern 中的 `data_integration` 将被转换为 `EvidenceLink` 建议，供 `e
 
 0. 论文 RAG 已落地并接入机制证据图（P2.7）：`target-agent pattern rag refresh|search|status` + `benchmark/pattern_ablation.py --rag`；下一步扩充摘要分库（建议 30-50 篇 gold 论文优先），在真实 AD/肺腺癌/UC 运行上回归机制证据图，并重跑盲测 RAG 覆盖率。
 1. 机制证据图回归：在真实 AD / 肺腺癌 / UC 运行上检查实体节点、证据层覆盖、模式链接与 synthesis findings，确认 UI 展示与后端数据一致。
-2. 人工挑选 30-50 篇 Gold 论文：`target-agent pattern curate --pmid <PMID> --status gold --rationale "..." --role life_science|engineering`，科学+工程双人标注。
+2. 用提名短清单人工挑选 30-50 篇 Gold 论文：先 `target-agent pattern nominate --limit 40` 生成建议清单（含信号层与理由），再 `target-agent pattern curate --pmid <PMID> --status gold --rationale "..." --role life_science|engineering`，科学+工程双人标注，缺口疾病（UC/银屑病）优先。
 2. 批量抽取：`target-agent pattern extract`（需配置 Step 提供商），随后 `target-agent pattern review` 完成双人复核；每条抽取失败记录进入 `paper_strategy/extractions.jsonl` 供复盘。
 3. 盲测回归：`python benchmark/pattern_ablation.py` 建立当前覆盖率基线（10 条种子：14/18 疾病命中、18/18 计划有效；SLE/银屑病/ALS/黑色素瘤尚无模式），模式库扩充后重跑，确保计划有效性不下降；可选 `--llm --limit N` 对比真实规划形状。
 4. 对齐数据生成与 Planner/Reviewer 小模型训练：按团队决定最后再做，来源为已复核的 Pattern 库。

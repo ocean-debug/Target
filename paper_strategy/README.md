@@ -64,18 +64,36 @@ cross-validate and stop, then store that as a conditional strategy pattern.
 Run `python scripts/build_seed_patterns.py` on the remote test environment to
 validate and normalize the pattern library and refresh the manifest.
 
+## Gold paper nomination
+
+- `src/target_agent/gold_nomination.py` deterministically ranks corpus
+  candidates as advisory gold-paper nominations: journal premium, query
+  bucket, title lane signals (genetics / perturbation / single_cell /
+  mechanism / target_drug), RAG ablation gap-disease bonus (UC,
+  psoriasis, SLE, ALS, melanoma) and a basic-biology-only penalty.
+- Nomination is metadata-only, fully deterministic and never calls a
+  model or the network. A nomination never writes to the curation
+  ledger; a paper becomes gold only after human reviewers confirm it
+  with `target-agent pattern curate`.
+- Output: append-ready JSONL + per-line SHA-256 manifest at
+  `paper_strategy/nominations.jsonl` / `nominations_MANIFEST.json`.
+- CLI: `target-agent pattern nominate --corpus <path> --out <path>
+  --limit 40 --min-score 0 --year-min 2021`.
+
 ## Curated extraction workflow
 
 1. Refresh the candidate corpus: `target-agent pattern corpus refresh`.
-2. Mark gold papers: `target-agent pattern curate --pmid <PMID> --status gold --rationale "..."
+2. Generate an advisory shortlist: `target-agent pattern nominate --limit 40`;
+   the ranked list is a curation starting point, not a gold decision.
+3. Mark gold papers: `target-agent pattern curate --pmid <PMID> --status gold --rationale "..."
    --role life_science|engineering|lead`.
-3. Extract patterns: `target-agent pattern extract` (all gold) or
+4. Extract patterns: `target-agent pattern extract` (all gold) or
    `target-agent pattern extract --pmids <PMID1>,<PMID2>`. Requires a
    configured Step provider; each paper is validated against the pattern
    schema before it is appended, and every attempt is recorded in
    `extractions.jsonl`.
-4. Review: `target-agent pattern review --pattern-id <id> --role life_science|engineering
+5. Review: `target-agent pattern review --pattern-id <id> --role life_science|engineering
    --status approved|rejected`. Approvals are layered from
    `reviews.jsonl`; pattern records are never rewritten.
-5. Regress: `python benchmark/pattern_ablation.py` (offline) or
+6. Regress: `python benchmark/pattern_ablation.py` (offline) or
    `python benchmark/pattern_ablation.py --llm --limit 4` (real Step calls).

@@ -69,6 +69,10 @@ class Settings(BaseSettings):
         default=PROJECT_ROOT / "paper_strategy" / "corpus" / "curation.jsonl",
         alias="TARGET_AGENT_PATTERN_CURATION",
     )
+    pattern_nomination_path: Path = Field(
+        default=PROJECT_ROOT / "paper_strategy" / "nominations.jsonl",
+        alias="TARGET_AGENT_PATTERN_NOMINATION",
+    )
     pattern_review_ledger_path: Path = Field(
         default=PROJECT_ROOT / "paper_strategy" / "reviews.jsonl",
         alias="TARGET_AGENT_PATTERN_REVIEW_LEDGER",

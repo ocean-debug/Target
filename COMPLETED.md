@@ -238,3 +238,17 @@ typed transient failure
 - RAG 命中是策略提示而非证据，不进入排名与 TargetCard。
 - RAG 覆盖率是对当前 155 chunks / 59 篇种子语料的度量；扩充 gold 语料后需重跑 --rag 消融。
 - 对齐数据生成与 Planner/Reviewer LoRA（P3）仍按团队决定最后再做。
+## 9. Gold 论文提名工具（P2.8，2026-08-08）
+
+### 9.1 已完成
+- 确定性提名：`src/target_agent/gold_nomination.py` 对候选语料（仅元数据）按期刊权重、查询桶、标题证据层信号（genetics/perturbation/single_cell/mechanism/target_drug）、RAG 覆盖率缺口疾病加分（UC/银屑病/SLE/ALS/黑色素瘤）与基础生物学扣分排序，无模型、无网络、完全可复现。
+- 提名仅作建议：不写入 curation 台账；论文须经 life_science + engineering 双人 `pattern curate` 后才成为 gold。
+- 输出：`paper_strategy/nominations.jsonl`（append-ready JSONL，每条带自洽 digest）+ `nominations_MANIFEST.json`（逐行 SHA-256）；CLI `target-agent pattern nominate --corpus --out --limit --min-score --year-min`。
+- 配置：settings 新增 `TARGET_AGENT_PATTERN_NOMINATION`。
+- 测试：`tests/test_gold_nomination.py` 覆盖确定性排序、资格过滤（status/年份/最低分/limit）、缺口疾病加分、基础生物学惩罚、写入/读取/篡改校验与真实语料提名数量区间。
+
+### 9.2 边界
+- 提名分数是排序优先级，不代表论文科学质量，也不自动进入模式库或 RAG 语料。
+- 标题信号只做初步召回，理由供人审核对；最终 gold 判定依据全文/摘要的完整评审。
+- RAG 缺口疾病（UC/银屑病）为下一批 curation 的优先补位方向，但不保证提名中必有对应论文。
+

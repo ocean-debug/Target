@@ -3,6 +3,14 @@
 Cross-module contracts, workflow choices, model boundaries and scientific-safety decisions are recorded here. Accepted decisions must not be changed silently in a feature branch.
 
 
+
+## 2026-08-08 - Gold 论文提名工具（P2.8）
+
+- **Status:** accepted
+- 决策：提名阶段与 curation 阶段严格分离。提名工具对候选语料做确定性、元数据级排序（期刊权重、查询桶、标题证据层信号、RAG 缺口疾病加分、基础生物学惩罚），无模型、无网络；提名只输出 advisory shortlist，绝不写入 curation 台账。
+- 决策：提名输出采用 append-ready JSONL + 逐行 SHA-256 manifest，每条记录带自洽 digest；CLI `pattern nominate` 提供 `--corpus/--out/--limit/--min-score/--year-min`。
+- 决策：RAG 覆盖率缺口疾病（UC、银屑病、SLE、ALS、黑色素瘤）在提名打分中加权，确保下一批人工 curation 优先补位，但论文最终 gold 判定仍以双人评审为准。
+- 决策：对齐数据生成与 Planner/Reviewer 小模型训练（P3）继续按团队决定最后再做，提名与 gold 评审结果作为其未来数据来源。
 ## 2026-08-08 - 论文RAG命中接入机制证据图与盲测RAG覆盖率（P2.7）
 
 - **Status:** accepted

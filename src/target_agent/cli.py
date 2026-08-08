@@ -201,6 +201,12 @@ def main() -> None:
     pattern_curate.add_argument("--role", choices=["life_science", "engineering", "lead"], default="lead")
     pattern_curate.add_argument("--curation", type=Path)
 
+    pattern_nominate = pattern_sub.add_parser("nominate", help="Deterministically rank corpus candidates as advisory gold-paper nominations")
+    pattern_nominate.add_argument("--corpus", type=Path, default=Path("paper_strategy") / "corpus" / "corpus.jsonl")
+    pattern_nominate.add_argument("--out", type=Path, help="Nomination JSONL output (default: settings pattern_nomination_path)")
+    pattern_nominate.add_argument("--limit", type=int, default=40)
+    pattern_nominate.add_argument("--min-score", type=float, default=0.0)
+    pattern_nominate.add_argument("--year-min", type=int, default=2021)
     pattern_extract = pattern_sub.add_parser("extract", help="Distill gold corpus papers into validated strategy patterns")
     pattern_extract.add_argument("--pmids", default="", help="Comma-separated PMIDs; defaults to all gold records")
     pattern_extract.add_argument("--corpus", type=Path, default=Path("paper_strategy") / "corpus" / "corpus.jsonl")
@@ -395,6 +401,41 @@ def main() -> None:
                 "latest_status": store.latest_status(args.pmid),
                 "path": str(store.path),
             }, indent=2, ensure_ascii=False))
+        elif args.pattern_command == "nominate":
+            from .gold_nomination import nominate_candidates, write_nominations
+            from .paper_corpus import CorpusStore
+
+            records = CorpusStore(args.corpus).all()
+            nominations = nominate_candidates(
+                records,
+                limit=args.limit,
+                min_score=args.min_score,
+                year_min=args.year_min,
+            )
+            out_path = args.out or settings.pattern_nomination_path
+            written = write_nominations(out_path, nominations)
+            print(json.dumps({
+                **written,
+                "corpus": str(args.corpus),
+                "candidate_records": len(records),
+                "limit": args.limit,
+                "min_score": args.min_score,
+                "year_min": args.year_min,
+                "nominations": [
+                    {
+                        "pmid": row.pmid,
+                        "title": row.title,
+                        "journal": row.journal,
+                        "year": row.year,
+                        "score": row.score,
+                        "signal_lanes": row.signal_lanes,
+                        "gap_diseases": row.gap_diseases,
+                        "reasons": row.reasons,
+                    }
+                    for row in nominations
+                ],
+            }, indent=2, ensure_ascii=False))
+
         elif args.pattern_command == "extract":
             from .llm import StepClient
             from .paper_corpus import CorpusStore
