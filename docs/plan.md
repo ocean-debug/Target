@@ -460,6 +460,8 @@ Pattern 中的 `data_integration` 将被转换为 `EvidenceLink` 建议，供 `e
 4. 种子模式库：`paper_strategy/patterns.jsonl` 首批 10 条 discovery patterns（T2D/IBD/RA/CAD/AD/PD/Asthma/MCH trait-mechanism/Perturb-seq/sc-eQTL），`MANIFEST.json` 含逐条校验和。
 5. CLI：`target-agent pattern search|list|add`；`scripts/build_seed_patterns.py` 可在远程校验并重建语料。
 6. 新增 `tests/test_paper_strategy.py`（合同校验、store 不可变、检索排序、数据可得性惩罚、few-shot 输出）。
+7. 候选语料管线：`paper_corpus.py` + `scripts/build_paper_corpus.py`，通过 NCBI E-utilities 按 4 个查询桶 × 10 个期刊白名单检索，确定性过滤（期刊归一化/年份/标题排除 review 与 methods-only），append-only `CorpusStore` 按 PMID 去重并逐条 SHA-256；远程真实刷新得到 200 条候选池（含 Science/Cell/Nature 及子刊），CLI `pattern corpus refresh|status`。
+8. 证据策略可见性：ResearchPlan 持久化 `evidence_strategy_patterns`，项目快照与 Web 工作台展示“论文模式 → 策略 → 执行”链路，前端明确标注“策略提示非证据”。
 
 ### 延后（P3，按团队决定最后再做）
 
@@ -468,6 +470,6 @@ Pattern 中的 `data_integration` 将被转换为 `EvidenceLink` 建议，供 `e
 
 ### 下一步
 
-- 扩语料到 30-50 篇（PubMed/Europe PMC 检索脚本 + 人工 Gold 标注基线）。
-- 把 evidence_strategy 检索结果接入 Web 报告（展示“论文模式 → 策略 → 执行”链路）。
+- 从 200 条候选池人工挑选 30-50 篇做 Gold 标注基线，并批量抽取 WorkflowPattern（LLM 结构化抽取 + 科学与工程双人复核）。
 - 盲测靶点排名回归：确认加入模式库后已知参考靶点恢复率不下降。
+- 以 Pattern 库为来源生成对齐数据（Planner SFT / Reviewer 偏好对），按团队决定放在最后阶段。
