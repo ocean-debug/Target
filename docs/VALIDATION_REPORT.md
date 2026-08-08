@@ -178,3 +178,26 @@ The checkboxes above record the historical V2.1 remote-node baseline, not curren
   before re-nominating.
 - Alignment-data generation and Planner/Reviewer small-model training
   remain deferred (P3) per the team decision.
+## Natural-language question intake acceptance (2026-08-08, P2.9)
+
+- New product entry point (src/target_agent/question_intake.py): a free-form
+  research question becomes a reviewable draft ResearchProjectSpec; nothing
+  is reserved or executed until a human creates the project.
+- Field precedence is deterministic: explicit hints > curated disease
+  library (canonical name + MONDO/EFO ontology id) > LLM proposal > missing.
+  Missing context stays missing; the library benchmark context is reported
+  as a suggestion in review_notes and never injected.
+- Safety gates: credential-like tokens and unresolvable diseases are
+  rejected (CLI non-zero exit / Web 422); LLM failures fall back to the
+  deterministic path with an explicit llm_unavailable note.
+- Surface: CLI `target-agent ask` (--create reserves only, --output writes
+  the draft YAML) and Web `POST /api/questions`; the workbench "new project"
+  panel now accepts a natural-language question and decodes it into the
+  reviewable form.
+- Final remote acceptance (external GPU node, pinned conda environment,
+  35 cores): full pytest 384 collected, 382 passed, 2 pre-existing
+  capability-gated skips, no failures; internal benchmark 13/13 tasks,
+  29/29 assertions, score 1.0; live Step ask resolved lung adenocarcinoma
+  to MONDO:0005061 with matched=true and created=false; deterministic
+  ask witness OK; repository policy REPO_POLICY=OK;
+  TARGET_P29_ACCEPTANCE=OK.
