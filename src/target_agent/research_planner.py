@@ -186,9 +186,9 @@ class ResearchPlanner:
             spec = specs.get(module)
             return spec.required if spec is not None else default
 
-        def attempts(module: str) -> int:
+        def attempts(module: str, default: int = 1) -> int:
             spec = specs.get(module)
-            return spec.max_attempts if spec is not None else 1
+            return spec.max_attempts if spec is not None else default
 
         brief = WorkItemSpec(
             item_id="project_brief",
@@ -258,7 +258,7 @@ class ResearchPlanner:
                     "The child workflow records its terminal status and durable outputs.",
                     "Evidence gaps and out-of-scope contexts remain explicit.",
                 ],
-                max_attempts=attempts(_TARGET_MODULE),
+                max_attempts=attempts(_TARGET_MODULE, default=2),
                 output_contract=_output_contract(
                     "TargetDiscoveryResult", child_run_id="string", terminal_status="string",
                     ranked_target_count="integer", target_card_count="integer",
