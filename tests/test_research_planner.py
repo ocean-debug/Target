@@ -122,7 +122,7 @@ def test_step_plan_persists_evidence_strategy_patterns(tmp_path):
         disease_keywords=["crohn", "colitis", "ibd"],
         applicability=["disease with gwas and omics data"],
         evidence_start_lane="genetics",
-        ordered_lanes=["genetics", "omics", "literature", "drug"],
+        ordered_lanes=["genetics", "omics", "perturbation", "literature", "drug"],
         required_lanes=["genetics", "omics"],
         optional_lanes=["perturbation"],
         evidence_links=[EvidenceLink(
