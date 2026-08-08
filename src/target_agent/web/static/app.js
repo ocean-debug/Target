@@ -4,6 +4,7 @@ const $ = (id) => document.getElementById(id);
 let currentProjectId = null;
 let currentSnapshot = null;
 let currentSessionId = null;
+let currentSessionRole = 'researcher';
 let pollTimer = null;
 let kernelId = null;
 
@@ -26,6 +27,10 @@ function esc(value) {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
+}
+
+function roleLabel(role) {
+  return role === 'viewer' ? '只读查看' : role === 'reviewer' ? '审阅者' : role === 'admin' ? '管理员' : '研究员';
 }
 
 function toast(message, kind = 'success') {
@@ -431,6 +436,11 @@ function renderSnapshot(snap) {
     exportLink.href = '/api/projects/' + snap.spec.project_id + '/export';
     exportLink.classList.remove('hidden');
   }
+  const shareLink = $('share-portal');
+  if (shareLink) {
+    shareLink.href = '/api/projects/' + snap.spec.project_id + '/share';
+    shareLink.classList.remove('hidden');
+  }
   renderNextActions(snap);
   renderContext(snap);
   renderPlan(snap);
@@ -775,15 +785,15 @@ async function loadSessions(projectId) {
     const created = await api(`/api/projects/${projectId}/sessions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: '研究对话' }),
+      body: JSON.stringify({ title: '研究对话', role: $('new-session-role') ? $('new-session-role').value : currentSessionRole }),
     });
     sessions = [created.session];
     toast('已自动创建研究会话');
   }
   host.innerHTML = sessions.map((row) => `
-    <button class="session-card${row.session_id === currentSessionId ? ' active' : ''}" data-session="${esc(row.session_id)}">
+    <button class="session-card${row.session_id === currentSessionId ? ' active' : ''}" data-session="${esc(row.session_id)}" data-role="${esc(row.role || 'researcher')}">
       <b>${esc(row.title)}</b>
-      <small>${row.message_count} 条消息</small>
+      <small>${roleLabel(row.role)} · ${row.message_count} 条消息</small>
     </button>`).join('');
   host.querySelectorAll('button[data-session]').forEach((button) => {
     button.addEventListener('click', () => selectSession(projectId, button.dataset.session));
@@ -791,6 +801,8 @@ async function loadSessions(projectId) {
   if (!sessions.some((row) => row.session_id === currentSessionId)) {
     currentSessionId = sessions[0].session_id;
   }
+  const activeSession = sessions.find((row) => row.session_id === currentSessionId) || {};
+  currentSessionRole = activeSession.role || 'researcher';
   await loadSessionMessages(projectId, currentSessionId);
 }
 
@@ -849,6 +861,15 @@ async function sendSessionMessage(askAgent) {
 function renderSessionActions(snap) {
   const host = $('session-actions');
   host.innerHTML = '';
+  if (currentSessionRole === 'viewer') {
+    const hint = document.createElement('span');
+    hint.className = 'muted';
+    hint.textContent = '只读会话：可提问与查看，不能审批、修复或补充输入。';
+    host.appendChild(hint);
+    const box = $('session-supplement');
+    if (box) box.classList.add('hidden');
+    return;
+  }
   const state = snap.state || {};
   if (state.status === 'needs_input' && state.current_item_id) {
     const supplementBtn = document.createElement('button');
@@ -911,10 +932,11 @@ async function runSessionIntervention(snap, action, approve) {
       const created = await api(`/api/projects/${currentProjectId}/sessions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: '研究对话' }),
+        body: JSON.stringify({ title: '研究对话', role: $('new-session-role') ? $('new-session-role').value : currentSessionRole }),
       });
       sessionId = created.session.session_id;
       currentSessionId = sessionId;
+      currentSessionRole = created.session.role || 'researcher';
     }
     const targetId = action.action === 'decide_repair' ? action.repair_request_id
       : action.action === 'decide_fork' ? action.branch_id : action.target_id;
@@ -1001,9 +1023,10 @@ async function init() {
     const created = await api(`/api/projects/${currentProjectId}/sessions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: '研究对话' }),
+      body: JSON.stringify({ title: '研究对话', role: $('new-session-role') ? $('new-session-role').value : currentSessionRole }),
     });
     currentSessionId = created.session.session_id;
+    currentSessionRole = created.session.role || 'researcher';
     await loadSessions(currentProjectId);
   });
   $('session-send').addEventListener('click', () => sendSessionMessage(false));

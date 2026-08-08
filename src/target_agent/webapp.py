@@ -561,6 +561,14 @@ def create_app(
             return jsonify({"error": "project not found"}), 404
         return jsonify(payload)
 
+    @app.get("/api/projects/<project_id>/share")
+    def share_project_portal(project_id: str):
+        project_id = _safe_project_id(project_id)
+        from .share_portal import render_share_portal_for_project
+
+        html = render_share_portal_for_project(research_runtime.projects_dir, project_id)
+        return Response(html, mimetype="text/html; charset=utf-8")
+
     @app.get("/api/projects/<project_id>/export")
     def export_project_package(project_id: str):
         project_id = _safe_project_id(project_id)

@@ -387,6 +387,13 @@ def main() -> None:
     inspect_cmd = sub.add_parser("project-package-inspect", help="Show package metadata without importing")
     inspect_cmd.add_argument("--input", type=Path, required=True)
 
+    share_cmd = sub.add_parser("share", help="Render a project or package into a read-only offline HTML review portal")
+    share_cmd.add_argument("--project-id", default=None, help="Render a durable project by id")
+    share_cmd.add_argument("--input", type=Path, default=None, help="Render a portable project package (.zip) instead of a live project")
+    share_cmd.add_argument("--output", type=Path, required=True, help="Output single-file HTML path")
+    share_cmd.add_argument("--projects-dir", type=Path)
+    share_cmd.add_argument("--max-preview-bytes", type=int, default=65536, help="Max bytes of report/brief preview embedded in the page")
+
     mcp_serve = sub.add_parser(
         "mcp-serve",
         help="Expose durable Target project operations through MCP (stdio or streamable HTTP)",
@@ -971,6 +978,30 @@ def main() -> None:
         from .project_package import inspect_package
 
         print(json.dumps(inspect_package(args.input), indent=2, ensure_ascii=False))
+    elif args.command == "share":
+        from .share_portal import render_share_portal_for_project, render_share_portal_from_package
+
+        if args.input is not None:
+            html = render_share_portal_from_package(
+                args.input,
+                output=args.output,
+                max_preview_bytes=args.max_preview_bytes,
+            )
+        elif args.project_id:
+            html = render_share_portal_for_project(
+                args.projects_dir or settings.projects_dir,
+                args.project_id,
+                output=args.output,
+                max_preview_bytes=args.max_preview_bytes,
+            )
+        else:
+            raise SystemExit("share requires --project-id or --input")
+        print(json.dumps({
+            "rendered": True,
+            "output": str(Path(args.output).expanduser().resolve()),
+            "bytes": len(html.encode("utf-8")),
+        }, indent=2, ensure_ascii=False))
+
     elif args.command == "mcp-serve":
         try:
             from .mcp_server import _serve, create_mcp_server

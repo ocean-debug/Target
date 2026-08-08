@@ -64,7 +64,7 @@
     <section id="workspace" class="workspace hidden" aria-live="polite">
       <div class="run-bar">
         <div><span id="run-status" class="status-badge">READY</span><b id="run-title">等待选择项目</b><small id="run-meta"></small></div>
-        <div class="run-actions"><a id="export-package" class="ghost link-button hidden" href="#">导出项目包</a><span id="next-actions" class="action-bar"></span></div>
+        <div class="run-actions"><a id="export-package" class="ghost link-button hidden" href="#">导出项目包</a><a id="share-portal" class="ghost link-button hidden" href="#" target="_blank" rel="noopener">分享审查页</a><span id="next-actions" class="action-bar"></span></div>
       </div>
 
       <section class="section">
@@ -72,7 +72,7 @@
         <div class="section-head compact"><div><span class="section-no">02</span><h2>研究会话</h2></div><p>会话是项目的对话视图：消息防篡改，Agent 摘要不产生科学状态；关键节点可直接在会话中批准或拒绝。</p></div>
         <div class="session-layout">
           <div class="session-side">
-            <div class="subhead"><h3>会话</h3><button id="new-session" class="ghost" type="button">新建会话</button></div>
+            <div class="subhead"><h3>会话</h3><div class="session-role-row"><label class="session-role">角色<select id="new-session-role"><option value="researcher" selected>研究员</option><option value="reviewer">审阅者</option><option value="admin">管理员</option><option value="viewer">只读查看</option></select></label><button id="new-session" class="ghost" type="button">新建会话</button></div></div>
             <div id="session-list" class="session-list"><p class="muted">选择项目后自动创建</p></div>
           </div>
           <div class="session-main">

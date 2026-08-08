@@ -98,7 +98,7 @@ target-agent init --output ./my-project --disease "ulcerative colitis" --tissue 
 target-agent project-run --input ./my-project/project.yaml
 ```
 
-4. 运行工作台，在浏览器中审批计划、查看结果、回退或导出：
+4. 运行工作台，在浏览器中审批计划、查看结果、回退或导出；会话支持研究员/审阅者/管理员/只读查看四种角色，viewer 只读会话可提问但不能审批或补充输入：
 
 ```bash
 target-agent serve --port 8888
@@ -112,7 +112,15 @@ target-agent project-import --input project-xxx.target-project.zip
 target-agent project-package-inspect --input project-xxx.target-project.zip
 ```
 
-6. 查看内置技能库（Best Practice 渐进披露，供 Planner 按需参考，不作为任务证据）：
+6. 生成只读分享审查页（单文件离线 HTML，无后端/网络；活项目或包均可渲染，页面带快照指纹并自动脱敏）：
+
+```bash
+target-agent share --project-id project-xxx --output project-xxx.html
+target-agent share --input project-xxx.target-project.zip --output project-xxx.html
+# 工作台运行栏“分享审查页”按钮即 GET /api/projects/<id>/share
+```
+
+7. 查看内置技能库（Best Practice 渐进披露，供 Planner 按需参考，不作为任务证据）：
 
 ```bash
 target-agent skills list

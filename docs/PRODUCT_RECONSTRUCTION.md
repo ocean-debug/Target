@@ -58,13 +58,17 @@
 - 会话补充输入闭环（P2.14）：`propose_fork` 干预动作接受 `input_overrides`（按工作项 JSON），走不可变 fork + redo + 人工批准 + 自动重跑；工作台 `needs_input` 状态提供“补充输入并重跑”面板。
 - 产品旅程总门禁（P2.16）：`tests/test_product_acceptance.py` 用产品界面走通“建项目 → 会话批准计划 → 执行 → 会话批准发布 → 完成 → 会话摘要 → 导出/只读校验/导入”全闭环，防止各层各自能跑但串不成产品。
 - 多角色会话与 MCP 会话工具（P2.17）：会话带 researcher/reviewer/admin/viewer 角色，viewer 只读；MCP 新增 5 个会话工具，外部工作台可驱动会话与审批闭环。
+### P2.18 只读分享门户与角色 UI（已完成，2026-08-08）
+
+- 新增 `share_portal.py`：把项目账本安全投影渲染成单文件离线 HTML 审查页（无后端/网络/外部资源），展示问题、计划、结果、评估、事件、决策、产物、缺口与待办；内嵌规范 JSON 并带 SHA-256 快照指纹，同一状态的两次渲染可比对。
+- 两种来源：活项目（`target-agent share --project-id`）或只读校验后的 zip 包（`--input`，不导入不落盘）；Web `GET /api/projects/<id>/share` 与工作台“分享审查页”按钮。
+- 渲染前统一脱敏：密钥字段、绝对路径、邮箱、IP、SSH 公钥、key=value 凭据；会话原始消息与工具运行内部 ID 不进页面。
+- 工作台角色 UI：新建会话可选 researcher/reviewer/admin/viewer，viewer 隐藏审批/修复/补充输入按钮（后端 400 门禁不变）。
+- 测试：`tests/test_share_portal.py` 覆盖离线单文件、包/活项目指纹一致、Web 路由、viewer 只读与脱敏；远程全套 429 passed / 0 failed / 2 skipped。
 ## 4. 下一步增量（按价值排序）
 
-- 部署与密钥管理（P2.15）：`target-agent up` 单命令“检查后启动”；`secrets status|set|delete` 走可选 OS keyring，优先级 进程环境 > .env > keyring，failure-soft；`project-package-inspect` 升级为只读校验（逐文件 SHA-256，不导入）。
-1. **分享门户与角色 UI**：只读分享门户（项目包 HTML 视图）、工作台角色切换与 MCP 资源模板扩展。
-3. **平台化部署**：Docker 镜像与 Compose、多用户认证与配额（仅在真实多用户部署需要时做）。
-4. **多用户与配额**：认证、多租户、资源配额（P2 平台化，仅在真实多用户部署需要时做）。
-5. **对齐数据（P3，最后）**：以已评审 CaseRecord 与论文策略模式为来源生成 Planner SFT / Reviewer 偏好对，训练 Reviewer/Planner 小模型并做 blind benchmark 消融。
+1. **平台化部署（P2.19，按需）**：Docker 镜像与 Compose、多用户认证与配额（仅在真实多用户部署需要时做）。
+2. **对齐数据（P3，最后）**：以已评审 CaseRecord 与论文策略模式为来源生成 Planner SFT / Reviewer 偏好对，训练 Reviewer/Planner 小模型并做 blind benchmark 消融。
 
 ## 5. 完成标准（本目标）
 

@@ -335,3 +335,22 @@ typed transient failure
 - Web `POST /api/projects/<id>/sessions` 接受 `role`。
 - MCP 新增 5 个会话工具：`target_create_session`、`target_list_sessions`、`target_read_session`、`target_post_session_message`、`target_session_intervene`；与 Web/CLI 共用同一个 `ResearchSessionService`，外部工作台（SciForge/OpenScience/Wisp 等）可以直接驱动会话与审批闭环。
 - 测试：viewer 门禁、角色往返/校验、Web 角色透传、MCP 真实项目会话全流程（建会话 → 列表 → 提问 → 读消息 → propose_fork 干预）；远程全套 424 passed / 0 failed / 2 skipped。
+
+## 17. 只读分享门户与工作台角色 UI（P2.18，2026-08-08）
+
+### 17.1 已完成
+- 新增 `src/target_agent/share_portal.py`：把项目账本安全投影渲染成**单文件离线 HTML 审查页**（无后端、无网络、无外部脚本/样式）。
+  - 展示：数据边界说明、研究问题与上下文、执行计划（含修订与回退分支）、工作项结果、评估记录、事件时间线（最近 200 条）、决策记录、产物清单与报告/简报预览、审查边界与证据缺口、待处理修复请求、评审目标、待办动作。
+  - 页面内嵌规范 JSON（`PORTAL_DATA`），带**快照指纹**（SHA-256）：同一账本状态的两次渲染指纹一致，可直接比对。
+  - 脱敏：密钥类字段、绝对路径、邮箱、IP、SSH 公钥与 `key=value` 凭据在渲染前统一 scrubbed；工具运行内部 ID 与会话原始消息不进入页面。
+- 两种来源：`render_share_portal_for_project(projects_dir, project_id)` 直接渲染活项目；`render_share_portal_from_package(archive)` 只读校验 zip 包（MANIFEST + 逐文件 SHA-256）后解压到临时目录渲染，不导入、不落盘、不改动任何项目。
+- 产品面：
+  - CLI：`target-agent share --project-id X --output X.html [--max-preview-bytes N]` 或 `--input package.zip --output X.html`。
+  - Web：`GET /api/projects/<id>/share` 直接返回 HTML；工作台运行栏新增“分享审查页”按钮。
+- 工作台角色 UI：新建会话时可选角色（研究员/审阅者/管理员/只读查看）；会话卡片显示角色标签；viewer 会话隐藏审批、修复、补充输入按钮并显示只读提示（后端干预端点本就 400 拒绝，前端只是不误导）。
+- 测试：`tests/test_share_portal.py` 覆盖离线单文件属性（中文、无外部资源、无敏感标识、指纹 64 位）、内嵌 JSON 可解析、报告预览、包渲染与活项目渲染指纹一致、Web `/share` 路由、viewer 只读门禁与前端门禁资产断言、payload 脱敏；远程全套 **429 passed / 0 failed / 2 skipped**。
+
+### 17.2 边界
+- 分享页是“某一时刻的审查视图”，不是实时控制面；权威来源仍是项目账本与导出项目包。
+- 产物预览默认只含 `project_brief` 与 `research_report`（各 ≤64KB，可配）；其余产物只列元数据与校验和，内容需导出项目包获取。
+- 分享页不包含会话原始消息；多用户认证与配额仍属于后续平台化增量（P2.19 按需）。
