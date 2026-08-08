@@ -475,5 +475,5 @@ Pattern 中的 `data_integration` 将被转换为 `EvidenceLink` 建议，供 `e
 
 1. 人工挑选 30-50 篇 Gold 论文：`target-agent pattern curate --pmid <PMID> --status gold --rationale "..." --role life_science|engineering`，科学+工程双人标注。
 2. 批量抽取：`target-agent pattern extract`（需配置 Step 提供商），随后 `target-agent pattern review` 完成双人复核；每条抽取失败记录进入 `paper_strategy/extractions.jsonl` 供复盘。
-3. 盲测回归：`python benchmark/pattern_ablation.py` 建立当前覆盖率基线（10 条种子 ≈ 5/18 疾病），模式库扩充后重跑，确保计划有效性不下降；可选 `--llm --limit N` 对比真实规划形状。
+3. 盲测回归：`python benchmark/pattern_ablation.py` 建立当前覆盖率基线（10 条种子：14/18 疾病命中、18/18 计划有效；SLE/银屑病/ALS/黑色素瘤尚无模式），模式库扩充后重跑，确保计划有效性不下降；可选 `--llm --limit N` 对比真实规划形状。
 4. 对齐数据生成与 Planner/Reviewer 小模型训练：按团队决定最后再做，来源为已复核的 Pattern 库。
