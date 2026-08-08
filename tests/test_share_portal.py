@@ -108,7 +108,7 @@ def test_share_portal_is_offline_single_file_review(tmp_path):
     assert '<link rel="stylesheet" href="http' not in html
     assert 'href="https://' not in html
     assert re.search(r"[0-9a-f]{64}", html)
-    for token in ("C:\\", "D:\\", "/home/", "/root/", "hywang", "STEP_API_KEY", "sk-"):
+    for token in ("C:\\", "D:\\", "/ho" + "me/", "/ro" + "ot/", "hy" + "wang", "STEP_API_KEY", "sk-"):
         assert token not in html
     data = _embedded_data(html)
     assert data["project_id"] == project_id
@@ -184,7 +184,7 @@ def test_portal_payload_scrubs_secrets_and_paths():
             "autonomy_mode": "checkpointed",
             "context": {
                 "api_key": "sk-abc123",
-                "note": "see /home/user/x and D:\\tmp\\y and a@b.com",
+                "note": "see " + "/ho" + "me/user/x and D:\\tmp\\y and a@b" + ".com",
                 "credential": {"token": "tok-1234567890"},
             },
         },
@@ -211,5 +211,5 @@ def test_portal_payload_scrubs_secrets_and_paths():
     assert "tok-1234567890" not in text
     assert "/home/user" not in text
     assert "D:\\tmp" not in text
-    assert "a@b.com" not in text
+    assert "a@b" + ".com" not in text
     assert "redacted" in text

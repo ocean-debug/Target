@@ -363,7 +363,7 @@ typed transient failure
 - 新增 `singularity/target.def`：HPC 无 Docker daemon 时用 Singularity 构建同一套代码；国内集群无法直连 Docker Hub，默认使用匿名可达镜像 `docker.1panel.live/library/python`（可换回 `python:3.11-slim`）。
 - 新增 `docs/DEPLOYMENT.md`：本机 pip / Docker Compose / HPC Singularity 三种部署、密钥与数据约定、部署验收命令与边界。
 - 新增 `scripts/check_deployment_assets.py`：静态部署资产门禁（Dockerfile/Compose/Singularity/runbook 结构完整性），无 Docker 也能先卡住缺文件或契约漂移。
-- 远程真实验证（PBS + Singularity，gpu03）：资产检查 32/32；`singularity build` 成功（target.sif ≈79MB）；容器内 `target-agent doctor`、`export-schemas`、`serve + /healthz + /api/capabilities` 全部 OK。
+- 远程真实验证（PBS + Singularity，计算节点）：资产检查 32/32；`singularity build` 成功（target.sif ≈79MB）；容器内 `target-agent doctor`、`export-schemas`、`serve + /healthz + /api/capabilities` 全部 OK。
 
 ### 18.2 边界
 - Docker/Compose 资产已静态校验，但集群无 Docker daemon，未在本环境执行 `docker compose up`；同一代码路径已在 Singularity 容器内完成运行验证。

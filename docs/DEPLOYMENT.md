@@ -57,13 +57,13 @@ singularity run target.sif doctor
 singularity exec target.sif target-agent export-schemas --output /tmp/schemas
 
 # 3. 启动工作台（绑定数据目录到 /data，端口由部署 profile 指定）
-mkdir -p /home/user/target-data/{projects,runs,cache,input}
-singularity instance start --bind /home/user/target-data:/data target.sif target-agent
+mkdir -p $HOME/target-data/{projects,runs,cache,input}
+singularity instance start --bind $HOME/target-data:/data target.sif target-agent
 singularity exec instance://target-agent target-agent serve --host 0.0.0.0 --port 8888
 ```
 
 - 环境变量通过 `SINGULARITYENV_STEP_API_KEY=...` 注入（密钥仍在容器外）。
-- PBS 作业里把 `singularity run target.sif ...` 作为作业命令即可在 gpu03 等节点执行；数据目录建议放在共享文件系统。
+- PBS 作业里把 `singularity run target.sif ...` 作为作业命令即可在计算节点执行；数据目录建议放在共享文件系统。
 
 ## 4. 数据与密钥约定
 

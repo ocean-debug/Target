@@ -69,7 +69,7 @@
 ### P2.19 容器化部署（前半已完成，2026-08-08）
 
 - 新增 Dockerfile / .dockerignore / docker-compose.yml / singularity/target.def / docs/DEPLOYMENT.md / scripts/check_deployment_assets.py。
-- 远程验证（PBS + Singularity，gpu03）：资产检查 32/32；singularity build 成功；容器内 doctor、schema 导出、serve + /healthz + /api/capabilities 全部 OK。
+- 远程验证（PBS + Singularity，计算节点）：资产检查 32/32；singularity build 成功；容器内 doctor、schema 导出、serve + /healthz + /api/capabilities 全部 OK。
 - 边界：Docker Compose 在本集群无 daemon 未实跑（同一代码路径已在 Singularity 容器验证）；多用户认证/配额/租户仍按真实需要再实施。
 
 ## 4. 下一步增量（按价值排序）
