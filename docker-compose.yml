@@ -1,0 +1,32 @@
+services:
+  target-agent:
+    build:
+      context: .
+      args:
+        TARGET_EXTRAS: mcp
+    image: target-discovery-agent:0.8.0
+    container_name: target-agent
+    restart: unless-stopped
+    environment:
+      STEP_API_KEY: ${STEP_API_KEY:-}
+      STEP_BASE_URL: ${STEP_BASE_URL:-https://api.stepfun.com/v1}
+      STEP_MODEL: ${STEP_MODEL:-step-3.7-flash}
+      NCBI_API_KEY: ${NCBI_API_KEY:-}
+      NCBI_EMAIL: ${NCBI_EMAIL:-}
+      RESEARCH_AGENT_PROJECT_DIR: /data/projects
+      TARGET_AGENT_RUN_DIR: /data/runs
+      TARGET_AGENT_CACHE_DIR: /data/cache
+      TARGET_AGENT_INPUT_ROOT: /data/input
+    ports:
+      - "${TARGET_PORT:-8888}:8888"
+    volumes:
+      - target-data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8888/healthz', timeout=4)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  target-data:

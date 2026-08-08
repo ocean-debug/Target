@@ -1,0 +1,34 @@
+# TargetDiscovery Agent - Singularity/Apptainer definition
+# Build (from repository root):
+#   singularity build --fakeroot target.sif singularity/target.def
+# Run:
+#   singularity run target.sif serve --host 0.0.0.0 --port 8888
+Bootstrap: docker
+# China-region clusters usually cannot reach registry-1.docker.io; docker.1panel.live is a working anonymous mirror here. On networks with Docker Hub access, switch back to: From: python:3.11-slim
+From: docker.1panel.live/library/python:3.11-slim
+
+%environment
+    export PYTHONUNBUFFERED=1
+    export PYTHONDONTWRITEBYTECODE=1
+    export RESEARCH_AGENT_PROJECT_DIR=/opt/target/projects
+    export TARGET_AGENT_RUN_DIR=/opt/target/runs
+    export TARGET_AGENT_CACHE_DIR=/opt/target/cache
+    export TARGET_AGENT_INPUT_ROOT=/opt/target/data/input
+
+%files
+    pyproject.toml /opt/target/pyproject.toml
+    README.md /opt/target/README.md
+    src /opt/target/src
+    configs /opt/target/configs
+    workflows /opt/target/workflows
+    skills /opt/target/skills
+    paper_strategy /opt/target/paper_strategy
+
+%post
+    apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
+    pip install --upgrade pip
+    pip install "/opt/target[mcp]"
+    mkdir -p /opt/target/projects /opt/target/runs /opt/target/cache /opt/target/data/input
+
+%runscript
+    exec target-agent "$@"

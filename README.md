@@ -63,6 +63,8 @@ performance result are not yet available.
 
 ## Quickstart（产品路径）
 
+完整部署（本机 pip / Docker Compose / HPC Singularity，含密钥与持久化约定）见 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)。
+
 1. 安装并检查环境：
 
 ```bash

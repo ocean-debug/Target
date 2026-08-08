@@ -354,3 +354,17 @@ typed transient failure
 - 分享页是“某一时刻的审查视图”，不是实时控制面；权威来源仍是项目账本与导出项目包。
 - 产物预览默认只含 `project_brief` 与 `research_report`（各 ≤64KB，可配）；其余产物只列元数据与校验和，内容需导出项目包获取。
 - 分享页不包含会话原始消息；多用户认证与配额仍属于后续平台化增量（P2.19 按需）。
+
+## 18. 容器化部署（P2.19 前半，2026-08-08）
+
+### 18.1 已完成
+- 新增 `Dockerfile`（python:3.11-slim，`TARGET_EXTRAS` 可扩展 omics 后端；健康检查、`/data` 持久卷、`target-agent serve --host 0.0.0.0 --port 8888` 入口）与 `.dockerignore`（排除 .env/.git/缓存/大数据）。
+- 新增 `docker-compose.yml`：单命令 `docker compose up -d --build`；Compose 自动读取仓库根 `.env` 做变量替换（密钥不写入镜像层）；端口 `TARGET_PORT` 可覆盖；命名卷 `target-data:/data`；健康检查对齐 `/healthz`。
+- 新增 `singularity/target.def`：HPC 无 Docker daemon 时用 Singularity 构建同一套代码；国内集群无法直连 Docker Hub，默认使用匿名可达镜像 `docker.1panel.live/library/python`（可换回 `python:3.11-slim`）。
+- 新增 `docs/DEPLOYMENT.md`：本机 pip / Docker Compose / HPC Singularity 三种部署、密钥与数据约定、部署验收命令与边界。
+- 新增 `scripts/check_deployment_assets.py`：静态部署资产门禁（Dockerfile/Compose/Singularity/runbook 结构完整性），无 Docker 也能先卡住缺文件或契约漂移。
+- 远程真实验证（PBS + Singularity，gpu03）：资产检查 32/32；`singularity build` 成功（target.sif ≈79MB）；容器内 `target-agent doctor`、`export-schemas`、`serve + /healthz + /api/capabilities` 全部 OK。
+
+### 18.2 边界
+- Docker/Compose 资产已静态校验，但集群无 Docker daemon，未在本环境执行 `docker compose up`；同一代码路径已在 Singularity 容器内完成运行验证。
+- 多用户认证、配额与租户隔离仍未实施（P2.19 后半，真实多用户部署需要时再做）。

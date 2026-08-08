@@ -65,9 +65,16 @@
 - 渲染前统一脱敏：密钥字段、绝对路径、邮箱、IP、SSH 公钥、key=value 凭据；会话原始消息与工具运行内部 ID 不进页面。
 - 工作台角色 UI：新建会话可选 researcher/reviewer/admin/viewer，viewer 隐藏审批/修复/补充输入按钮（后端 400 门禁不变）。
 - 测试：`tests/test_share_portal.py` 覆盖离线单文件、包/活项目指纹一致、Web 路由、viewer 只读与脱敏；远程全套 429 passed / 0 failed / 2 skipped。
+
+### P2.19 容器化部署（前半已完成，2026-08-08）
+
+- 新增 Dockerfile / .dockerignore / docker-compose.yml / singularity/target.def / docs/DEPLOYMENT.md / scripts/check_deployment_assets.py。
+- 远程验证（PBS + Singularity，gpu03）：资产检查 32/32；singularity build 成功；容器内 doctor、schema 导出、serve + /healthz + /api/capabilities 全部 OK。
+- 边界：Docker Compose 在本集群无 daemon 未实跑（同一代码路径已在 Singularity 容器验证）；多用户认证/配额/租户仍按真实需要再实施。
+
 ## 4. 下一步增量（按价值排序）
 
-1. **平台化部署（P2.19，按需）**：Docker 镜像与 Compose、多用户认证与配额（仅在真实多用户部署需要时做）。
+1. **多用户认证与配额（P2.19 后半，按需）**：认证、多租户、资源配额，仅在真实多用户部署需要时做。
 2. **对齐数据（P3，最后）**：以已评审 CaseRecord 与论文策略模式为来源生成 Planner SFT / Reviewer 偏好对，训练 Reviewer/Planner 小模型并做 blind benchmark 消融。
 
 ## 5. 完成标准（本目标）
