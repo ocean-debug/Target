@@ -35,7 +35,7 @@ def _meta(pmid: str = "35860525") -> PaperMeta:
     )
 
 
-def _valid_payload(pmid: str) -> dict:
+def _valid_payload(pmid: str = "35860525") -> dict:
     return {
         "name": "Genetics-first colitis pattern",
         "disease_class": "ulcerative colitis",
@@ -186,6 +186,10 @@ def test_review_ledger_effective_gate(tmp_path):
 def store_pattern() -> StrategyPattern:
     payload = _valid_payload("12345678")
     payload["pattern_id"] = "pattern-12345678"
+    payload["source_papers"] = [{
+        "title": "GWAS identifies a causal target for colitis",
+        "journal": "Nature", "year": 2022,
+    }]
     return StrategyPattern.model_validate(payload)
 
 
