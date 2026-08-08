@@ -414,7 +414,11 @@ def create_app(
         project_id = _safe_project_id(project_id)
         payload = request.get_json(silent=True) or {}
         try:
-            return jsonify(session_service.create(project_id, title=payload.get("title"))), 201
+            return jsonify(session_service.create(
+                project_id,
+                title=payload.get("title"),
+                role=str(payload.get("role") or "researcher"),
+            )), 201
         except ResearchProjectNotFound:
             return jsonify({"error": "project not found"}), 404
         except ValueError as exc:

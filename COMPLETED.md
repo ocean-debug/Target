@@ -328,3 +328,10 @@ typed transient failure
 - 新增 `tests/test_product_acceptance.py`：以产品界面（Web API + 会话 + 干预 + 项目包）完整走一遍“问题提出 → 计划检查点 → 会话批准 → 执行 → 发布检查点 → 会话批准 → 完成 → 会话摘要 → 导出/只读校验/导入”，并校验报告产物内容与导入项目完整性。
 - 该测试覆盖 checkpoined 模式全流程，证明工作流控制面、会话层、项目包三块产品能力是同一个闭环，而不是各自独立的 demo 零件。
 - 远程全套 420 passed / 0 failed / 2 skipped。
+
+## 16. 多角色会话与 MCP 会话工具（P2.17，2026-08-08）
+
+- 会话增加角色字段（researcher / reviewer / admin / viewer，默认 researcher）；viewer 会话只读，可提问与读取，但干预端点直接拒绝（400）。
+- Web `POST /api/projects/<id>/sessions` 接受 `role`。
+- MCP 新增 5 个会话工具：`target_create_session`、`target_list_sessions`、`target_read_session`、`target_post_session_message`、`target_session_intervene`；与 Web/CLI 共用同一个 `ResearchSessionService`，外部工作台（SciForge/OpenScience/Wisp 等）可以直接驱动会话与审批闭环。
+- 测试：viewer 门禁、角色往返/校验、Web 角色透传、MCP 真实项目会话全流程（建会话 → 列表 → 提问 → 读消息 → propose_fork 干预）；远程全套 424 passed / 0 failed / 2 skipped。

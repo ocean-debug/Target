@@ -53,6 +53,7 @@ class ResearchSession(ResearchContract):
     session_id: str = Field(pattern=r"^session-[a-f0-9]{12}$")
     project_id: str = Field(pattern=r"^project-[A-Za-z0-9][A-Za-z0-9._-]*$")
     title: str = Field(min_length=1, max_length=200)
+    role: str = Field(default="researcher", pattern="^(researcher|reviewer|admin|viewer)$")
     created_at: str = Field(default_factory=utc_now)
     status: str = Field(default="open", pattern="^(open|archived)$")
 
@@ -84,13 +85,14 @@ class ResearchSessionStore:
         with path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n")
 
-    def create_session(self, project_id: str, title: str) -> ResearchSession:
+    def create_session(self, project_id: str, title: str, *, role: str = "researcher") -> ResearchSession:
         if not title.strip():
             raise ValueError("session title is required")
         session = ResearchSession(
             session_id=new_id("session"),
             project_id=project_id,
             title=title.strip()[:200],
+            role=role,
         )
         with self._lock:
             self._write_line(self._sessions_dir(project_id) / "index.jsonl", session.model_dump(mode="json"))
@@ -145,9 +147,9 @@ class ResearchSessionService:
         self.projects_service = ResearchProjectService(runtime)
         self.store = ResearchSessionStore(runtime.projects_dir)
 
-    def create(self, project_id: str, title: str | None = None) -> dict[str, Any]:
+    def create(self, project_id: str, title: str | None = None, *, role: str = "researcher") -> dict[str, Any]:
         self.projects_service.snapshot(project_id)  # 404 if project missing
-        session = self.store.create_session(project_id, title or "研究对话")
+        session = self.store.create_session(project_id, title or "研究对话", role=role)
         return {"session": session.model_dump(mode="json"), "messages": []}
 
     def list(self, project_id: str) -> dict[str, Any]:
@@ -237,7 +239,9 @@ class ResearchSessionService:
         if not actor.strip():
             raise ValueError("actor is required")
         self.projects_service.snapshot(project_id)  # 404 if project missing
-        self.store.read_session(project_id, session_id)
+        session = self.store.read_session(project_id, session_id)
+        if session.role == "viewer":
+            raise ValueError("viewer sessions are read-only and cannot intervene")
 
         if action == "accept_checkpoint":
             if not target_id:

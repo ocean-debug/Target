@@ -11,6 +11,7 @@ from typing import Any
 
 from .research_runtime import ResearchProjectRuntime
 from .research_service import ResearchProjectService
+from .research_session import ResearchSessionService
 
 
 def create_mcp_server(
@@ -29,6 +30,7 @@ def create_mcp_server(
     if service is not None and runtime is not None:
         raise ValueError("provide either service or runtime, not both")
     product = service or ResearchProjectService(runtime or ResearchProjectRuntime())
+    sessions = ResearchSessionService(product.runtime)
     server = MCPServer("TargetDiscovery")
 
     @server.tool()
@@ -211,6 +213,75 @@ def create_mcp_server(
             max_characters=max_characters,
         )
 
+
+    @server.tool()
+    def target_create_session(project_id: str, title: str | None = None, role: str = "researcher") -> dict[str, Any]:
+        """Create a conversation view over one durable project.
+
+        role is researcher|reviewer|admin|viewer; viewer sessions are read-only
+        and cannot intervene. The project ledger remains the system of record.
+        """
+        return sessions.create(project_id, title=title, role=role)
+
+    @server.tool()
+    def target_list_sessions(project_id: str) -> dict[str, Any]:
+        """List sessions and their append-only message counts for one project."""
+        return sessions.list(project_id)
+
+    @server.tool()
+    def target_read_session(project_id: str, session_id: str) -> dict[str, Any]:
+        """Read all messages of one session; tampered messages raise an error."""
+        return sessions.messages(project_id, session_id)
+
+    @server.tool()
+    def target_post_session_message(
+        project_id: str,
+        session_id: str,
+        text: str,
+        ask_agent: bool = False,
+        actor: str = "researcher",
+    ) -> dict[str, Any]:
+        """Append a user message; ask_agent returns a deterministic snapshot summary.
+
+        The summary is source_bound=false and never mutates scientific state.
+        """
+        return sessions.post_message(
+            project_id, session_id, text, ask_agent=ask_agent, actor=actor,
+        )
+
+    @server.tool()
+    def target_session_intervene(
+        project_id: str,
+        session_id: str,
+        action: str,
+        rationale: str,
+        target_id: str,
+        actor: str = "researcher",
+        approve: bool | None = None,
+        snapshot_digest: str | None = None,
+        mode: str | None = None,
+        rollback_to_attempt_id: str | None = None,
+        input_overrides: dict[str, dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        """Execute one structured control-plane action from inside a session.
+
+        action is one of accept_checkpoint, decide_repair, decide_fork,
+        propose_fork. Decisions are persisted to the project ledger; the
+        session records the instruction and outcome view only.
+        """
+        return sessions.intervene(
+            project_id=project_id,
+            session_id=session_id,
+            action=action,
+            rationale=rationale,
+            actor=actor,
+            target_id=target_id,
+            approve=approve,
+            snapshot_digest=snapshot_digest,
+            mode=mode,
+            rollback_to_attempt_id=rollback_to_attempt_id,
+            input_overrides=input_overrides,
+        )
     @server.resource("target://projects/{project_id}")
     def target_project_resource(project_id: str) -> str:
         """Return one durable project as a JSON resource."""

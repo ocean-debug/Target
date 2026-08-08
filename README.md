@@ -234,7 +234,10 @@ target-agent-mcp --transport streamable-http --port 8000
 
 It provides typed operations to create a disease project, advance it to the next checkpoint,
 inspect state/events/domain activities and repair records, approve or reject one exact repair snapshot,
-accept a frozen checkpoint and read checksum-verified text artifacts.
+accept a frozen checkpoint and read checksum-verified text artifacts. Session tools
+(`target_create_session`, `target_list_sessions`, `target_read_session`,
+`target_post_session_message`, `target_session_intervene`) let an external workbench drive
+the conversation/approval loop with role-aware sessions (viewer sessions are read-only).
 It does not expose arbitrary shell or model-generated code execution. Remote registry
 publication and host-specific installation bundles remain future integration work.
 

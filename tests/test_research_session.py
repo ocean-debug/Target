@@ -460,3 +460,57 @@ def test_session_intervention_web_endpoint_propose_fork_no_resume(tmp_path, monk
         "mode": "redo",
         "input_overrides": {"target_discovery": {"tissue": "colon"}},
     }
+
+def test_viewer_session_cannot_intervene(tmp_path):
+    runtime, project = _completed_runtime(tmp_path)
+    service = ResearchSessionService(runtime)
+    session_id = service.create(
+        project.project_id, title="只读会话", role="viewer"
+    )["session"]["session_id"]
+    with pytest.raises(ValueError, match="read-only"):
+        service.intervene(
+            project.project_id,
+            session_id,
+            action="accept_checkpoint",
+            rationale="尝试审批",
+            target_id="plan-xyz",
+        )
+    assert service.messages(project.project_id, session_id)["messages"] == []
+
+
+def test_session_role_roundtrip_and_validation(tmp_path):
+    runtime, project = _completed_runtime(tmp_path)
+    service = ResearchSessionService(runtime)
+    created = service.create(project.project_id, title="审稿会话", role="reviewer")
+    assert created["session"]["role"] == "reviewer"
+    assert service.list(project.project_id)["sessions"][0]["role"] == "reviewer"
+    with pytest.raises(ValueError):
+        service.create(project.project_id, title="非法角色", role="root")
+
+
+def test_session_role_viewer_web_endpoint(tmp_path):
+    research_runtime, _ = fake_research_runtime(tmp_path)
+    client = create_app(
+        fake_target_runtime(tmp_path),
+        research_runtime=research_runtime,
+    ).test_client()
+    project = research_project("project-session-web")
+    assert client.post("/api/projects", json=project.model_dump(mode="json")).status_code == 202
+    _wait_for_project(client, project.project_id)
+    created = client.post(
+        f"/api/projects/{project.project_id}/sessions",
+        json={"title": "只读", "role": "viewer"},
+    )
+    assert created.status_code == 201
+    assert created.get_json()["session"]["role"] == "viewer"
+    session_id = created.get_json()["session"]["session_id"]
+    blocked = client.post(
+        f"/api/projects/{project.project_id}/sessions/{session_id}/interventions",
+        json={
+            "action": "accept_checkpoint",
+            "rationale": "尝试审批",
+            "target_id": "plan-xyz",
+        },
+    )
+    assert blocked.status_code == 400
+    assert "read-only" in blocked.get_json()["error"]

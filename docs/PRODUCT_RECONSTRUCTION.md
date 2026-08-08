@@ -57,10 +57,11 @@
 - 会话式干预（P2.13）：`POST /api/projects/<id>/sessions/<session_id>/interventions` 显式路由 `accept_checkpoint` / `decide_repair` / `decide_fork`；自然语言作为决策 rationale，决策写入项目账本，会话只记录指令与结果视图；批准类动作自动排队恢复。Web 工作台新增会话面板（消息、询问 Agent、一键批准/拒绝），前端不猜测动作类型。
 - 会话补充输入闭环（P2.14）：`propose_fork` 干预动作接受 `input_overrides`（按工作项 JSON），走不可变 fork + redo + 人工批准 + 自动重跑；工作台 `needs_input` 状态提供“补充输入并重跑”面板。
 - 产品旅程总门禁（P2.16）：`tests/test_product_acceptance.py` 用产品界面走通“建项目 → 会话批准计划 → 执行 → 会话批准发布 → 完成 → 会话摘要 → 导出/只读校验/导入”全闭环，防止各层各自能跑但串不成产品。
+- 多角色会话与 MCP 会话工具（P2.17）：会话带 researcher/reviewer/admin/viewer 角色，viewer 只读；MCP 新增 5 个会话工具，外部工作台可驱动会话与审批闭环。
 ## 4. 下一步增量（按价值排序）
 
 - 部署与密钥管理（P2.15）：`target-agent up` 单命令“检查后启动”；`secrets status|set|delete` 走可选 OS keyring，优先级 进程环境 > .env > keyring，failure-soft；`project-package-inspect` 升级为只读校验（逐文件 SHA-256，不导入）。
-1. **多角色与分享门户**：研究者/审稿人/管理员角色会话、只读分享门户与 MCP 会话工具。
+1. **分享门户与角色 UI**：只读分享门户（项目包 HTML 视图）、工作台角色切换与 MCP 资源模板扩展。
 3. **平台化部署**：Docker 镜像与 Compose、多用户认证与配额（仅在真实多用户部署需要时做）。
 4. **多用户与配额**：认证、多租户、资源配额（P2 平台化，仅在真实多用户部署需要时做）。
 5. **对齐数据（P3，最后）**：以已评审 CaseRecord 与论文策略模式为来源生成 Planner SFT / Reviewer 偏好对，训练 Reviewer/Planner 小模型并做 blind benchmark 消融。
