@@ -2,6 +2,7 @@
 
 Cross-module contracts, workflow choices, model boundaries and scientific-safety decisions are recorded here. Accepted decisions must not be changed silently in a feature branch.
 
+
 ## 2026-08-08 - 论文摘要 RAG 与 Planner few-shot 增强（P2.6）
 
 - **Status:** accepted
@@ -79,6 +80,22 @@ Cross-module contracts, workflow choices, model boundaries and scientific-safety
 - Reviewer LLM findings cache uses a normalized payload (per-run ids become positional tokens); replay maps tokens back to current ids and re-validates. A single invalid finding is skipped instead of discarding the whole review round.
 - Reviewer uses a dedicated 240s read timeout with one retry; the previous 90s x 3 budget wasted ~4 minutes before deterministic fallback.
 - Acceptance (remote acceptance environment): fresh UC project warm stage-2 run is 55s; cold/warm/hot runs produce identical Top-10 rankings with completed_with_gaps, 0 blocking, 2 gaps.
+
+
+## 2026-08-07 - Context-relation benchmark uses scoped contrastive labels
+
+- Added a disease-disjoint relationship benchmark spanning disease, target,
+  tissue, cell type and disease stage.
+- Disease-target positives reuse the curated, evidence-graded anchors in
+  `configs/disease_library.yaml`; they are explicitly bounded as ranking sanity
+  anchors rather than cell-specific causal facts.
+- Tissue/stage swaps are labelled as mismatches against the curated benchmark
+  context, not as universal biological negatives. Cross-disease target swaps
+  are excluded because pleiotropy makes those negatives unsafe without
+  publication-level review.
+- Context donors are restricted to the same split, and every case for one
+  disease stays in a single split.
+
 
 ## 2026-08-01 - Versioned schemas are module boundaries
 
