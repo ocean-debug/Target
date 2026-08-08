@@ -88,7 +88,7 @@ typed transient failure
   - 证据独立性：一条 Claim 的多条证据共享同一 source/dataset/study/tool-run 谱系时，生成 blocking `evidence_dependence` finding，映射到 R0 声明降级（自动降为 INFERRED），防止把同一研究的重复引用当作独立支持；
   - 与子运行 Reviewer finding 按 finding_id 去重合并，确定性门禁不覆盖人工/LLM finding。
 
-仍未完成/明确不做：从自由 Reviewer 文本直接生成修复（只接受类型化 finding）、上下文拆分与科学依赖失效的自动修复；系统明确不执行这些动作。
+- 尚未完成：从自由 Reviewer 文本直接生成修复（当前只接受类型化 finding）；步骤级回退与跨模块候选依赖超集链的完整自动修复（上下文拆分见 2.6，候选绑定证据失效见 2.7）。
 
 ### 2.3 Review 与发布
 
@@ -124,6 +124,13 @@ typed transient failure
 - overlay 可执行断言：EXCLUDE 只能隔离已存在于派生证据集的证据（missing row 拒绝应用，isolated_only/retained_in_source 写入审计），SUPPLEMENT 必须携带非空 reason 且只能引用已存在证据，DOWNGRADE 只允许降至 INFERRED、拒绝任何升级与已 INFERRED 的 no-op；
 - 自主性契约：AUTONOMOUS 项目不再提出 checkpoint 必须审批的 R2 修复（dataset switch / exclusion / context split），避免“提出后暂停、恢复时校验失败”的死锁；这类 finding 保留为文档化阻塞缺口并以 completed_with_gaps 收尾，CHECKPOINTED/SUPERVISED 项目行为不变。
 
+### 2.7 类型化候选绑定与证据失效（P0.3）
+
+- `PlanStep` 声明 `candidate_bound` 与 `evidence_lane`（literature / genetics / drug_safety / perturbation / trials），evidence_lane 必须与 candidate_bound 同时出现，Planner 拒绝没有候选产生依赖的证据步骤；
+- 每个候选绑定步骤的 ToolResult 写入 `_candidate_bound` 元数据（step_id + candidate_universe_digest + evidence_lane），digest 包含合同版本与排序后的候选基因全集；
+- 恢复时以 ToolResult ledger 重建候选全集，比对每个已完成候选绑定步骤的 digest；不一致则从 completed_steps 移除并重取，同时写入 `replan/resume` 与 `evidence_superseded` trace，新结果通过 `supersedes_tool_run_id` 显式取代旧结果；
+- Reviewer/Ranking 只消费未被取代的 active ToolResult 及其 EvidenceItem，旧证据保留在 append-only ledger 中但不再参与评分与报告；
+- 项目修复策略明确要求数据集切换后所有候选绑定证据通道按新候选集重算，上下文拆分时保持候选绑定不变。
 ## 3. 已完成的产品接口
 
 - CLI：创建、运行、状态、事件、活动、checkpoint、repair queue 和 repair decision；

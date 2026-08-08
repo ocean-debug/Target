@@ -397,6 +397,16 @@ class PlanStep(ContractModel):
     success_criteria: list[str] = Field(default_factory=list)
     stop_conditions: list[str] = Field(default_factory=list)
     degradation_conditions: list[str] = Field(default_factory=list)
+    # A candidate-bound step consumes the current candidate universe; its
+    # persisted result is only reusable for the same step_id + candidate digest.
+    candidate_bound: bool = False
+    evidence_lane: Literal["literature", "genetics", "drug_safety", "perturbation", "trials"] | None = None
+
+    @model_validator(mode="after")
+    def bind_evidence_lane(self) -> "PlanStep":
+        if self.evidence_lane is not None and not self.candidate_bound:
+            raise ValueError("evidence_lane requires candidate_bound=True")
+        return self
 
 
 class ExecutionPlan(ContractModel):
@@ -643,6 +653,10 @@ class ToolResult(ContractModel):
     limitations: list[str] = Field(default_factory=list)
     error: str | None = None
     cached: bool = False
+    # Set when a candidate-bound evidence step is re-executed because the
+    # candidate universe changed; consumers must treat the superseded result
+    # and its evidence as inactive for review, ranking and reporting.
+    supersedes_tool_run_id: str | None = Field(default=None, pattern=r"^tool-[a-f0-9]{12}$")
     started_at: str = Field(default_factory=utc_now)
     elapsed_ms: int = Field(default=0, ge=0)
 

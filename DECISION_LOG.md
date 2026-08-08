@@ -2,6 +2,13 @@
 
 Cross-module contracts, workflow choices, model boundaries and scientific-safety decisions are recorded here. Accepted decisions must not be changed silently in a feature branch.
 
+## 2026-08-08 - 类型化候选绑定与证据失效（P0.3）
+- **Status:** accepted
+- 决策：把“证据依赖候选集合”从隐式约定升级为类型化合同。PlanStep 声明 candidate_bound + evidence_lane；候选绑定步骤的 ToolResult 记录 step_id + candidate_universe_digest（含合同版本与排序候选全集），恢复时 digest 不匹配即重取，并以 supersedes_tool_run_id 建立取代链。
+- 决策：Reviewer 与 Ranking 只消费未被取代的 active 结果与证据；旧结果保留在 append-only ledger 中，确保“候选集变化后文献/药物/安全/扰动证据按新候选集重算”可被机器断言，而不是只依赖整体子图重跑。
+- 决策：项目修复层把“数据集切换后所有候选绑定证据通道按新候选集重算”写入 SWITCH_DATASET_SAME_CONTEXT 成功标准；SPLIT_CONTEXT_SAME_SCOPE 明确保持候选绑定不变。
+- 决策：对齐数据训练（Planner/Reviewer SFT 与偏好对）按用户要求延后到最终阶段，不进入本轮改造。
+- 验收：新增候选绑定合同/Planner 校验/运行时重取与取代链测试，全套测试在远程验收环境执行。
 ## 2026-08-08 - 类型化领域修复：上下文拆分与 overlay 可执行断言
 
 - **Status:** accepted

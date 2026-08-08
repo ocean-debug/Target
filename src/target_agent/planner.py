@@ -20,9 +20,9 @@ DISEASE_STEPS = [
     PlanStep(step_id="single_cell", name="Validate and analyze selected standard single-cell input", tool="single_cell_analysis", dependencies=["census"], success_criteria=["donor-level pseudobulk gate is satisfied"], degradation_conditions=["dataset not explicitly selected or metadata incomplete"]),
     PlanStep(step_id="pathway", name="Run full-rank pathway enrichment", tool="pathway_enrichment", dependencies=["bulk"], success_criteria=["GSEA seed, library date and full results are stored"], degradation_conditions=["no ranked differential statistic"]),
     PlanStep(step_id="omics_candidates", name="Consolidate validated omics candidates", tool="omics_candidate_extraction", dependencies=["bulk", "single_cell"], success_criteria=["candidate genes originate in typed tool outputs"]),
-    PlanStep(step_id="genetics", name="Resolve disease and retrieve human genetic associations", tool="open_targets", dependencies=["scope"], success_criteria=["association records include stable disease and target IDs"], degradation_conditions=["network or disease resolution unavailable"]),
-    PlanStep(step_id="trials", name="Retrieve gene-named clinical trial registry records", tool="clinical_trials_gov", dependencies=["genetics"], success_criteria=["every claim names the gene in the intervention or title text"], degradation_conditions=["no gene-named registry record"]),
-    PlanStep(step_id="literature", name="Retrieve source-grounded literature claims", tool="europe_pmc_rag", dependencies=["omics_candidates", "genetics"], success_criteria=["every claim has a literal source span"], degradation_conditions=["no span-valid claim"]),
+    PlanStep(step_id="genetics", name="Resolve disease and retrieve human genetic associations", tool="open_targets", dependencies=["scope"], candidate_bound=True, evidence_lane="genetics", success_criteria=["association records include stable disease and target IDs"], degradation_conditions=["network or disease resolution unavailable"]),
+    PlanStep(step_id="trials", name="Retrieve gene-named clinical trial registry records", tool="clinical_trials_gov", dependencies=["genetics"], candidate_bound=True, evidence_lane="trials", success_criteria=["every claim names the gene in the intervention or title text"], degradation_conditions=["no gene-named registry record"]),
+    PlanStep(step_id="literature", name="Retrieve source-grounded literature claims", tool="europe_pmc_rag", dependencies=["omics_candidates", "genetics"], candidate_bound=True, evidence_lane="literature", success_criteria=["every claim has a literal source span"], degradation_conditions=["no span-valid claim"]),
     PlanStep(step_id="review", name="Review provenance, context, conflicts and causal language", dependencies=["bulk", "single_cell", "pathway", "genetics", "trials", "literature"], success_criteria=["no blocking finding remains"], degradation_conditions=["major evidence gaps remain after two rounds"]),
     PlanStep(step_id="ranking", name="Rank candidates while retaining blockers", dependencies=["review"], success_criteria=["score is not represented as probability"]),
     PlanStep(step_id="report", name="Generate TargetCards and traceable report", dependencies=["ranking"], success_criteria=["all numbers originate in the Evidence Store"]),
@@ -73,9 +73,9 @@ GENETICS_CHAIN = (
 GWAS_STEPS = [
     PlanStep(step_id="scope", name="Normalize disease and locus context", tool="disease_resolver", success_criteria=["disease, build, ancestry and locus context are explicit"], stop_conditions=["missing disease or genetics input"]),
     *GENETICS_INPUT_STEPS,
-    PlanStep(step_id="genetics", name="Retrieve independent disease-level target evidence", tool="open_targets", dependencies=["genetics_candidate_extraction"], success_criteria=["association records include stable disease and target IDs"], degradation_conditions=["network or disease resolution unavailable"]),
-    PlanStep(step_id="trials", name="Retrieve gene-named clinical trial registry records", tool="clinical_trials_gov", dependencies=["genetics"], success_criteria=["every claim names the gene in the intervention or title text"], degradation_conditions=["no gene-named registry record"]),
-    PlanStep(step_id="literature", name="Retrieve source-grounded literature claims", tool="europe_pmc_rag", dependencies=["genetics_candidate_extraction", "genetics"], success_criteria=["every claim has a literal source span"], degradation_conditions=["no span-valid claim"]),
+    PlanStep(step_id="genetics", name="Retrieve independent disease-level target evidence", tool="open_targets", dependencies=["genetics_candidate_extraction"], candidate_bound=True, evidence_lane="genetics", success_criteria=["association records include stable disease and target IDs"], degradation_conditions=["network or disease resolution unavailable"]),
+    PlanStep(step_id="trials", name="Retrieve gene-named clinical trial registry records", tool="clinical_trials_gov", dependencies=["genetics"], candidate_bound=True, evidence_lane="trials", success_criteria=["every claim names the gene in the intervention or title text"], degradation_conditions=["no gene-named registry record"]),
+    PlanStep(step_id="literature", name="Retrieve source-grounded literature claims", tool="europe_pmc_rag", dependencies=["genetics_candidate_extraction", "genetics"], candidate_bound=True, evidence_lane="literature", success_criteria=["every claim has a literal source span"], degradation_conditions=["no span-valid claim"]),
     PlanStep(step_id="review", name="Review provenance, context, conflicts and causal language", dependencies=["genetics_candidate_extraction", "genetics", "trials", "literature"], success_criteria=["no blocking finding remains"], degradation_conditions=["major evidence gaps remain after two rounds"]),
     PlanStep(step_id="ranking", name="Rank candidates while retaining blockers", dependencies=["review"], success_criteria=["score is not represented as probability"]),
     PlanStep(step_id="report", name="Generate TargetCards and traceable report", dependencies=["ranking"], success_criteria=["all numbers originate in the Evidence Store"]),
@@ -178,6 +178,32 @@ class Planner:
 
         for step_id in ids:
             visit(step_id)
+
+        candidate_producers = frozenset({
+            "omics_candidate_extraction",
+            "genetics_candidate_extraction",
+            "open_targets",
+        })
+
+        def _has_candidate_producer(step_id: str) -> bool:
+            seen: set[str] = set()
+            pending = [step_id]
+            while pending:
+                current = pending.pop()
+                if current in seen:
+                    continue
+                seen.add(current)
+                step = by_id[current]
+                if step.tool in candidate_producers:
+                    return True
+                pending.extend(step.dependencies)
+            return False
+
+        for step in plan.steps:
+            if step.candidate_bound and step.tool not in candidate_producers and not _has_candidate_producer(step.step_id):
+                raise ValueError(
+                    f"candidate-bound step {step.step_id} has no candidate-producing dependency"
+                )
         genetics_required = bool(task.genetics_inputs) or task.task_type == "gwas_locus_to_target"
         genetics_tools = {tool for _, tool, _ in GENETICS_CHAIN}
         if genetics_required:

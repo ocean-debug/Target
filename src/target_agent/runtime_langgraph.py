@@ -19,6 +19,7 @@ case_record.json).
 """
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from typing import Any, Callable, TypedDict
@@ -31,6 +32,8 @@ from .contracts import (
     CONTRACT_VERSION, CaseRecord, Claim, ClaimClass, EvidenceItem, ExecutionPlan,
     PlanStep, ReviewerFinding, TaskSpec, TerminalStatus, ToolResult, TraceEvent, new_id,
 )
+
+
 from .graphs import build_mechanistic_graph
 from .llm import StepClient
 from .legacy import migrate_current_contract
@@ -47,6 +50,20 @@ from .settings import Settings, load_settings
 from .store import EvidenceStore
 from .tools import ToolRegistry, default_registry
 from .tools.base import ToolContext, execute_tool_safely
+
+
+CANDIDATE_BOUND_OUTPUT_KEY = "_candidate_bound"
+
+
+def candidate_universe_digest(genes: list[str]) -> str:
+    """Stable digest of the current candidate universe for typed evidence steps.
+
+    Includes the contract version so a contract change invalidates every
+    candidate-bound result instead of silently reusing stale evidence.
+    """
+    normalized = sorted({str(gene).upper() for gene in genes if gene})
+    payload = CONTRACT_VERSION + "\x00" + "\n".join(normalized)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 class PipelineState(TypedDict, total=False):
@@ -66,6 +83,7 @@ class PipelineState(TypedDict, total=False):
     ordered_steps: list[PlanStep]
     completed_steps: set[str]
     candidate_genes: list[str]
+    candidate_digest: str
     tool_calls: int
     prior_results: list[ToolResult]
     prior_evidence: list[EvidenceItem]
@@ -185,6 +203,7 @@ class LangGraphRuntime:
             "task": task, "store": store, "checkpoint": checkpoint, "early_terminal": False,
             "completed_steps": set(),
             "candidate_genes": list(task.candidate_genes),
+            "candidate_digest": candidate_universe_digest(list(task.candidate_genes)),
             "tool_calls": 0,
             "prior_results": store.tool_results() if checkpoint else [],
             "prior_evidence": store.evidences() if checkpoint else [],
@@ -220,6 +239,16 @@ class LangGraphRuntime:
                 task.constraints.genetics.minimum_coloc_pp4,
             ),
         )
+        stale_step_ids = self._stale_candidate_bound_step_ids(
+            plan, completed_steps, candidate_genes, state["prior_results"],
+        )
+        if stale_step_ids:
+            completed_steps = completed_steps - stale_step_ids
+            self._trace(store, state["run_id"], task, "replan", "resume", {
+                "action": "stale_candidate_bound_steps_removed",
+                "steps": sorted(stale_step_ids),
+                "candidate_digest": candidate_universe_digest(candidate_genes),
+            }, sorted(stale_step_ids))
         planner_meta = getattr(self.planner.client, "last_request_meta", None) if self.planner.client else None
         self._trace(store, state["run_id"], task, "plan", "planner", {
             "planner_backend": plan.planner_backend, "fallback_used": plan.fallback_used,
@@ -230,6 +259,7 @@ class LangGraphRuntime:
             "ordered_steps": self._ordered_steps(plan),
             "completed_steps": completed_steps,
             "candidate_genes": candidate_genes,
+            "candidate_digest": candidate_universe_digest(candidate_genes),
             "tool_calls": tool_calls,
         }
 
@@ -274,18 +304,50 @@ class LangGraphRuntime:
                         ),
                     )
                     store.add_finding(finding)
-                return {"completed_steps": completed_steps, "candidate_genes": candidate_genes,
+                return {"completed_steps": completed_steps, "candidate_genes": candidate_genes, "candidate_digest": candidate_universe_digest(candidate_genes),
                         "tool_calls": tool_calls, "prior_results": prior_results,
                         "prior_evidence": prior_evidence,
                         "revision_history": revision_history, "execution_findings": [finding],
                         "tool_loop_done": True}
+            candidate_bound_digest = (
+                candidate_universe_digest(candidate_genes) if step.candidate_bound else None
+            )
+            if candidate_bound_digest is not None:
+                active = self._active_candidate_bound_result(
+                    prior_results, step.step_id, candidate_bound_digest,
+                )
+                if active is not None:
+                    completed_steps.add(step.step_id)
+                    self._trace(store, run_id, task, "tool_result_reused", "tool_execution", {
+                        "tool": step.tool, "step_id": step.step_id,
+                        "candidate_digest": candidate_bound_digest,
+                        "evidence_lane": step.evidence_lane,
+                    }, [active.tool_run_id])
+                    continue
             tool = self.registry.get(step.tool)
             self._trace(store, run_id, task, "tool_call", "tool_execution",
-                        {"tool": step.tool, "step_id": step.step_id})
+                        {"tool": step.tool, "step_id": step.step_id,
+                         "candidate_digest": candidate_bound_digest})
             execution = execute_tool_safely(tool, ToolContext(
                 task=task, run_dir=store.run_dir, cache_dir=self.cache_dir, candidate_genes=candidate_genes,
                 prior_results=prior_results, settings=self.settings,
             ))
+            if candidate_bound_digest is not None:
+                stale = self._active_candidate_bound_result(prior_results, step.step_id, None)
+                execution.result.outputs[CANDIDATE_BOUND_OUTPUT_KEY] = {
+                    "step_id": step.step_id,
+                    "candidate_digest": candidate_bound_digest,
+                    "evidence_lane": step.evidence_lane,
+                }
+                if stale is not None and stale.tool_run_id != execution.result.tool_run_id:
+                    execution.result.supersedes_tool_run_id = stale.tool_run_id
+                    self._trace(store, run_id, task, "evidence_superseded", "tool_execution", {
+                        "tool": step.tool, "step_id": step.step_id,
+                        "candidate_digest": candidate_bound_digest,
+                        "evidence_lane": step.evidence_lane,
+                        "supersedes_tool_run_id": stale.tool_run_id,
+                        "reason": "candidate universe changed for candidate-bound evidence lane",
+                    }, [stale.tool_run_id, execution.result.tool_run_id])
             tool_calls += 1
             for item in execution.evidence:
                 store.add_evidence(item)
@@ -320,23 +382,25 @@ class LangGraphRuntime:
                             [execution.result.tool_run_id])
             checkpoint = {
                 "stage": "tool_execution", "completed_steps": sorted(completed_steps),
-                "candidate_genes": candidate_genes, "tool_calls": tool_calls,
+                "candidate_genes": candidate_genes,
+                "candidate_digest": candidate_universe_digest(candidate_genes),
+                "tool_calls": tool_calls,
                 "revision_history": revision_history,
             }
             store.checkpoint(checkpoint)
             self._trace(store, run_id, task, "checkpoint", "tool_execution", checkpoint)
             if execution.result.status.value == "out_of_scope" and step.tool == "mch_causal_gold":
-                return {"completed_steps": completed_steps, "candidate_genes": candidate_genes,
+                return {"completed_steps": completed_steps, "candidate_genes": candidate_genes, "candidate_digest": candidate_universe_digest(candidate_genes),
                         "tool_calls": tool_calls, "prior_results": prior_results,
                         "prior_evidence": prior_evidence,
                         "revision_history": revision_history, "tool_loop_done": True}
             # one tool execution per node invocation; loop continues via conditional edge
-            return {"completed_steps": completed_steps, "candidate_genes": candidate_genes,
+            return {"completed_steps": completed_steps, "candidate_genes": candidate_genes, "candidate_digest": candidate_universe_digest(candidate_genes),
                     "tool_calls": tool_calls, "prior_results": prior_results,
                     "prior_evidence": prior_evidence,
                     "revision_history": revision_history, "tool_loop_done": False}
         # no further steps to execute
-        return {"completed_steps": completed_steps, "candidate_genes": candidate_genes,
+        return {"completed_steps": completed_steps, "candidate_genes": candidate_genes, "candidate_digest": candidate_universe_digest(candidate_genes),
                 "tool_calls": tool_calls, "prior_results": prior_results,
                 "prior_evidence": prior_evidence,
                 "revision_history": revision_history, "tool_loop_done": True}
@@ -346,8 +410,16 @@ class LangGraphRuntime:
         results = store.tool_results()
         evidence = store.evidences()
         store.assert_referential_integrity()
+        superseded_ids = {
+            result.supersedes_tool_run_id
+            for result in results
+            if result.supersedes_tool_run_id is not None
+        }
+        active_results = [result for result in results if result.tool_run_id not in superseded_ids]
+        active_ids = {result.tool_run_id for result in active_results}
+        active_evidence = [item for item in evidence if item.tool_run_id in active_ids]
         self._status(store, state["run_id"], state["task"], "reviewer")
-        return {"results": results, "evidence": evidence}
+        return {"results": active_results, "evidence": active_evidence}
 
     def _node_reviewer(self, state: PipelineState) -> dict[str, Any]:
         task, store = state["task"], state["store"]
@@ -392,7 +464,9 @@ class LangGraphRuntime:
         return {
             "findings": repaired.findings, "revision_history": revision_history,
             "results": repaired.results, "evidence": repaired.evidence,
-            "candidate_genes": repaired.candidate_genes, "tool_calls": repaired.tool_calls,
+            "candidate_genes": repaired.candidate_genes,
+            "candidate_digest": candidate_universe_digest(repaired.candidate_genes),
+            "tool_calls": repaired.tool_calls,
         }
 
     def _node_ranking(self, state: PipelineState) -> dict[str, Any]:
@@ -445,7 +519,7 @@ class LangGraphRuntime:
             "ranked_payload": ranked_payload,
             "cards": cards,
             "final_claims": final_claims,
-            "candidate_genes": candidate_genes,
+            "candidate_genes": candidate_genes, "candidate_digest": candidate_universe_digest(candidate_genes),
         }
 
     def _node_report(self, state: PipelineState) -> dict[str, Any]:
@@ -499,6 +573,52 @@ class LangGraphRuntime:
             }
             for rank, item in enumerate(ranked[:limit], start=1)
         ]
+
+    @staticmethod
+    def _active_candidate_bound_result(
+        results: list[ToolResult], step_id: str, digest: str | None,
+    ) -> ToolResult | None:
+        """Return the latest persisted result for one candidate-bound step.
+
+        With a digest, only a result recorded for the same candidate universe
+        counts as active. Without one, the latest attempt for the step is
+        returned (used to detect a stale attempt to supersede).
+        """
+        matches: list[ToolResult] = []
+        for result in results:
+            meta = result.outputs.get(CANDIDATE_BOUND_OUTPUT_KEY)
+            if isinstance(meta, dict) and meta.get("step_id") == step_id:
+                matches.append(result)
+        if not matches:
+            return None
+        if digest is None:
+            return matches[-1]
+        for result in reversed(matches):
+            meta = result.outputs.get(CANDIDATE_BOUND_OUTPUT_KEY)
+            if isinstance(meta, dict) and meta.get("candidate_digest") == digest:
+                return result
+        return None
+
+    @staticmethod
+    def _stale_candidate_bound_step_ids(
+        plan: ExecutionPlan,
+        completed_steps: set[str],
+        candidate_genes: list[str],
+        stored_results: list[ToolResult],
+    ) -> set[str]:
+        """Return completed candidate-bound steps whose persisted result was
+        computed for a different candidate universe than the one rebuilt from
+        the authoritative ToolResult ledger on resume."""
+        digest = candidate_universe_digest(candidate_genes)
+        stale: set[str] = set()
+        for step in plan.steps:
+            if not step.candidate_bound or step.step_id not in completed_steps:
+                continue
+            if LangGraphRuntime._active_candidate_bound_result(
+                stored_results, step.step_id, digest,
+            ) is None:
+                stale.add(step.step_id)
+        return stale
 
     @staticmethod
     def _ordered_steps(plan: ExecutionPlan) -> list[PlanStep]:

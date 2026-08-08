@@ -630,6 +630,7 @@ def _action_success_criteria(action: RepairAction) -> list[str]:
         ],
         RepairAction.SPLIT_CONTEXT_SAME_SCOPE: [
             "Evidence is re-bound to a same-scope sub-context and remains active.",
+            "Candidate-bound evidence lanes keep their candidate-universe binding; only the declared context dimension is split.",
         ],
     }
     return criteria.get(action, [])
@@ -953,6 +954,8 @@ def propose_domain_repair(
             success_criteria=[
                 "The replacement dataset passed deterministic same-context qualification.",
                 "The frozen TaskSpec disease, tissue, cell type and stage are unchanged.",
+                "Every candidate-bound evidence lane (literature, genetics, drug/safety, perturbation, trials) "
+                "is recomputed against the replacement dataset's candidate universe.",
                 "The full affected subgraph is recomputed and re-reviewed.",
                 "The release snapshot digest is rebound to the new active results.",
             ],
