@@ -368,3 +368,16 @@ typed transient failure
 ### 18.2 边界
 - Docker/Compose 资产已静态校验，但集群无 Docker daemon，未在本环境执行 `docker compose up`；同一代码路径已在 Singularity 容器内完成运行验证。
 - 多用户认证、配额与租户隔离仍未实施（P2.19 后半，真实多用户部署需要时再做）。
+
+### 18.3 Live product journey (2026-08-08, verified on remote GPU node)
+
+- Real end-to-end journey through the durable product layer with Step 3.7 Flash:
+  healthz -> project create -> Step planner (step:step-3.7-flash + pattern-fewshot + paper-rag + skills)
+  -> human plan approval -> execute literature workflow (project_brief, literature_search over Europe PMC,
+  hypothesis_generation, independent_review, research_report) -> release gate approval -> completed.
+- Session ask returned a source-bound summary; export package checksums validated; import into a second
+  store kept status=completed and passed integrity checks.
+- Live finding fixed: Step 3.7 Flash returned assumptions as a string, failing the strict pydantic
+  contract and degrading the journey to needs_input. The hypothesis-generation prompt now declares
+  assumptions as an array of strings; re-verified live with 15 real Europe PMC records (5/5 hypotheses
+  validate). Safe rejection behavior is unchanged: no invalid hypothesis is accepted.
