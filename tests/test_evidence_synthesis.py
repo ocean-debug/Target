@@ -208,3 +208,86 @@ def test_build_mechanistic_graph_keeps_backward_compatible_signature():
     graph = build_mechanistic_graph(_task(), evidence, ["G1"])
     assert graph.graph_kind == "mechanistic_evidence"
     assert any(edge.relation == "has_evidence_in" for edge in graph.edges)
+
+
+def _paper_evidence(gene: str, chunk_id: str = "chunk-0-paper-0", pmid: str = "12345678") -> list[dict]:
+    return [{
+        "kind": "paper_rag",
+        "chunk_id": chunk_id,
+        "pmid": pmid,
+        "title": f"{gene} mechanism in test disease",
+        "journal": "Nature",
+        "year": 2025,
+        "lane_tags": ["genetics", "omics"],
+        "snippet": f"{gene} regulates test disease",
+        "score": 4.0,
+        "strategy_hint_not_evidence": True,
+    }]
+
+
+def test_paper_rag_hits_projected_as_strategy_only_nodes():
+    evidence = [_evidence("G1", lane="genetics", genetic=_genetic("G1"))]
+    synthesis = synthesize_evidence_graph(
+        _task(), evidence, ["G1"], paper_evidence=_paper_evidence("G1"),
+    )
+    node_ids = {node.node_id for node in synthesis.graph.nodes}
+    assert "strategy:paper:chunk-0-paper-0" in node_ids
+    hint_edges = [
+        edge for edge in synthesis.graph.edges
+        if edge.relation == "paper_strategy_hint"
+    ]
+    assert len(hint_edges) == 1
+    edge = hint_edges[0]
+    assert edge.claim_class == ClaimClass.INFERRED
+    assert edge.weight == 0.0
+    assert edge.attributes["strategy_only"] is True
+    assert edge.attributes["not_evidence"] is True
+    assert edge.evidence_ids == []
+    assert synthesis.paper_links and synthesis.paper_links[0]["gene"] == "G1"
+    assert synthesis.paper_links[0]["strategy_hint_not_evidence"] is True
+    assert synthesis.graph.model_statistics["paper_strategy_hints"] == 1
+
+
+def test_paper_rag_hits_never_change_lane_coverage_or_pattern_links():
+    evidence = [_evidence("G1", lane="genetics", genetic=_genetic("G1"))]
+    baseline = synthesize_evidence_graph(_task(), evidence, ["G1"])
+    with_hits = synthesize_evidence_graph(
+        _task(), evidence, ["G1"], paper_evidence=_paper_evidence("G1"),
+    )
+    assert with_hits.lane_coverage == baseline.lane_coverage
+    assert with_hits.pattern_links == baseline.pattern_links
+    assert with_hits.findings == baseline.findings
+
+
+def test_paper_rag_hits_for_unknown_genes_and_malformed_rows_are_skipped():
+    evidence = [_evidence("G1", lane="literature")]
+    synthesis = synthesize_evidence_graph(
+        _task(), evidence, ["G1"],
+        paper_evidence=[
+            {
+                "chunk_id": "chunk-0-paper-0",
+                "pmid": "1",
+                "title": "NO_GENE_HERE mentions nothing",
+                "snippet": "x",
+            },
+            {"pmid": "2"},
+            None,
+            _paper_evidence("UNKNOWN_GENE")[0],
+        ],
+    )
+    assert synthesis.graph.model_statistics["paper_strategy_hints"] == 0
+    assert synthesis.paper_links == []
+    assert not any(
+        edge.relation == "paper_strategy_hint" for edge in synthesis.graph.edges
+    )
+
+
+def test_build_mechanistic_graph_accepts_paper_evidence_parameter():
+    evidence = [_evidence("G1", lane="omics")]
+    graph = build_mechanistic_graph(
+        _task(), evidence, ["G1"], paper_evidence=_paper_evidence("G1"),
+    )
+    assert graph.model_statistics["paper_strategy_hints"] == 1
+    assert any(
+        edge.relation == "paper_strategy_hint" for edge in graph.edges
+    )

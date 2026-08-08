@@ -47,6 +47,7 @@ cross-validate and stop, then store that as a conditional strategy pattern.
     candidates; use --pmids to select)
   - target-agent pattern rag search --disease "ulcerative colitis" --lanes genetics,omics
   - target-agent pattern rag status
+- RAG hits are projected into the mechanism evidence graph as strategy_paper nodes / paper_strategy_hint edges (strategy_only, weight 0, never evidence) and analysed offline via benchmark/pattern_ablation.py --rag; the workbench mechanism panel shows a paper_strategy_hints counter.
   - python scripts/build_paper_rag.py (remote batch refresh; env knobs
     PAPER_RAG_ONLY_GOLD, PAPER_RAG_PMIDS, PAPER_RAG_LIMIT)
 

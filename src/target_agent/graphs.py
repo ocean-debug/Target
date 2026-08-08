@@ -13,7 +13,9 @@ The graph is a deterministic projection of the durable Evidence Store:
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+import re
+
+from dataclasses import dataclass, field
 from typing import Any, Iterable
 
 from pydantic import ValidationError
@@ -39,6 +41,7 @@ class EvidenceSynthesisResult:
     findings: list[dict[str, Any]]
     lane_coverage: dict[str, dict[str, list[str]]]
     pattern_links: list[dict[str, Any]]
+    paper_links: list[dict[str, Any]] = field(default_factory=list)
 
 
 def _parse_pattern(raw: StrategyPattern | BestPracticePattern | dict[str, Any]) -> StrategyPattern | None:
@@ -459,12 +462,99 @@ def _build_pattern_links(
     return links
 
 
+def _build_paper_strategy_links(
+    paper_evidence: list[dict[str, Any]],
+    genes: list[str],
+) -> tuple[list[dict[str, Any]], dict[str, GraphNode], list[GraphEdge]]:
+    """Project bounded paper-RAG hits as explicit strategy-hint nodes/edges.
+
+    Paper hits are strategy context distilled from public abstracts, never
+    evidence for the current disease: they are marked strategy_only with
+    weight 0 and INFERRED, and they never touch lane coverage, conflicts,
+    pattern links or ranking. Gene mention matching is deterministic and
+    token-boundary based; malformed rows and unknown genes are skipped.
+    """
+    known = {gene.strip() for gene in genes if gene and gene.strip()}
+    links: list[dict[str, Any]] = []
+    nodes: dict[str, GraphNode] = {}
+    edges: list[GraphEdge] = []
+    seen: set[tuple[str, str]] = set()
+    for raw in paper_evidence or ():
+        if not isinstance(raw, dict):
+            continue
+        chunk_id = str(raw.get("chunk_id") or "")
+        pmid = str(raw.get("pmid") or "")
+        if not chunk_id or not pmid:
+            continue
+        title = str(raw.get("title") or "")[:200]
+        text_hay = " ".join(part for part in (title, str(raw.get("snippet") or ""))).lower()
+        matched = [
+            gene for gene in known
+            if re.search(
+                r"(?<![a-z0-9])" + re.escape(gene.lower()) + r"(?![a-z0-9])",
+                text_hay,
+            )
+        ]
+        if not matched:
+            continue
+        node_id = "strategy:paper:" + chunk_id
+        nodes.setdefault(node_id, GraphNode(
+            node_id=node_id,
+            node_type="strategy_paper",
+            label=title[:80] or ("paper " + pmid),
+            attributes={
+                "chunk_id": chunk_id,
+                "pmid": pmid,
+                "journal": str(raw.get("journal") or ""),
+                "year": raw.get("year"),
+                "doi": raw.get("doi"),
+                "lane_tags": sorted({str(tag) for tag in (raw.get("lane_tags") or ())}),
+                "strategy_only": True,
+                "not_evidence": True,
+                "role": "paper_rag_strategy_hint",
+            },
+        ))
+        score = round(float(raw.get("score") or 0.0), 2)
+        for gene in matched:
+            key = (gene, chunk_id)
+            if key in seen:
+                continue
+            seen.add(key)
+            links.append({
+                "gene": gene,
+                "chunk_id": chunk_id,
+                "pmid": pmid,
+                "title": title,
+                "journal": str(raw.get("journal") or ""),
+                "year": raw.get("year"),
+                "lane_tags": sorted({str(tag) for tag in (raw.get("lane_tags") or ())}),
+                "score": score,
+                "strategy_hint_not_evidence": True,
+            })
+            edges.append(GraphEdge(
+                source="gene:" + gene,
+                target=node_id,
+                relation="paper_strategy_hint",
+                evidence_ids=[],
+                claim_class=ClaimClass.INFERRED,
+                weight=0.0,
+                attributes={
+                    "strategy_only": True,
+                    "not_evidence": True,
+                    "role": "paper_rag_strategy_hint",
+                    "rag_score": score,
+                },
+            ))
+    return links, nodes, edges
+
+
 def synthesize_evidence_graph(
     task: TaskSpec,
     evidence: list[EvidenceItem],
     genes: list[str],
     *,
     patterns: Iterable[StrategyPattern | dict[str, Any]] | None = None,
+    paper_evidence: Iterable[dict[str, Any]] | None = None,
 ) -> EvidenceSynthesisResult:
     evidence_by_id = {item.evidence_id: item for item in evidence}
     parsed_patterns = [
@@ -490,6 +580,11 @@ def synthesize_evidence_graph(
         parsed_patterns, genes, lane_coverage, evidence_by_id,
         dependent_pairs, conflict_genes,
     )
+    paper_links, paper_nodes, paper_edges = _build_paper_strategy_links(
+        list(paper_evidence or []), genes,
+    )
+    nodes.update(paper_nodes)
+    edges.extend(paper_edges)
     for link in pattern_links:
         edges.append(GraphEdge(
             source=f"lane:{link['source_lane']}",
@@ -533,6 +628,7 @@ def synthesize_evidence_graph(
             "lanes_present": sorted(lane_present),
             "genes_with_multi_lane_evidence": multi_lane_genes,
             "pattern_links": len(pattern_links),
+            "paper_strategy_hints": len(paper_links),
             "conflicting_genes": sorted(conflict_genes),
             "dependent_links_withheld": len(dependence_findings),
             "low_context_excluded_from_links": len(low_context),
@@ -541,6 +637,9 @@ def synthesize_evidence_graph(
             "Edges encode evidence relations and are not automatically causal.",
             "Pattern-guided lane links are strategy hypotheses distilled from high-impact "
             "papers; they are not evidence for the current disease.",
+            "Paper-RAG hits are strategy hints distilled from public abstracts; they are "
+            "marked strategy_only, never enter ranking or pattern links, and are not "
+            "evidence for the current disease.",
             "Edge weights are context-match multipliers for prioritization, not causal "
             "or clinical success probabilities.",
             "K562 DeltaFactor outputs with context match below 0.5 are excluded from "
@@ -552,6 +651,7 @@ def synthesize_evidence_graph(
         findings=[*conflict_findings, *dependence_findings],
         lane_coverage=lane_coverage,
         pattern_links=pattern_links,
+        paper_links=paper_links,
     )
 
 
@@ -561,8 +661,9 @@ def build_mechanistic_graph(
     genes: list[str],
     *,
     patterns: Iterable[StrategyPattern | dict[str, Any]] | None = None,
+    paper_evidence: Iterable[dict[str, Any]] | None = None,
 ) -> CausalGraph:
     """Backward-compatible entry point used by the legacy and LangGraph runtimes."""
     return synthesize_evidence_graph(
-        task, evidence, genes, patterns=patterns,
+        task, evidence, genes, patterns=patterns, paper_evidence=paper_evidence,
     ).graph

@@ -159,11 +159,73 @@ def unit_pattern_ablation_offline() -> str | None:
     return None
 
 
+def unit_paper_rag_graph_projection() -> str | None:
+    from target_agent.contracts import (
+        ClaimClass, EvidenceContext, EvidenceItem, SourceLocator, Stance,
+        TaskContext,
+    )
+    from target_agent.graphs import synthesize_evidence_graph
+
+    item = EvidenceItem(
+        tool_run_id="tool-g1",
+        gene_symbol="GENE1",
+        claim_class=ClaimClass.FACT,
+        statement="test evidence",
+        source=SourceLocator(uri="https://example.org/x", source_id="s1"),
+        source_span="GENE1",
+        context=EvidenceContext(disease="test disease", tissue="lung", cell_type="T cell"),
+        stance=Stance.SUPPORTS,
+        effect_direction="unclear",
+        effect={},
+        uncertainty="fixture",
+        context_match_score=0.9,
+    )
+    task = TaskSpec(
+        task_type="disease_to_target",
+        question="q",
+        context=TaskContext(disease="test disease", tissue="lung", cell_type="T cell"),
+    )
+    result = synthesize_evidence_graph(
+        task, [item], ["GENE1"],
+        paper_evidence=[{
+            "kind": "paper_rag",
+            "chunk_id": "chunk-0-paper-0",
+            "pmid": "12345678",
+            "title": "GENE1 mechanism in test disease",
+            "journal": "Nature",
+            "year": 2025,
+            "lane_tags": ["genetics", "omics"],
+            "snippet": "GENE1 regulates test disease",
+            "score": 4.0,
+            "strategy_hint_not_evidence": True,
+        }],
+    )
+    node_ids = {node.node_id for node in result.graph.nodes}
+    if "strategy:paper:chunk-0-paper-0" not in node_ids:
+        return "paper RAG strategy node missing"
+    hint_edges = [edge for edge in result.graph.edges if edge.relation == "paper_strategy_hint"]
+    if len(hint_edges) != 1:
+        return f"expected 1 paper strategy edge, got {len(hint_edges)}"
+    edge = hint_edges[0]
+    if edge.claim_class != ClaimClass.INFERRED or edge.weight != 0.0:
+        return "paper strategy edge must be INFERRED with weight 0"
+    if edge.attributes.get("strategy_only") is not True or edge.attributes.get("not_evidence") is not True:
+        return "paper strategy edge missing strategy_only/not_evidence markers"
+    if edge.evidence_ids:
+        return "paper strategy edge must carry no evidence ids"
+    if result.lane_coverage.get("GENE1"):
+        return "paper RAG hit leaked into lane coverage"
+    if result.graph.model_statistics.get("paper_strategy_hints") != 1:
+        return "paper_strategy_hints statistic missing"
+    return None
+
+
 UNIT_CHECKS = {
     "contract_version_gate": unit_contract_version_gate,
     "planner_whitelist": unit_planner_whitelist,
     "schema_export_valid": unit_schema_export_valid,
     "pattern_ablation_offline": unit_pattern_ablation_offline,
+    "paper_rag_graph_projection": unit_paper_rag_graph_projection,
 }
 
 

@@ -3,6 +3,13 @@
 Cross-module contracts, workflow choices, model boundaries and scientific-safety decisions are recorded here. Accepted decisions must not be changed silently in a feature branch.
 
 
+## 2026-08-08 - 论文RAG命中接入机制证据图与盲测RAG覆盖率（P2.7）
+
+- **Status:** accepted
+- 决策：Paper-RAG 命中以 strategy_paper 节点和 paper_strategy_hint 边投影进机制证据图，全部标记 strategy_only/not_evidence、claim_class=INFERRED、weight=0、evidence_ids 为空；基因提及匹配为确定性 token 边界匹配，畸形行与未知基因直接跳过。
+- 决策：RAG 命中绝不改变 lane_coverage、方向冲突、证据依赖、pattern_links 或排名；机制图新增 paper_strategy_hints 统计与明确 limitation，Web 工作台“机制证据图”面板新增该指标并标注“仅作策略提示、不是证据、不进入排序”。
+- 决策：benchmark/pattern_ablation.py 新增 --rag 离线分析，报告各疾病 RAG 命中数、覆盖率与“RAG lane 与确定性计划 lane 对齐”指标；基准 runner 新增单元检查 paper_rag_graph_projection。
+- 决策：队友提交的上下文关系基准（PR 12，145 例疾病-靶点-组织-细胞-阶段 goldset）经审查无敏感信息后并入产品分支，作为后续 Planner/RAG 适配器的评测资产；评审标签保持 scoped（上下文错配不等于生物负例），其 PR 在 main 上仍为 draft，由作者决定何时就绪。
 ## 2026-08-08 - 论文摘要 RAG 与 Planner few-shot 增强（P2.6）
 
 - **Status:** accepted

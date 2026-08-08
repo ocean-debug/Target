@@ -225,3 +225,16 @@ typed transient failure
 - 当前种子模式库（10 条）覆盖率低，属于预期状态；覆盖率提升依赖人工 Gold 标注与批量抽取，不做虚高门槛。
 - 抽取采用摘要或 Methods 有界文本，不保证覆盖论文全部细节；`source_material` 与提示版本留痕。
 - 对齐数据生成与 Planner/Reviewer 小模型训练按团队决定延后，模式库作为其未来数据来源。
+## 8. 论文RAG入图与盲测RAG覆盖率（P2.7，2026-08-08）
+
+### 8.1 已完成
+- 机制证据图新增 strategy_paper 节点与 paper_strategy_hint 边：RAG 命中经确定性基因提及匹配投影入图，全部标记 strategy_only/not_evidence、claim_class=INFERRED、weight=0、evidence_ids 为空；新增 paper_strategy_hints 统计与明确 limitation。
+- 隔离性保证：RAG 命中不改变 lane_coverage、方向冲突、证据依赖、pattern_links 或排名；新增 4 项测试覆盖节点投影、隔离性、畸形行跳过与 build_mechanistic_graph 兼容。
+- 工作台“机制证据图”面板新增“论文RAG策略提示”指标，并标注“仅作策略提示、不是证据、不进入排序”。
+- benchmark/pattern_ablation.py 新增 --rag 离线分析：报告各疾病 RAG 命中数、覆盖率、平均命中数与“RAG lane 与计划 lane 对齐”指标；benchmark runner 新增单元检查 paper_rag_graph_projection。
+- 队友 PR 12（context-relation benchmark，145 例疾病-靶点-组织-细胞-阶段 goldset）审查后并入产品分支，作为上下文关系评测资产；评审标签保持 scoped。
+
+### 8.2 边界
+- RAG 命中是策略提示而非证据，不进入排名与 TargetCard。
+- RAG 覆盖率是对当前 155 chunks / 59 篇种子语料的度量；扩充 gold 语料后需重跑 --rag 消融。
+- 对齐数据生成与 Planner/Reviewer LoRA（P3）仍按团队决定最后再做。

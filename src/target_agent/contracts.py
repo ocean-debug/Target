@@ -696,7 +696,7 @@ class ReviewerFinding(ContractModel):
 
 class GraphNode(ContractModel):
     node_id: str
-    node_type: Literal["gene", "variant", "locus", "program", "trait", "disease", "cell_state", "drug", "lane"]
+    node_type: Literal["gene", "variant", "locus", "program", "trait", "disease", "cell_state", "drug", "lane", "strategy_paper"]
     label: str
     attributes: dict[str, Any] = Field(default_factory=dict)
 

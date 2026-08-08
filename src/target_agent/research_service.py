@@ -779,12 +779,14 @@ class ResearchProjectService:
                 if getattr(row, "gene_symbol", None)
             })
         patterns: list[StrategyPattern] = []
+        paper_evidence: list[dict[str, Any]] = []
         if plan is not None:
             for raw in plan.evidence_strategy_patterns:
                 try:
                     patterns.append(StrategyPattern.model_validate(raw))
                 except ValidationError:
                     continue
+            paper_evidence = list(plan.paper_evidence or [])
         status = state.status.value if state else ProjectStatus.DRAFT.value
         if task is None:
             return {
@@ -798,9 +800,12 @@ class ResearchProjectService:
                 "reviewer_findings": reviewer_findings,
                 "lane_coverage": {},
                 "pattern_links": [],
+                "paper_links": [],
                 "ranked_genes": genes,
             }
-        synthesis = synthesize_evidence_graph(task, evidence, genes, patterns=patterns)
+        synthesis = synthesize_evidence_graph(
+            task, evidence, genes, patterns=patterns, paper_evidence=paper_evidence,
+        )
         return {
             "contract_version": RESEARCH_CONTRACT_VERSION,
             "project_id": project_id,
@@ -811,6 +816,7 @@ class ResearchProjectService:
             "reviewer_findings": reviewer_findings,
             "lane_coverage": synthesis.lane_coverage,
             "pattern_links": synthesis.pattern_links,
+            "paper_links": synthesis.paper_links,
             "ranked_genes": genes,
             "claim_count": len(claims),
             "evidence_count": len(evidence),

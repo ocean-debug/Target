@@ -853,7 +853,7 @@ function renderMechanismPanel(payload) {
     <label><input type="checkbox" data-filter="patternLinks" ${mechanismFilters.patternLinks ? 'checked' : ''}> 模式跨层链接</label>
     <label><input type="checkbox" data-filter="predictedInferred" ${mechanismFilters.predictedInferred ? 'checked' : ''}> 预测/推断边</label>
     <label><input type="checkbox" data-filter="lanes" ${mechanismFilters.lanes ? 'checked' : ''}> 证据层节点</label>
-    <span class="muted">边权重是上下文匹配系数，用于排序，不代表临床成功概率。</span>
+    <span class="muted">边权重是上下文匹配系数，用于排序，不代表临床成功概率。论文RAG命中仅作策略提示（strategy_only），不是证据，不进入排序。</span>
   </div>`;
   const statsRow = `<div class="metric-row">
     <div class="metric cyan"><strong>${esc(stats.evidence_items ?? 0)}</strong><span>证据条目</span></div>
@@ -861,6 +861,7 @@ function renderMechanismPanel(payload) {
     <div class="metric green"><strong>${esc(stats.pattern_links ?? 0)}</strong><span>模式跨层链接</span></div>
     <div class="metric amber"><strong>${esc(stats.conflicting_genes ? stats.conflicting_genes.length : 0)}</strong><span>方向冲突基因</span></div>
     <div class="metric purple"><strong>${esc(stats.dependent_links_withheld ?? 0)}</strong><span>依赖链接拦截</span></div>
+    <div class="metric"><strong>${esc(stats.paper_strategy_hints ?? 0)}</strong><span>论文RAG策略提示</span></div>
   </div>`;
   const findingsHtml = (findings.length || reviewer.length)
     ? `<div class="graph-findings">

@@ -27,6 +27,7 @@ from target_agent.legacy import parse_task_spec  # noqa: E402
 from target_agent.paper_strategy import (  # noqa: E402
     PatternStore, PlannerFewShotBuilder, infer_data_availability,
 )
+from target_agent.paper_rag import PaperRagStore  # noqa: E402
 from target_agent.planner import Planner  # noqa: E402
 from target_agent.settings import load_settings  # noqa: E402
 from target_agent.tools.base import ToolRegistry  # noqa: E402
@@ -61,9 +62,32 @@ def build_hint(store: PatternStore, task: dict) -> list[dict]:
     )
 
 
-def offline(entries: list[dict], store: PatternStore) -> dict:
+_RAG_LANE_TOKENS = {
+    "genetics": ("gwas", "genetics", "genetic", "coloc", "eqtl", "locus", "variant"),
+    "omics": ("omics", "expression", "transcriptom", "scrna", "single-cell", "single cell", "atac", "deseq", "geo", "bulk"),
+    "single_cell": ("single-cell", "single cell", "scrna", "spatial", "cell type", "pseudobulk", "atlas"),
+    "perturbation": ("perturb", "crispr", "knockout", "knockdown", "overexpress", "screen"),
+    "drug": ("drug", "pharmacolog", "chembl", "inhibitor", "agonist", "antagonist"),
+    "safety": ("safety", "toxicity", "adverse"),
+    "trials": ("trial", "clinical"),
+}
+
+
+def _rag_lane_aligned(paper_lanes: list[str], step_names: list[str]) -> bool:
+    """True when a RAG hit's inferred lanes appear in the deterministic plan."""
+    hay = " ".join(step_names or ()).lower()
+    for lane in paper_lanes:
+        if any(token in hay for token in _RAG_LANE_TOKENS.get(lane, ())):
+            return True
+    return False
+
+
+def offline(entries: list[dict], store: PatternStore, rag_store=None, paper_top_k: int = 2) -> dict:
     rows = []
     plan_failures = []
+    rag_builder = None
+    if rag_store is not None:
+        rag_builder = PlannerFewShotBuilder(store=None, paper_rag=rag_store, paper_top_k=paper_top_k)
     for entry in entries:
         task_spec = parse_task_spec(entry["task"])
         hints = build_hint(store, entry["task"])
@@ -74,6 +98,7 @@ def offline(entries: list[dict], store: PatternStore) -> dict:
             plan_detail = {
                 "step_count": len(plan.steps),
                 "step_ids": [step.step_id for step in plan.steps],
+                "step_names": [step.name for step in plan.steps],
                 "first_tool": next((step.tool for step in plan.steps if step.tool), None),
                 "backend": plan.planner_backend,
             }
@@ -81,6 +106,14 @@ def offline(entries: list[dict], store: PatternStore) -> dict:
             plan_ok = False
             plan_detail = {"error": f"{exc.__class__.__name__}: {exc}"}
             plan_failures.append(entry["id"])
+        paper_evidence: list[dict] = []
+        if rag_builder is not None:
+            paper_evidence = rag_builder.build_paper_evidence(
+                disease=str(task_spec.context.disease or ""),
+                tissue=task_spec.context.tissue if isinstance(task_spec.context.tissue, str) else None,
+                cell_type=task_spec.context.cell_type if isinstance(task_spec.context.cell_type, str) else None,
+                data_availability=infer_data_availability(context),
+            )
         rows.append({
             "disease_id": task_spec.context.disease_id,
             "disease": task_spec.context.disease,
@@ -88,10 +121,18 @@ def offline(entries: list[dict], store: PatternStore) -> dict:
             "cell_type": task_spec.context.cell_type,
             "hint_count": len(hints),
             "pattern_ids": [hint["pattern_id"] for hint in hints],
+            "rag_hit_count": len(paper_evidence),
+            "rag_papers": sorted({str(item.get("pmid") or "") for item in paper_evidence})[:10],
+            "rag_lanes": sorted({lane for item in paper_evidence for lane in (item.get("lane_tags") or [])}),
+            "rag_lane_aligned": _rag_lane_aligned(
+                sorted({lane for item in paper_evidence for lane in (item.get("lane_tags") or [])}),
+                plan_detail.get("step_names", []),
+            ) if paper_evidence else False,
             "plan_ok": plan_ok,
             "plan": plan_detail,
         })
     hit_rows = [row for row in rows if row["hint_count"] > 0]
+    rag_rows = [row for row in rows if row["rag_hit_count"] > 0]
     top_patterns = Counter(
         pattern_id for row in rows for pattern_id in row["pattern_ids"]
     ).most_common(10)
@@ -104,6 +145,15 @@ def offline(entries: list[dict], store: PatternStore) -> dict:
         "plan_valid": sum(1 for row in rows if row["plan_ok"]),
         "plan_failures": plan_failures,
         "top_patterns": [{"pattern_id": pid, "diseases": count} for pid, count in top_patterns],
+        "rag": {
+            "enabled": rag_store is not None,
+            "diseases_with_rag_hits": len(rag_rows),
+            "rag_coverage": round(len(rag_rows) / len(rows), 4) if rows else 0.0,
+            "avg_rag_hits": round(
+                sum(row["rag_hit_count"] for row in rows) / len(rows), 3,
+            ) if rows else 0.0,
+            "lane_aligned_diseases": sum(1 for row in rows if row["rag_lane_aligned"]),
+        },
         "diseases": rows,
     }
 
@@ -157,12 +207,17 @@ def main() -> int:
     parser.add_argument("--out", type=Path, default=ROOT / "benchmark" / "reports")
     parser.add_argument("--llm", action="store_true", help="also compare real Step planner output (opt-in, costs API calls)")
     parser.add_argument("--limit", type=int, default=0, help="live mode: cap compared diseases (0 = all)")
+    parser.add_argument("--rag", type=Path, default=None, help="paper RAG store (chunks.jsonl) for coverage analysis")
+    parser.add_argument("--paper-top-k", type=int, default=2, help="paper RAG hits per disease")
     args = parser.parse_args()
 
     entries = load_goldset(args.goldset)
     store = PatternStore(args.store)
     report: dict = {"generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
-    report["offline"] = offline(entries, store)
+    rag_store = None
+    if args.rag is not None and args.rag.is_file():
+        rag_store = PaperRagStore(args.rag)
+    report["offline"] = offline(entries, store, rag_store=rag_store, paper_top_k=args.paper_top_k)
     if args.llm:
         report["live"] = live(entries, store, load_settings(), args.limit)
 
@@ -188,6 +243,19 @@ def main() -> int:
         f"- Average hints per disease: {offline_report['avg_hints']}",
         f"- Deterministic plans valid: {offline_report['plan_valid']}/{offline_report['diseases_total']}",
         "",
+    ]
+    rag_report = offline_report.get("rag") or {}
+    if rag_report.get("enabled"):
+        lines += [
+            "## Paper-RAG coverage (strategy hints, not evidence)",
+            "",
+            f"- Diseases with RAG hits: {rag_report['diseases_with_rag_hits']}",
+            f"- RAG coverage: {rag_report['rag_coverage'] * 100:.1f}%",
+            f"- Average RAG hits per disease: {rag_report['avg_rag_hits']}",
+            f"- Diseases whose RAG lanes align with the plan: {rag_report['lane_aligned_diseases']}",
+            "",
+        ]
+    lines += [
         "### Top patterns",
         "",
         "| Pattern | Diseases hit |",
@@ -198,11 +266,12 @@ def main() -> int:
     if offline_report["plan_failures"]:
         lines += ["", "### Plan failures", ""]
         lines.extend(f"- {failure}" for failure in offline_report["plan_failures"])
-    lines += ["", "### Per-disease hints", "", "| Disease | Tissue | Cell type | Hints | Patterns |", "|---|---|---|---|---|"]
+    lines += ["", "### Per-disease hints", "", "| Disease | Tissue | Cell type | Hints | Patterns | RAG hits | RAG aligned |", "|---|---|---|---|---|---|---|"]
     for row in offline_report["diseases"]:
         lines.append(
             f"| {row['disease']} | {row['tissue'] or '-'} | {row['cell_type'] or '-'} | "
-            f"{row['hint_count']} | {', '.join(row['pattern_ids']) or '-'} |"
+            f"{row['hint_count']} | {', '.join(row['pattern_ids']) or '-'} | "
+            f"{row.get('rag_hit_count', 0)} | {'yes' if row.get('rag_lane_aligned') else 'no'} |"
         )
     if args.llm:
         live_report = report["live"]
@@ -231,6 +300,8 @@ def main() -> int:
         "diseases_with_hints": report["offline"]["diseases_with_hints"],
         "coverage": report["offline"]["coverage"],
         "plan_valid": report["offline"]["plan_valid"],
+        "rag_enabled": bool((report["offline"].get("rag") or {}).get("enabled")),
+        "rag_coverage": (report["offline"].get("rag") or {}).get("rag_coverage"),
         "report_json": str(json_path),
         "report_md": str(md_path),
     }, indent=2, ensure_ascii=False))
