@@ -2,6 +2,14 @@
 
 Cross-module contracts, workflow choices, model boundaries and scientific-safety decisions are recorded here. Accepted decisions must not be changed silently in a feature branch.
 
+## 2026-08-08 - 修复策略可执行闭包门禁（P0.4）
+
+- **Status:** accepted
+- 决策：把修复策略从文档化约定升级为可执行闭包断言。`verify_domain_repair_policy()` 校验 finding 类别字面量 = 可修复类别 ∪ 显式拒绝类别、动作映射封闭、overlay payload 白名单与成功标准非空，并在 `ResearchProjectStore.assert_integrity()` 每次执行时先行校验，防止新增修复模式静默绕过持久化门禁。
+- 决策：`RepairRequest` 增加 `candidate_lane_recompute_required` 并强制绑定 SWITCH_DATASET_SAME_CONTEXT：数据集切换必须显式声明候选绑定证据通道按新候选集重算，其它动作禁止携带；域修复请求必须保持 `no_scope_change=True`。
+- 决策：修复决议快照绑定（before == trigger snapshot、最新决议 after == 当前项目快照）与“RESOLVED 时不得存在 active blocking 评估”写入 store 完整性门禁；ToolResult `supersedes_tool_run_id` 链加入引用完整性检查（禁止孤儿引用、自指与环），旧结果保留在 append-only ledger 中仅供审计。
+- 验收：新增 10 项测试（8 项策略闭包/合同/ledger + 2 项 store 篡改门禁），全量 pytest、benchmark、schema 导出与仓库策略检查在远程验收环境执行通过。
+
 ## 2026-08-08 - 类型化候选绑定与证据失效（P0.3）
 - **Status:** accepted
 - 决策：把“证据依赖候选集合”从隐式约定升级为类型化合同。PlanStep 声明 candidate_bound + evidence_lane；候选绑定步骤的 ToolResult 记录 step_id + candidate_universe_digest（含合同版本与排序候选全集），恢复时 digest 不匹配即重取，并以 supersedes_tool_run_id 建立取代链。

@@ -10,6 +10,8 @@ import json
 from collections import Counter
 from pathlib import Path
 
+import pytest
+
 from target_agent.research_contracts import (
     AssessmentDimension, AssessmentLevel, AssessmentRecord, AssessmentResult,
     AutonomyMode, DecisionAction, FailureClass, ProjectStatus, ResearchGoal,

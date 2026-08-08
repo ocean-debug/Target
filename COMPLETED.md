@@ -131,6 +131,13 @@ typed transient failure
 - 恢复时以 ToolResult ledger 重建候选全集，比对每个已完成候选绑定步骤的 digest；不一致则从 completed_steps 移除并重取，同时写入 `replan/resume` 与 `evidence_superseded` trace，新结果通过 `supersedes_tool_run_id` 显式取代旧结果；
 - Reviewer/Ranking 只消费未被取代的 active ToolResult 及其 EvidenceItem，旧证据保留在 append-only ledger 中但不再参与评分与报告；
 - 项目修复策略明确要求数据集切换后所有候选绑定证据通道按新候选集重算，上下文拆分时保持候选绑定不变。
+
+### 2.8 修复策略可执行闭包门禁（P0.4）
+
+- `verify_domain_repair_policy()` 作为唯一可执行策略闭包断言：DomainFinding.category 字面量必须等于“可修复类别 ∪ 显式拒绝类别”，FINDING_TO_ACTION 键必须与可修复类别一致且每个动作都存在于 DOMAIN_REPAIR_POLICY，overlay 动作必须与 payload 白名单一一对应且每个动作都有非空成功标准；`ResearchProjectStore.assert_integrity()` 每次持久化完整性检查都先执行该断言，任何新增修复模式都无法静默绕过；
+- `RepairRequest` 新增 `candidate_lane_recompute_required` 合同字段并绑定到 SWITCH_DATASET_SAME_CONTEXT：数据集切换修复必须声明候选绑定证据通道按新候选集重算，其它动作禁止携带该标记；store 层同时校验域修复请求 `no_scope_change` 恒为 True；
+- 快照绑定：修复决议的 `before_snapshot_digest` 必须等于触发请求的 `trigger_snapshot_digest`，最新决议的 `after_snapshot_digest` 必须等于当前项目快照；RESOLVED 决议不允许存在任何未消除的 active blocking 评估；
+- ToolResult 超链成为引用完整性的一部分：`supersedes_tool_run_id` 必须指向 append-only ledger 中真实存在的旧结果、不允许自指或成环，旧结果与旧证据保留在 ledger 中仅供审计，Reviewer/Ranking 只消费 active 结果。
 ## 3. 已完成的产品接口
 
 - CLI：创建、运行、状态、事件、活动、checkpoint、repair queue 和 repair decision；
