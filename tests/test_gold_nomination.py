@@ -137,3 +137,27 @@ def test_digest_mismatch_is_rejected_on_construct():
     data["digest"] = "0" * 64
     with pytest.raises(ValueError, match="digest mismatch"):
         GoldNomination.model_validate(data)
+
+
+def test_pattern_nominate_cli_dispatch_writes_output(tmp_path, monkeypatch, capsys):
+    import sys
+
+    from target_agent import cli
+
+    corpus = tmp_path / "corpus.jsonl"
+    record = _candidate("10000014", "CRISPR screen identifies therapeutic targets in ulcerative colitis")
+    corpus.write_text(record.model_dump_json() + "\n", encoding="utf-8")
+    monkeypatch.setattr(sys, "argv", [
+        "target-agent", "pattern", "nominate",
+        "--corpus", str(corpus),
+        "--out", str(tmp_path / "nominations.jsonl"),
+        "--limit", "10",
+    ])
+    cli.main()
+    out = tmp_path / "nominations.jsonl"
+    assert out.is_file()
+    rows = load_nominations(out)
+    assert len(rows) == 1
+    assert rows[0].pmid == "10000014"
+    captured = capsys.readouterr()
+    assert "nominations" in captured.out

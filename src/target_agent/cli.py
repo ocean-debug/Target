@@ -381,7 +381,7 @@ def main() -> None:
     elif args.command == "llm-smoke-test":
         print(json.dumps(_smoke_test(settings), indent=2, ensure_ascii=False))
     elif args.command == "pattern":
-        store_path = args.store or settings.pattern_store_path
+        store_path = getattr(args, "store", None) or settings.pattern_store_path
         ledger_path = settings.pattern_review_ledger_path
         if args.pattern_command == "curate":
             from .pattern_extraction import CurationRecord, CurationStore
