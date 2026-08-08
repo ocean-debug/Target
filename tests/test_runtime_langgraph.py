@@ -159,6 +159,7 @@ class HintedPlanner:
 
     def __init__(self, base):
         self._base = base
+        self.registry = base.registry
         self.last_pattern_hints = [{"pattern_id": "pattern-1"}]
         self.last_paper_evidence = [{"chunk_id": "chunk-1", "pmid": "12345"}]
 
