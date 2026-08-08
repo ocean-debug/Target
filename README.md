@@ -261,7 +261,12 @@ target-agent secrets delete STEP_API_KEY
 
 Secret resolution is process environment > `.env` > OS keyring
 (`pip install -e ".[secrets]"` enables the keyring backend). `doctor` reports
-the backend and per-key configured state without printing values.## Deployment portability
+the backend and per-key configured state without printing values.
+`tests/test_product_acceptance.py` is the product-level gate: it drives one
+checkpointed project through the Web API, session approvals, completion,
+session summaries, export, read-only checksum verification and import into a
+second store — proving the control plane, session layer and share packages are
+one closed product loop.## Deployment portability
 
 The repository contains no SSH target, remote path, Conda environment, scheduler queue, node, core count, GPU selection or service tunnel. Those values belong in an external deployment profile. Missing resource fields must fail rather than be guessed. See [REMOTE_ACCEPTANCE.md](docs/REMOTE_ACCEPTANCE.md).
 
