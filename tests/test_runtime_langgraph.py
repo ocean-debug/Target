@@ -165,6 +165,7 @@ class HintedPlanner:
         self.last_paper_evidence = [{"chunk_id": "chunk-1", "pmid": "12345"}]
 
     def create_plan(self, task):
+        self._base.registry = self.registry
         return self._base.create_plan(task)
 
 
