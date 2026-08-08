@@ -44,6 +44,11 @@ def _disease_tokens(text: str) -> set[str]:
     }
 
 
+def _query_tokens(text: str) -> set[str]:
+    """Query tokens that carry signal; generic words cannot produce a match."""
+    return _disease_tokens(text)
+
+
 def _tokens(text: str) -> set[str]:
     lowered = (text or "").lower()
     tokens = set(_LANE_TOKEN.findall(lowered))
@@ -401,7 +406,7 @@ class PatternStore:
         top_k: int = 5,
         min_score: float = 0.0,
     ) -> list[PatternHit]:
-        query_tokens = _tokens(query)
+        query_tokens = _query_tokens(query)
         disease_tokens = _disease_tokens(disease or "")
         available = {str(lane).lower() for lane in lanes_available} if lanes_available is not None else None
         scored: list[PatternHit] = []
