@@ -248,9 +248,12 @@ async function selectProject(projectId) {
 // ---------- create project ----------
 
 let draftQuestion = null; // { goal_question, task_question, original_question }
+let workflowTemplates = {}; // template_id -> {source_sha256, domain, modules, ...}
 
 function buildProjectSpec() {
   const value = (id) => $(id).value.trim();
+  const workflowId = value('workflow') || 'disease_to_target';
+  const template = workflowTemplates[workflowId] || {};
   const disease = value('disease');
   const subtype = value('subtype');
   const tissue = value('tissue');
@@ -260,7 +263,33 @@ function buildProjectSpec() {
   const assay = value('assay');
   const phenotype = value('phenotype');
   const accessions = value('accessions').split(',').map((row) => row.trim()).filter(Boolean);
-  const context = {
+  const rawQuestion = $('research-question-input').value.trim();
+  const question = draftQuestion
+    ? draftQuestion.goal_question
+    : (rawQuestion || (disease ? `Which mechanisms and drug targets are supported by public evidence for ${disease}?` : 'Research question'));
+  const base = {
+    contract_version: '3.0.0',
+    project_id: `project-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`,
+    title: workflowId === 'literature_review' ? `${disease || 'literature'} research review` : `${disease} target discovery`,
+    domain: template.domain || (workflowId === 'literature_review' ? 'life_science' : 'disease_target_discovery'),
+    goal: {
+      question,
+      success_criteria: ['Every released conclusion is traceable to a durable artifact.'],
+      deliverables: ['A reviewed research report with explicit evidence gaps.'],
+      constraints: ['Only public data and allowlisted tools may be used.'],
+    },
+    autonomy_mode: value('autonomy'),
+    max_work_items: 12,
+    max_replans: 2,
+    max_forks: 4,
+    workflow_template: workflowId,
+    workflow_template_sha256: template.source_sha256 || null,
+  };
+  if (workflowId === 'literature_review') {
+    base.context = { literature_query: draftQuestion ? draftQuestion.original_question : question };
+    return base;
+  }
+  base.context = {
     disease, subtype, tissue, cell_type: cell, stage, phenotype, organism, assay,
     preferred_dataset_accessions: accessions,
     literature_query: `${disease} mechanism and drug targets`,
@@ -284,25 +313,28 @@ function buildProjectSpec() {
       },
     },
   };
-  return {
-    contract_version: '3.0.0',
-    project_id: `project-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`,
-    title: `${disease} target discovery`,
-    domain: 'disease_target_discovery',
-    goal: {
-      question: draftQuestion ? draftQuestion.goal_question : `Which mechanisms and drug targets are supported by public evidence for ${disease}?`,
-      success_criteria: ['Every released conclusion is traceable to a durable artifact.'],
-      deliverables: ['A reviewed research report with explicit evidence gaps.'],
-      constraints: ['Only public data and allowlisted tools may be used.'],
-    },
-    context,
-    autonomy_mode: value('autonomy'),
-    max_work_items: 12,
-    max_replans: 2,
-    max_forks: 4,
-  };
+  return base;
 }
 
+async function loadWorkflows() {
+  try {
+    const payload = await api('/api/workflows');
+    const select = $('workflow');
+    select.innerHTML = '';
+    for (const row of (payload.workflows || [])) {
+      workflowTemplates[row.template_id] = row;
+      const option = document.createElement('option');
+      option.value = row.template_id;
+      option.textContent = row.template_id === 'disease_to_target'
+        ? '疾病靶点发现（推荐）' : row.description;
+      select.appendChild(option);
+    }
+    const saved = workflowTemplates['disease_to_target'];
+    if (saved) select.value = 'disease_to_target';
+  } catch (error) {
+    console.warn('workflow catalog unavailable:', error);
+  }
+}
 async function draftFromQuestion() {
   const question = $('research-question-input').value.trim();
   if (!question) { toast('请先输入研究问题', 'error'); return; }
@@ -344,8 +376,13 @@ async function draftFromQuestion() {
   }
 }
 async function createProject() {
-  if (!$('disease').value.trim()) {
+  const workflowId = $('workflow').value || 'disease_to_target';
+  if (workflowId !== 'literature_review' && !$('disease').value.trim()) {
     toast('请填写疾病名称', 'error');
+    return;
+  }
+  if (workflowId === 'literature_review' && !$('research-question-input').value.trim() && !$('disease').value.trim()) {
+    toast('请填写研究问题或疾病名称', 'error');
     return;
   }
   try {
@@ -732,6 +769,7 @@ async function init() {
   await loadProjects();
   $('refresh-projects').addEventListener('click', loadProjects);
   $('create').addEventListener('click', createProject);
+  loadWorkflows();
   $('draft-from-question').addEventListener('click', draftFromQuestion);
   $('propose-fork').addEventListener('click', proposeFork);
   $('fork-mode').addEventListener('change', () => {

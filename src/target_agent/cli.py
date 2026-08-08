@@ -265,6 +265,12 @@ def main() -> None:
     skills_show = skills_sub.add_parser("show", help="Print the full SKILL.md body for one skill")
     skills_show.add_argument("--id", required=True)
 
+    workflows_cmd = sub.add_parser("workflows", help="List and inspect executable workflow templates")
+    workflows_sub = workflows_cmd.add_subparsers(dest="workflow_command", required=True)
+    workflows_sub.add_parser("list", help="List executable workflow templates")
+    workflows_show = workflows_sub.add_parser("show", help="Show one executable workflow template")
+    workflows_show.add_argument("--id", required=True)
+
     kernel_cmd = sub.add_parser("kernel", help="Manage persistent Python/R analysis kernels")
     kernel_sub = kernel_cmd.add_subparsers(dest="kernel_command", required=True)
     kernel_start = kernel_sub.add_parser("start", help="Start a persistent kernel")
@@ -316,7 +322,7 @@ def main() -> None:
     init_cmd = sub.add_parser("init", help="Scaffold a durable target-research project workspace")
     init_cmd.add_argument("--output", type=Path, required=True)
     init_cmd.add_argument("--project-id")
-    init_cmd.add_argument("--disease", required=True)
+    init_cmd.add_argument("--disease", help="Disease for target workflows; not required for literature_review")
     init_cmd.add_argument("--question", help="Defaults to a disease-to-target question")
     init_cmd.add_argument("--title")
     init_cmd.add_argument("--subtype")
@@ -326,6 +332,8 @@ def main() -> None:
     init_cmd.add_argument("--phenotype")
     init_cmd.add_argument("--organism", default="Homo sapiens")
     init_cmd.add_argument("--autonomy", choices=["checkpointed", "autonomous", "supervised"], default="checkpointed")
+    init_cmd.add_argument("--workflow", default=None,
+                          help="Executable workflow template id (default: legacy disease workflow; see `target-agent workflows list`)")
 
     export_cmd = sub.add_parser("project-export", help="Export a durable project to a portable zip package")
     export_cmd.add_argument("--project-id", required=True)
@@ -687,6 +695,24 @@ def main() -> None:
                 {"library_version": library.version, "kind": args.kind, "runs": summary_rows},
                 indent=2, ensure_ascii=False), encoding="utf-8")
             print(f"summary written to {args.summary_out}")
+    elif args.command == "workflows":
+        from .research_service import ResearchProjectService
+        from .research_runtime import ResearchProjectRuntime
+        from .workflow_catalog import WorkflowCatalogError
+
+        service = ResearchProjectService(ResearchProjectRuntime(settings=settings))
+        if args.workflow_command == "list":
+            try:
+                print(json.dumps(service.workflow_templates(), indent=2, ensure_ascii=False))
+            except WorkflowCatalogError as exc:
+                raise SystemExit(str(exc)) from exc
+        else:
+            try:
+                template = service.workflow_catalog.get(args.id)
+            except WorkflowCatalogError as exc:
+                raise SystemExit(str(exc)) from exc
+            print(json.dumps(template.model_dump(mode="json"), indent=2, ensure_ascii=False))
+
     elif args.command == "skills":
         from .skill_catalog import SkillCatalog
 
@@ -811,19 +837,31 @@ def main() -> None:
 
     elif args.command == "init":
         service = ResearchProjectService(ResearchProjectRuntime(settings=settings))
-        spec = service.build_disease_project(
-            question=args.question or f"Discover drug targets for {args.disease}",
-            disease=args.disease,
-            title=args.title,
-            project_id=args.project_id,
-            disease_subtype=args.subtype,
-            tissue=args.tissue,
-            cell_type=args.cell_type,
-            disease_stage=args.stage,
-            desired_phenotype=args.phenotype,
-            organism=args.organism,
-            autonomy_mode=args.autonomy,
-        )
+        if args.workflow != "literature_review" and not args.disease:
+            raise SystemExit("--disease is required unless --workflow literature_review is selected")
+        if args.workflow == "literature_review":
+            spec = service.build_generic_project(
+                question=args.question or f"Review the literature on {args.disease}",
+                title=args.title,
+                project_id=args.project_id,
+                workflow=args.workflow,
+                autonomy_mode=args.autonomy,
+            )
+        else:
+            spec = service.build_disease_project(
+                question=args.question or f"Discover drug targets for {args.disease}",
+                disease=args.disease,
+                title=args.title,
+                project_id=args.project_id,
+                disease_subtype=args.subtype,
+                tissue=args.tissue,
+                cell_type=args.cell_type,
+                disease_stage=args.stage,
+                desired_phenotype=args.phenotype,
+                organism=args.organism,
+                autonomy_mode=args.autonomy,
+                workflow_template=args.workflow,
+            )
         output = args.output.expanduser().resolve()
         output.mkdir(parents=True, exist_ok=True)
         (output / "project.yaml").write_text(

@@ -1,0 +1,33 @@
+# Executable workflow template: a generic literature-driven research question.
+# This template proves the product can carry non-target questions end to end.
+template_id: literature_review
+description: "文献驱动的通用科研问题：简报 -> 文献检索 -> 假设 -> 独立评审 -> 报告。"
+product: target_discovery_agent
+domain: life_science
+task_types: []
+contract_version: "1.0.0"
+max_work_items: 8
+human_checkpoints:
+  checkpointed: [plan_acceptance, release]
+  supervised: [plan_acceptance, independent_review, release]
+modules:
+  - module: project_brief
+    required: true
+    dependencies: []
+    objective: "冻结研究问题、约束、成功标准与交付物。"
+  - module: literature_search
+    required: true
+    dependencies: [project_brief]
+    objective: "检索与问题相关的来源索引文献。"
+  - module: hypothesis_generation
+    required: true
+    dependencies: [literature_search]
+    objective: "在检索来源边界内提出可证伪假设。"
+  - module: independent_review
+    required: true
+    dependencies: [project_brief, literature_search, hypothesis_generation]
+    objective: "在发布前独立核验不可变产物、溯源与类型化结果边界。"
+  - module: research_report
+    required: true
+    dependencies: [independent_review]
+    objective: "仅从证据存储与产物账本生成报告与机器可读证据包。"

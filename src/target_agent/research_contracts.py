@@ -215,6 +215,14 @@ class ResearchProjectSpec(ResearchContract):
     domain: Literal["disease_target_discovery", "life_science"] = "disease_target_discovery"
     goal: ResearchGoal
     context: dict[str, Any] = Field(default_factory=dict)
+    workflow_template: str | None = Field(
+        default=None, pattern=r"^[a-z][a-z0-9_]*$",
+        description="Executable workflow template id (workflows/*.yaml); None keeps the legacy hard-coded workflow.",
+    )
+    workflow_template_sha256: str | None = Field(
+        default=None, min_length=0, max_length=64,
+        description="SHA-256 of the frozen workflow template source file.",
+    )
     autonomy_mode: AutonomyMode = AutonomyMode.CHECKPOINTED
     max_work_items: int = Field(default=12, ge=1, le=30)
     max_replans: int = Field(default=2, ge=0, le=2)

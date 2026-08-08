@@ -14,6 +14,7 @@ from .research_contracts import (
     WorkItemSpec,
 )
 from .paper_strategy import PatternStore, PlannerFewShotBuilder, infer_data_availability
+from .workflow_catalog import WorkflowCatalog, WorkflowTemplate
 from .skill_catalog import SkillCatalog, SkillHintBuilder
 from .research_modules import ResearchModuleRegistry
 
@@ -73,6 +74,7 @@ class ResearchPlanner:
         skill_hint_top_k: int = 3,
         paper_rag: Any | None = None,
         paper_top_k: int = 2,
+        workflow_catalog: WorkflowCatalog | None = None,
     ):
         self.registry = registry
         self.client = client
@@ -81,6 +83,7 @@ class ResearchPlanner:
             pattern_store, few_shot_top_k, paper_rag=paper_rag, paper_top_k=paper_top_k,
         )
         self.skill_hints = SkillHintBuilder(skill_catalog, skill_hint_top_k)
+        self.workflow_catalog = workflow_catalog
 
     @property
     def capabilities(self) -> list[dict[str, Any]]:
@@ -104,7 +107,28 @@ class ResearchPlanner:
         )
         return not any(marker in searchable for marker in _PROHIBITED_MARKERS)
 
-    def _required_modules(self, project: ResearchProjectSpec) -> tuple[str, ...]:
+    def _template_for(self, project: ResearchProjectSpec) -> WorkflowTemplate | None:
+        """Resolve the frozen workflow template for a project, failing closed on change."""
+        if not project.workflow_template:
+            return None
+        if self.workflow_catalog is None:
+            raise PlannerConfigurationError(
+                "project uses a workflow template but no workflow catalog is configured"
+            )
+        template = self.workflow_catalog.get(project.workflow_template)
+        if project.workflow_template_sha256 and project.workflow_template_sha256 != template.source_sha256:
+            raise PlannerConfigurationError(
+                f"workflow template {template.template_id} changed after project freeze"
+            )
+        return template
+
+    def _required_modules(
+        self,
+        project: ResearchProjectSpec,
+        template: WorkflowTemplate | None = None,
+    ) -> tuple[str, ...]:
+        if template is not None:
+            return tuple(item.module for item in template.modules if item.required)
         if self._target_requested(project):
             return ("project_brief", _TARGET_MODULE, "independent_review", "research_report")
         return _BASELINE_MODULES
@@ -113,8 +137,21 @@ class ResearchPlanner:
     def _target_requested(project: ResearchProjectSpec) -> bool:
         return project.domain == "disease_target_discovery" or "target_task_spec" in project.context
 
-    def _check_baseline_available(self, project: ResearchProjectSpec) -> None:
-        missing = set(self._required_modules(project)) - self.allowed_modules
+    @staticmethod
+    def _template_allows_target(template: WorkflowTemplate | None) -> bool:
+        return template is not None and any(
+            item.module == _TARGET_MODULE for item in template.modules
+        )
+
+    def _template_allowed(self, template: WorkflowTemplate | None) -> set[str] | None:
+        if template is None or self.workflow_catalog is None:
+            return None
+        return self.workflow_catalog.allowed_modules(template.template_id)
+
+    def _check_baseline_available(
+        self, project: ResearchProjectSpec, template: WorkflowTemplate | None = None,
+    ) -> None:
+        missing = set(self._required_modules(project, template)) - self.allowed_modules
         if missing:
             raise PlannerConfigurationError(
                 f"safe research workflow modules are not registered: {sorted(missing)}"
@@ -126,9 +163,33 @@ class ResearchPlanner:
                 f"{required_count}-item safe baseline"
             )
 
-    def deterministic(self, project: ResearchProjectSpec, reason: str | None = None) -> ResearchPlan:
-        """Build the auditable generic workflow used when Step is unavailable."""
-        self._check_baseline_available(project)
+    def deterministic(
+        self, project: ResearchProjectSpec, reason: str | None = None,
+    ) -> ResearchPlan:
+        """Build the auditable workflow from the frozen template or the legacy default."""
+        template = self._template_for(project)
+        self._check_baseline_available(project, template)
+        allowed = self._template_allowed(template)
+        specs: dict[str, Any] = {}
+        if template is not None and self.workflow_catalog is not None:
+            specs = self.workflow_catalog.module_specs(template.template_id)
+
+        def include(module: str) -> bool:
+            if allowed is None:
+                if module in {"literature_search", "hypothesis_generation"} and self._target_requested(project):
+                    return False
+                return True
+            spec = specs.get(module)
+            return spec is not None and spec.required
+
+        def required(module: str, default: bool = True) -> bool:
+            spec = specs.get(module)
+            return spec.required if spec is not None else default
+
+        def attempts(module: str) -> int:
+            spec = specs.get(module)
+            return spec.max_attempts if spec is not None else 1
+
         brief = WorkItemSpec(
             item_id="project_brief",
             title="Freeze the research question and completion contract",
@@ -138,43 +199,54 @@ class ResearchPlanner:
             output_contract=_output_contract(
                 "ProjectBrief", question="string", deliverables="array", success_criteria="array"
             ),
+            required=required("project_brief"),
         )
-        literature = WorkItemSpec(
-            item_id="literature_search",
-            title="Retrieve source-indexed scientific literature",
-            module="literature_search",
-            objective="Collect citable records relevant to the frozen research question.",
-            dependencies=[brief.item_id],
-            inputs={"query": project.context.get("literature_query", project.goal.question)},
-            acceptance_criteria=[
-                "Every retrieved record has a stable source identifier.",
-                "Retrieval hits are not represented as validated scientific claims.",
-            ],
-            output_contract=_output_contract(
-                "LiteratureSearchResult",
-                query="string",
-                record_count="integer",
-                source_ids="array",
-                retrieval_hits_are_claims="boolean",
-            ),
-        )
-        hypotheses = WorkItemSpec(
-            item_id="hypothesis_generation",
-            title="Generate source-aligned falsifiable hypotheses",
-            module="hypothesis_generation",
-            objective="Propose testable hypotheses without exceeding the retrieved source boundary.",
-            dependencies=[literature.item_id],
-            acceptance_criteria=[
-                "Each accepted hypothesis cites only retrieved source identifiers.",
-                "Each accepted hypothesis includes a falsification test and explicit assumptions.",
-            ],
-            output_contract=_output_contract(
-                "HypothesisGenerationResult", hypothesis_count="integer", hypotheses="array"
-            ),
-        )
-        scientific_items = [brief, literature, hypotheses]
-        if self._target_requested(project):
-            scientific_items = [brief, WorkItemSpec(
+        items = [brief]
+        literature: WorkItemSpec | None = None
+        hypotheses: WorkItemSpec | None = None
+        if include("literature_search"):
+            literature = WorkItemSpec(
+                item_id="literature_search",
+                title="Retrieve source-indexed scientific literature",
+                module="literature_search",
+                objective="Collect citable records relevant to the frozen research question.",
+                dependencies=[brief.item_id],
+                inputs={"query": project.context.get("literature_query", project.goal.question)},
+                acceptance_criteria=[
+                    "Every retrieved record has a stable source identifier.",
+                    "Retrieval hits are not represented as validated scientific claims.",
+                ],
+                output_contract=_output_contract(
+                    "LiteratureSearchResult",
+                    query="string",
+                    record_count="integer",
+                    source_ids="array",
+                    retrieval_hits_are_claims="boolean",
+                ),
+                required=required("literature_search"),
+                max_attempts=attempts("literature_search"),
+            )
+            items.append(literature)
+        if include("hypothesis_generation"):
+            hypotheses = WorkItemSpec(
+                item_id="hypothesis_generation",
+                title="Generate source-aligned falsifiable hypotheses",
+                module="hypothesis_generation",
+                objective="Propose testable hypotheses without exceeding the retrieved source boundary.",
+                dependencies=[literature.item_id if literature else brief.item_id],
+                acceptance_criteria=[
+                    "Each accepted hypothesis cites only retrieved source identifiers.",
+                    "Each accepted hypothesis includes a falsification test and explicit assumptions.",
+                ],
+                output_contract=_output_contract(
+                    "HypothesisGenerationResult", hypothesis_count="integer", hypotheses="array"
+                ),
+                required=required("hypothesis_generation"),
+                max_attempts=attempts("hypothesis_generation"),
+            )
+            items.append(hypotheses)
+        if (allowed is not None and _TARGET_MODULE in allowed) or (template is None and self._target_requested(project)):
+            items.append(WorkItemSpec(
                 item_id="target_discovery",
                 title="Execute the bounded disease-target workflow",
                 module="target_discovery",
@@ -186,20 +258,21 @@ class ResearchPlanner:
                     "The child workflow records its terminal status and durable outputs.",
                     "Evidence gaps and out-of-scope contexts remain explicit.",
                 ],
-                max_attempts=2,
+                max_attempts=attempts(_TARGET_MODULE),
                 output_contract=_output_contract(
                     "TargetDiscoveryResult", child_run_id="string", terminal_status="string",
                     ranked_target_count="integer", target_card_count="integer",
                     experiment_plan_count="integer", deliverables_complete="boolean",
                     domain_activity_projection_complete="boolean",
                 ),
-            )]
+                required=required(_TARGET_MODULE),
+            ))
         review = WorkItemSpec(
             item_id="independent_review",
             title="Independently review integrity and alignment",
             module="independent_review",
             objective="Verify durable artifacts, provenance and typed result boundaries before release.",
-            dependencies=[item.item_id for item in scientific_items],
+            dependencies=[item.item_id for item in items],
             acceptance_criteria=[
                 "All registered artifacts receive deterministic integrity checks.",
                 "Blocking failures remain visible and prevent an unqualified release.",
@@ -207,7 +280,10 @@ class ResearchPlanner:
             output_contract=_output_contract(
                 "IndependentReviewResult", assessment_count="integer", blocking_failures="array"
             ),
+            required=required("independent_review"),
+            max_attempts=attempts("independent_review"),
         )
+        items.append(review)
         report = WorkItemSpec(
             item_id="research_report",
             title="Assemble the source-bounded research report",
@@ -221,24 +297,28 @@ class ResearchPlanner:
             output_contract=_output_contract(
                 "ResearchReportResult", reported_items="integer", gap_count="integer"
             ),
+            required=required("research_report"),
+            max_attempts=attempts("research_report"),
         )
+        items.append(report)
         backend = "deterministic:research-v3"
         if reason:
             backend += f" ({reason})"
         plan = ResearchPlan(
             project_id=project.project_id,
-            items=[*scientific_items, review, report],
+            items=items,
             planner_backend=backend,
             rationale=(
                 "Use a source-grounded, typed workflow with an independent review gate and durable report."
             ),
         )
-        self._validate(project, plan)
+        self._validate(project, plan, template=template)
         return plan
 
     def _validate(
         self, project: ResearchProjectSpec, plan: ResearchPlan,
         canonical_template: ResearchPlan | None = None,
+        template: WorkflowTemplate | None = None,
     ) -> None:
         if plan.project_id != project.project_id:
             raise ValueError("planner changed project_id")
@@ -248,16 +328,26 @@ class ResearchPlanner:
         unknown = set(modules) - self.allowed_modules
         if unknown:
             raise ValueError(f"planner selected non-whitelisted modules: {sorted(unknown)}")
-        required = set(self._required_modules(project))
+        template_allowed = self._template_allowed(template)
+        if template_allowed is not None:
+            outside = set(modules) - template_allowed
+            if outside:
+                raise ValueError(
+                    f"planner selected modules outside workflow template: {sorted(outside)}"
+                )
+        required = set(self._required_modules(project, template))
         missing = required - set(modules)
         if missing:
             raise ValueError(f"planner omitted required workflow modules: {sorted(missing)}")
-        for control in self._required_modules(project):
+        for control in self._required_modules(project, template):
             if modules.count(control) != 1:
                 raise ValueError(f"planner must select {control} exactly once")
             if not next(item for item in plan.items if item.module == control).required:
                 raise ValueError(f"planner cannot make required module optional: {control}")
-        if not self._target_requested(project) and _TARGET_MODULE in modules:
+        if _TARGET_MODULE in modules and not (
+            self._template_allows_target(template)
+            or (template is None and self._target_requested(project))
+        ):
             raise ValueError("target_discovery cannot run without target_task_spec")
         if any(item.output_contract is None for item in plan.items):
             raise ValueError("every work item must declare a typed output contract")
@@ -293,24 +383,36 @@ class ResearchPlanner:
                     raise ValueError(
                         f"planner changed protected safety fields for {expected.module}: {changed}"
                     )
-
     def create_plan(self, project: ResearchProjectSpec) -> ResearchPlan:
-        self._check_baseline_available(project)
+        template = self._template_for(project)
+        self._check_baseline_available(project, template)
         if self.client is None:
             return self.deterministic(project, "Step API not configured")
 
-        template = self.deterministic(project)
+        canonical = self.deterministic(project)
+        template_scope = ""
+        if template is not None:
+            template_scope = (
+                f" You are executing workflow template '{template.template_id}': {template.description}. "
+                f"Allowed modules are exactly {sorted(self._template_allowed(template) or [])}; "
+                "do not add or drop modules outside this allowlist."
+            )
+            if self._template_allows_target(template):
+                template_scope += (
+                    " For a disease-target template, target_discovery is the bounded scientific "
+                    "workflow; do not duplicate its internal literature or omics stages at project level."
+                )
         system = (
             "You plan auditable life-science research. Return exactly one JSON object with only "
             "'items' and 'rationale'. Each item must satisfy the supplied WorkItemSpec schema. "
             "Use only registered typed modules and preserve every module in the required template. "
-            "For a disease-target project, target_discovery is the bounded scientific workflow; do not "
-            "duplicate its internal literature or omics stages at project level. The independent_review item must depend "
+            "The independent_review item must depend "
             "on every scientific work item and research_report must depend on independent_review. "
             "Never request shell, command execution, arbitrary code, dynamic scripts or unregistered tools. "
             "When evidence_strategy_patterns are provided, use them only as strategy hints for choosing "
             "evidence order and stop rules; they are never evidence for the current task and never justify "
             "changing a protected safety field. skill_hints list on-demand best-practice bundles; they are references for choosing and sequencing typed modules, never a license to add unregistered modules or free-form execution."
+            + template_scope
         )
         target_context = (
             project.context.get("target_task_spec", {}).get("context", {})
@@ -361,9 +463,14 @@ class ResearchPlanner:
             "paper_evidence": paper_evidence,
             "skill_hints": skill_hints,
             "required_template": {
-                "items": [item.model_dump(mode="json") for item in template.items],
-                "rationale": template.rationale,
+                "items": [item.model_dump(mode="json") for item in canonical.items],
+                "rationale": canonical.rationale,
             },
+            "workflow_template": (
+                {"template_id": template.template_id, "description": template.description,
+                 "allowed_modules": sorted(self._template_allowed(template) or [])}
+                if template is not None else None
+            ),
         }, ensure_ascii=False)
         try:
             raw = self.client.json_completion(system, user)
@@ -383,7 +490,7 @@ class ResearchPlanner:
                 evidence_strategy_patterns=evidence_strategy_patterns,
                 paper_evidence=paper_evidence,
             )
-            self._validate(project, plan, canonical_template=template)
+            self._validate(project, plan, canonical_template=canonical, template=template)
             return plan
         except (LLMUnavailable, ValidationError, ValueError, TypeError, json.JSONDecodeError) as exc:
             return self.deterministic(project, exc.__class__.__name__)

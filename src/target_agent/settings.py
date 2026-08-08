@@ -88,6 +88,10 @@ class Settings(BaseSettings):
     skill_hint_top_k: int = Field(
         default=3, alias="TARGET_AGENT_SKILL_HINT_TOP_K", ge=0, le=8,
     )
+    workflow_catalog_path: Path = Field(
+        default=PROJECT_ROOT / "workflows",
+        alias="TARGET_AGENT_WORKFLOW_CATALOG",
+    )
 
     kernel_enabled: bool = Field(default=True, alias="TARGET_AGENT_KERNEL_ENABLED")
     kernel_idle_timeout_seconds: int = Field(

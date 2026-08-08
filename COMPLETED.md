@@ -266,3 +266,20 @@ typed transient failure
 - LLM 只做结构化建议；疾病规范化和上下文门控由确定性代码决定。
 - `--create` 只 reserve 项目，不执行任何研究步骤。
 
+
+## 11. 可执行工作流模板（P2.10，2026-08-08，产品化重构第一刀）
+
+### 11.1 已完成
+- `WorkflowTemplate` / `WorkflowModuleSpec` 契约（`src/target_agent/workflow_catalog.py`）：模板声明允许模块、必需模块、依赖 DAG、human checkpoints、`max_work_items`；严格 schema（未知字段拒绝）、模块唯一、无环、至少一个必需模块。
+- `WorkflowCatalog`：加载 `workflows/*.yaml`，逐模板 SHA-256 摘要；目录缺失、YAML 损坏或模板非法时 fail closed。
+- Planner 模板驱动（`research_planner.py`）：确定性计划只执行模板必需模块；LLM 只能在模板 allowlist 内增删可选模块；必需模块保护字段、依赖与 review/report 门禁保持与旧版一致；模板变更（SHA-256 不匹配）直接拒绝。
+- Runtime 双保险（`research_runtime.py`）：每次加载/恢复计划都通过 `WorkflowCatalog.validate_plan_modules` 重新校验项目冻结模板；模板 id + SHA-256 绑定，模板文件变更后旧项目拒绝执行。
+- 服务层（`research_service.py`）：`workflow_templates()` 公开无密钥模板摘要；`build_disease_project(workflow_template=...)` 与 `build_generic_project(workflow="literature_review")` 创建时绑定模板与摘要。
+- 产品面：CLI `target-agent workflows list|show`、`init --workflow`；Web `GET /api/workflows`、工作台“研究工作流”下拉框；`TARGET_AGENT_WORKFLOW_CATALOG` 配置。
+- 两个开箱模板：`workflows/disease_to_target.yaml`（疾病 → 靶点证据包）与 `workflows/literature_review.yaml`（文献 → 假设 → 独立评审 → 报告）。
+- 测试：`tests/test_workflow_catalog.py` 覆盖模板契约、DAG 校验、allowlist、max_work_items、Planner 模板路径、Runtime fail-closed、服务构建器与摘要绑定。
+
+### 11.2 边界
+- 可选模块（如 disease_to_target 模板中的 literature_search / hypothesis_generation）只允许 LLM 在模板内增加，确定性回退不执行它们。
+- 模板是产品契约；新增工作流 = 模板 YAML + 已注册模块，不需要改 Planner/Runtime 主链。
+- 对齐数据生成与 Planner/Reviewer 小模型训练（P3）仍按团队决定最后阶段执行。

@@ -23,6 +23,7 @@ from .paper_strategy import pattern_store_from_path
 from .paper_rag import paper_rag_store_from_path
 from .research_modules import ModuleContext, ResearchModuleRegistry, default_research_registry
 from .research_planner import ResearchPlanner
+from .workflow_catalog import WorkflowCatalog, WorkflowCatalogError
 from .research_projection import DomainActivityProjection
 from .research_repair import (
     OVERLAY_ACTIONS,
@@ -101,6 +102,7 @@ class ResearchProjectRuntime:
         registry: ResearchModuleRegistry | None = None,
         planner: ResearchPlanner | None = None,
         skill_catalog: SkillCatalog | None = None,
+        workflow_catalog: WorkflowCatalog | None = None,
         settings: Settings | None = None,
     ):
         self.settings = settings or load_settings()
@@ -108,6 +110,7 @@ class ResearchProjectRuntime:
         self.cache_dir = cache_dir or self.settings.cache_dir
         self.registry = registry or default_research_registry(self.settings)
         self.skill_catalog = skill_catalog or SkillCatalog(self.settings.skill_catalog_path)
+        self.workflow_catalog = workflow_catalog or WorkflowCatalog(self.settings.workflow_catalog_path)
         self.planner = planner or ResearchPlanner(
             self.registry,
             StepClient.from_settings(self.settings),
@@ -117,6 +120,7 @@ class ResearchProjectRuntime:
             skill_hint_top_k=self.settings.skill_hint_top_k,
             paper_rag=paper_rag_store_from_path(self.settings.paper_rag_path),
             paper_top_k=self.settings.paper_rag_top_k,
+            workflow_catalog=self.workflow_catalog,
         )
         self.worker_id = "research_runtime"
         self._graph = self._build_graph()
@@ -215,6 +219,7 @@ class ResearchProjectRuntime:
                 raise ValueError(f"plan contains unregistered modules: {unknown}")
             store.save_plan(base_plan)
         assert base_plan is not None
+        self._validate_workflow_template(project, base_plan)
         revisions = store.read_plan_revisions()
         self._validate_repair_overlays(project, store, revisions)
         plan = effective_plan(base_plan, revisions)
@@ -244,6 +249,22 @@ class ResearchProjectRuntime:
             "work_items": [item.item_id for item in plan.items],
         })
         return {"plan": plan, "execution_paused": False}
+
+    def _validate_workflow_template(
+        self, project: ResearchProjectSpec, plan: ResearchPlan,
+    ) -> None:
+        """Fail closed when a project plan violates its frozen workflow template."""
+        if not project.workflow_template:
+            return
+        template = self.workflow_catalog.get(project.workflow_template)
+        if project.workflow_template_sha256 and project.workflow_template_sha256 != template.source_sha256:
+            raise WorkflowCatalogError(
+                f"workflow template {template.template_id} changed after project freeze; "
+                "rejecting the project instead of silently executing a different workflow"
+            )
+        self.workflow_catalog.validate_plan_modules(
+            project.workflow_template, [item.module for item in plan.items]
+        )
 
     @staticmethod
     def _accepted(store: ResearchProjectStore, target_id: str) -> bool:

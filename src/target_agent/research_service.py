@@ -32,6 +32,7 @@ from .research_contracts import (
     ResearchProjectSpec,
 )
 from .research_runtime import ResearchProjectRuntime
+from .workflow_catalog import WorkflowCatalog
 from .research_projection import summarize_domain_activities
 from .research_repair import (
     active_item_ids, effective_plan, fork_affected_item_ids, project_snapshot_digest,
@@ -61,6 +62,26 @@ class ResearchProjectService:
     def __init__(self, runtime: ResearchProjectRuntime):
         self.runtime = runtime
         self.projects_dir = runtime.projects_dir
+        self.workflow_catalog = WorkflowCatalog(runtime.settings.workflow_catalog_path)
+
+    def workflow_templates(self) -> list[dict[str, Any]]:
+        """Public, secret-free summary of executable workflow templates."""
+        return [
+            {
+                "template_id": template.template_id,
+                "description": template.description,
+                "product": template.product,
+                "domain": template.domain,
+                "task_types": template.task_types,
+                "modules": [item.module for item in template.modules],
+                "required_modules": [item.module for item in template.modules if item.required],
+                "max_work_items": template.max_work_items,
+                "human_checkpoints": template.human_checkpoints,
+                "contract_version": template.contract_version,
+                "source_sha256": template.source_sha256,
+            }
+            for template in self.workflow_catalog.list_templates()
+        ]
 
     def build_disease_project(
         self,
@@ -76,6 +97,7 @@ class ResearchProjectService:
         desired_phenotype: str | None = None,
         organism: str = "Homo sapiens",
         autonomy_mode: str = AutonomyMode.CHECKPOINTED.value,
+        workflow_template: str | None = None,
     ) -> ResearchProjectSpec:
         """Build the typed minimum intake for a public-data target project.
 
@@ -128,9 +150,67 @@ class ResearchProjectService:
             "context": {"target_task_spec": target_task.model_dump(mode="json")},
             "autonomy_mode": mode,
         }
+        self._bind_workflow_template(values, workflow_template)
         if project_id:
             values["project_id"] = project_id
         return ResearchProjectSpec.model_validate(values)
+
+    def build_generic_project(
+        self,
+        *,
+        question: str,
+        title: str | None = None,
+        project_id: str | None = None,
+        workflow: str = "literature_review",
+        autonomy_mode: str = AutonomyMode.CHECKPOINTED.value,
+    ) -> ResearchProjectSpec:
+        """Build a non-target research project from an executable workflow template.
+
+        The template decides which typed modules run (for example literature
+        review -> hypotheses -> independent review -> report).  Missing domain
+        context stays missing; the workflow requests it or completes with gaps.
+        """
+        mode = AutonomyMode(autonomy_mode)
+        values: dict[str, Any] = {
+            "title": title or f"Research project: {question[:60]}",
+            "domain": "life_science",
+            "goal": ResearchGoal(
+                question=question,
+                success_criteria=[
+                    "Every material conclusion traces to a source or reproducible tool result.",
+                    "Independent review and report gates are satisfied before release.",
+                    "Missing evidence is reported as an explicit gap, never fabricated.",
+                ],
+                deliverables=[
+                    "Frozen research brief",
+                    "Source-indexed literature evidence",
+                    "Falsifiable hypotheses",
+                    "Independent review record",
+                    "Human-readable research report",
+                    "Machine-readable evidence package",
+                ],
+                constraints=[
+                    "Use public data only unless a later immutable project explicitly changes this constraint.",
+                    "Retrieval, association and prediction are never presented as causal biological truth.",
+                ],
+            ),
+            "context": {"literature_query": question},
+            "autonomy_mode": mode,
+        }
+        self._bind_workflow_template(values, workflow)
+        if project_id:
+            values["project_id"] = project_id
+        return ResearchProjectSpec.model_validate(values)
+
+    def _bind_workflow_template(
+        self, values: dict[str, Any], workflow_template: str | None,
+    ) -> None:
+        if not workflow_template:
+            return
+        template = self.workflow_catalog.get(workflow_template)
+        values["workflow_template"] = template.template_id
+        values["workflow_template_sha256"] = template.source_sha256
+        values["max_work_items"] = min(values.get("max_work_items", 12), template.max_work_items)
 
     def reserve(self, project: ResearchProjectSpec) -> dict[str, Any]:
         """Persist an immutable project specification without executing it."""

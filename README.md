@@ -130,6 +130,29 @@ target-agent kernel stop --kernel-id <id>
 target-agent kernel stop-all
 ```
 
+## Executable workflow templates
+
+The product is not one hard-coded pipeline. `workflows/*.yaml` are executable
+contracts loaded by `WorkflowCatalog`: each template declares allowed typed
+modules, required modules, dependencies, checkpoints and limits. The planner
+plans inside the template, the runtime re-validates persisted plans against the
+template on every resume, and a project freezes the template SHA-256 so a later
+template change fails closed instead of silently altering an accepted project.
+
+```bash
+target-agent workflows list
+target-agent workflows show --id disease_to_target
+target-agent workflows show --id literature_review
+
+# Disease-target template (default) and a generic literature-driven workflow:
+target-agent init --output ./uc-project --disease "ulcerative colitis" --workflow disease_to_target
+target-agent init --output ./lit-project --question "Evidence for IL-23 blockade in IBD?" --workflow literature_review --disease "IBD"
+```
+
+The Web workbench lists the catalog at `GET /api/workflows` and lets you pick a
+workflow when creating a project. Adding a new workflow is a typed YAML file
+plus registered modules; no planner rewrite is needed.
+
 ## Install
 
 Python 3.11 is the acceptance runtime.

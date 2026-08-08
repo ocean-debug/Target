@@ -123,6 +123,13 @@ def create_app(
             },
         })
 
+    @app.get("/api/workflows")
+    def workflows_list():
+        try:
+            return jsonify({"workflows": research_service.workflow_templates()})
+        except Exception as exc:
+            return jsonify({"error": str(exc)}), 500
+
     @app.get("/api/skills")
     def skills_list():
         return jsonify(research_runtime.skill_catalog.public_summary())
