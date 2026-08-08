@@ -61,6 +61,7 @@ class RepairAction(str, Enum):
     SWITCH_DATASET_SAME_CONTEXT = "switch_dataset_same_context"
     SUPPLEMENT_EVIDENCE = "supplement_evidence"
     EXCLUDE_EVIDENCE = "exclude_evidence"
+    SPLIT_CONTEXT_SAME_SCOPE = "split_context_same_scope"
     DOWNGRADE_CLAIM = "downgrade_claim"
     REQUEST_INPUT = "request_input"
     RETAIN_GAP = "retain_gap"
@@ -376,6 +377,7 @@ class RepairDirective(ResearchContract):
             RepairAction.SWITCH_DATASET_SAME_CONTEXT,
             RepairAction.SUPPLEMENT_EVIDENCE,
             RepairAction.EXCLUDE_EVIDENCE,
+            RepairAction.SPLIT_CONTEXT_SAME_SCOPE,
             RepairAction.DOWNGRADE_CLAIM,
         }
         if self.operation not in allowed:
@@ -544,6 +546,8 @@ class DomainFinding(ResearchContract):
     category: Literal[
         "causal_overreach", "coverage_gap", "context_mismatch",
         "conflicting_evidence", "dataset_ineligibility", "unsupported_claim",
+        "gene_mapping_overreach", "evidence_dependence", "missing_provenance",
+        "context_split_needed",
     ]
     severity: Literal["blocking", "major", "minor"]
     subject: dict[str, Any] = Field(default_factory=dict)
@@ -610,7 +614,7 @@ class ResearchPlanRevision(ResearchContract):
     fork_branch_id: str | None = Field(default=None, pattern=r"^branch-[a-f0-9]{24}$")
     operation: Literal[
         "rerun_subgraph_same_inputs", "switch_dataset_same_context", "supplement_evidence",
-        "exclude_evidence", "downgrade_claim", "fork_rollback",
+        "exclude_evidence", "downgrade_claim", "split_context_same_scope", "fork_rollback",
     ] = "rerun_subgraph_same_inputs"
     directive_id: str | None = Field(default=None, pattern=r"^directive-[a-f0-9]{24}$")
     payload: dict[str, Any] = Field(default_factory=dict)
@@ -644,7 +648,7 @@ class ResearchPlanRevision(ResearchContract):
         else:
             if self.operation not in {
                 "rerun_subgraph_same_inputs", "switch_dataset_same_context", "supplement_evidence",
-                "exclude_evidence", "downgrade_claim",
+                "exclude_evidence", "downgrade_claim", "split_context_same_scope",
             }:
                 raise ValueError(f"operation {self.operation} is not an eligible repair overlay")
             if any(

@@ -48,6 +48,7 @@ CLAIM_DOWNGRADE_POLICY_RULE = "project.domain.claim_downgrade.v1"
 EVIDENCE_SUPPLEMENT_POLICY_RULE = "project.domain.evidence_supplement.v1"
 EVIDENCE_EXCLUSION_POLICY_RULE = "project.domain.evidence_exclusion.v1"
 EVIDENCE_DEPENDENCE_POLICY_RULE = "project.domain.evidence_dependence.v1"
+CONTEXT_SPLIT_POLICY_RULE = "project.domain.same_context_split.v1"
 
 # Typed Reviewer finding categories -> the only deterministic repair they may
 # trigger. Anything outside this map is never proposed by the policy layer.
@@ -60,6 +61,7 @@ FINDING_TO_ACTION: dict[str, RepairAction] = {
     "context_mismatch": RepairAction.EXCLUDE_EVIDENCE,
     "conflicting_evidence": RepairAction.EXCLUDE_EVIDENCE,
     "dataset_ineligibility": RepairAction.EXCLUDE_EVIDENCE,
+    "context_split_needed": RepairAction.SPLIT_CONTEXT_SAME_SCOPE,
 }
 
 # One deterministic downgrade target: derived causal/mechanistic language is
@@ -70,6 +72,7 @@ OVERLAY_ACTIONS = frozenset({
     RepairAction.DOWNGRADE_CLAIM,
     RepairAction.SUPPLEMENT_EVIDENCE,
     RepairAction.EXCLUDE_EVIDENCE,
+    RepairAction.SPLIT_CONTEXT_SAME_SCOPE,
 })
 
 # Payload keys the overlay may carry; everything else is rejected so a finding
@@ -78,8 +81,11 @@ OVERLAY_ALLOWED_PAYLOAD_KEYS: dict[RepairAction, frozenset[str]] = {
     RepairAction.DOWNGRADE_CLAIM: frozenset({
         "finding_id", "claim_id", "from_class", "to_class", "statement_note",
     }),
-    RepairAction.SUPPLEMENT_EVIDENCE: frozenset({"finding_id", "evidence_ids", "lane"}),
+    RepairAction.SUPPLEMENT_EVIDENCE: frozenset({"finding_id", "evidence_ids", "lane", "reason"}),
     RepairAction.EXCLUDE_EVIDENCE: frozenset({"finding_id", "evidence_refs", "reason"}),
+    RepairAction.SPLIT_CONTEXT_SAME_SCOPE: frozenset({
+        "finding_id", "evidence_contexts", "context_dimension", "reason",
+    }),
 }
 
 DOMAIN_REPAIR_POLICY: dict[RepairAction, tuple[RepairRisk, RepairAuthorization]] = {
@@ -95,11 +101,52 @@ DOMAIN_REPAIR_POLICY: dict[RepairAction, tuple[RepairRisk, RepairAuthorization]]
         RepairRisk.R2_SCIENTIFIC_METHOD_CHANGE,
         RepairAuthorization.CHECKPOINT_REQUIRED,
     ),
+    RepairAction.SPLIT_CONTEXT_SAME_SCOPE: (
+        RepairRisk.R2_SCIENTIFIC_METHOD_CHANGE,
+        RepairAuthorization.CHECKPOINT_REQUIRED,
+    ),
     RepairAction.DOWNGRADE_CLAIM: (
         RepairRisk.R0_DERIVATION_ONLY,
         RepairAuthorization.AUTOMATIC,
     ),
 }
+
+# Frozen TaskSpec context dimensions the deterministic policy may refine but
+# never broaden. A sub-context is only accepted when it narrows or equals the
+# frozen value, so a finding cannot smuggle a scope change into an overlay.
+FROZEN_CONTEXT_DIMENSIONS = frozenset({
+    "disease", "disease_subtype", "organism", "tissue", "cell_type",
+    "disease_stage", "desired_phenotype",
+})
+
+
+def _authorization_allowed_by_autonomy(
+    project: ResearchProjectSpec, authorization: RepairAuthorization,
+) -> bool:
+    """Respect the project autonomy contract: autonomous runs never pause for
+    checkpoint-required repairs, so the policy layer does not propose them."""
+    if project.autonomy_mode == AutonomyMode.AUTONOMOUS:
+        return authorization == RepairAuthorization.AUTOMATIC
+    return True
+
+
+def _subcontext_refines_frozen_scope(
+    project: ResearchProjectSpec, dimension: str, value: str,
+) -> bool:
+    """Return True when a proposed sub-context narrows or equals the frozen
+    TaskSpec value for the same dimension. Missing frozen constraints accept
+    any non-empty refinement; broader values are rejected."""
+    if dimension not in FROZEN_CONTEXT_DIMENSIONS or not value.strip():
+        return False
+    task = project.context.get("target_task_spec")
+    if not isinstance(task, dict) or not isinstance(task.get("context"), dict):
+        return False
+    frozen = task["context"].get(dimension)
+    if frozen is None or not str(frozen).strip():
+        return True
+    sub_text = value.strip().casefold()
+    frozen_text = str(frozen).strip().casefold()
+    return sub_text == frozen_text or frozen_text in sub_text
 
 
 def canonical_sha256(value: BaseModel | dict[str, Any] | list[Any]) -> str:
@@ -569,6 +616,25 @@ def _overlay_payload_allowed(action: RepairAction, payload: dict[str, Any]) -> b
     return set(payload) <= allowed
 
 
+def _action_success_criteria(action: RepairAction) -> list[str]:
+    """Executable per-action acceptance criteria for derived-layer overlays."""
+    criteria: dict[RepairAction, list[str]] = {
+        RepairAction.DOWNGRADE_CLAIM: [
+            "No derived claim was upgraded; downgrades only weaken to INFERRED.",
+        ],
+        RepairAction.SUPPLEMENT_EVIDENCE: [
+            "Supplemented evidence exists in the derived evidence set and is added to active references.",
+        ],
+        RepairAction.EXCLUDE_EVIDENCE: [
+            "Excluded evidence is retained in the derived evidence set but removed from active references.",
+        ],
+        RepairAction.SPLIT_CONTEXT_SAME_SCOPE: [
+            "Evidence is re-bound to a same-scope sub-context and remains active.",
+        ],
+    }
+    return criteria.get(action, [])
+
+
 def _propose_domain_finding_repair(
     *,
     project: ResearchProjectSpec,
@@ -635,6 +701,8 @@ def _propose_domain_finding_repair(
                 "to_class": CLAIM_DOWNGRADE_TARGET_CLASS,
                 "statement_note": finding["message"] or "Causal interpretation removed by deterministic policy.",
             }
+            if payload["to_class"] != CLAIM_DOWNGRADE_TARGET_CLASS:
+                continue  # the policy never upgrades or invents a stronger class
             rule_id = (
                 EVIDENCE_DEPENDENCE_POLICY_RULE
                 if finding["category"] == "evidence_dependence"
@@ -644,32 +712,67 @@ def _propose_domain_finding_repair(
         elif action == RepairAction.SUPPLEMENT_EVIDENCE:
             evidence = _derived_evidence(result)
             eligible = [eid for eid in related if eid in evidence and eid not in (result.evidence_refs or [])]
-            if not eligible:
+            reason = str(finding["subject"].get("reason") or finding["message"] or "").strip()
+            if not eligible or not reason:
                 continue
             payload = {
                 "finding_id": finding["finding_id"],
                 "evidence_ids": eligible,
                 "lane": str(finding["subject"].get("lane") or "untyped"),
+                "reason": reason,
             }
             rule_id = EVIDENCE_SUPPLEMENT_POLICY_RULE
             subject_key = "evidence_refs"
         elif action == RepairAction.EXCLUDE_EVIDENCE:
             known = set(result.evidence_refs or [])
-            excluded = [eid for eid in related if eid in known]
-            if not excluded:
+            derived = _derived_evidence(result)
+            excluded = [eid for eid in related if eid in known and eid in derived]
+            reason = str(finding["subject"].get("reason") or finding["message"] or "").strip()
+            if not excluded or not reason:
                 continue
             payload = {
                 "finding_id": finding["finding_id"],
                 "evidence_refs": excluded,
-                "reason": finding["message"] or "Context mismatch or conflicting evidence flagged by the Reviewer.",
+                "reason": reason,
             }
             rule_id = EVIDENCE_EXCLUSION_POLICY_RULE
+            subject_key = "evidence_refs"
+        elif action == RepairAction.SPLIT_CONTEXT_SAME_SCOPE:
+            dimension = str(finding["subject"].get("context_dimension") or "").strip()
+            evidence_contexts = finding["subject"].get("evidence_contexts")
+            if not isinstance(evidence_contexts, dict) or not evidence_contexts:
+                continue
+            derived = _derived_evidence(result)
+            known = set(result.evidence_refs or [])
+            scoped: dict[str, dict[str, str]] = {}
+            for raw_eid, raw_sub in evidence_contexts.items():
+                eid = str(raw_eid or "").strip()
+                if not eid or eid not in known or eid not in derived:
+                    continue
+                if not isinstance(raw_sub, dict) or set(raw_sub) != {dimension}:
+                    continue
+                value = str(raw_sub.get(dimension) or "").strip()
+                if not value or not _subcontext_refines_frozen_scope(project, dimension, value):
+                    continue
+                scoped[eid] = {dimension: value}
+            reason = str(finding["subject"].get("reason") or finding["message"] or "").strip()
+            if not scoped or not reason:
+                continue
+            payload = {
+                "finding_id": finding["finding_id"],
+                "evidence_contexts": scoped,
+                "context_dimension": dimension,
+                "reason": reason,
+            }
+            rule_id = CONTEXT_SPLIT_POLICY_RULE
             subject_key = "evidence_refs"
         else:  # pragma: no cover - FINDING_TO_ACTION is closed
             continue
         if not _overlay_payload_allowed(action, payload):
             continue
         risk, authorization = DOMAIN_REPAIR_POLICY[action]
+        if not _authorization_allowed_by_autonomy(project, authorization):
+            continue
         affected = _descendant_closure(plan, target_id, active_ids)
         directive = RepairDirective(
             directive_id=_stable_id("directive", {
@@ -723,6 +826,7 @@ def _propose_domain_finding_repair(
                 "The frozen TaskSpec disease, tissue, cell type and stage are unchanged.",
                 "The full affected subgraph is recomputed and re-reviewed.",
                 "The release snapshot digest is rebound to the new active results.",
+                *_action_success_criteria(action),
             ],
             rationale=directive.rationale,
         )
@@ -793,6 +897,10 @@ def propose_domain_repair(
         ):
             continue
         selected = eligible[0]
+        if not _authorization_allowed_by_autonomy(
+            project, DOMAIN_REPAIR_POLICY[RepairAction.SWITCH_DATASET_SAME_CONTEXT][1],
+        ):
+            continue
         payload = {
             "preferred_dataset_accessions": [str(selected.get("accession") or selected.get("dataset_id"))],
             "excluded_dataset_accessions": rejected,
@@ -1085,7 +1193,7 @@ def _frozen_context_unchanged(project: ResearchProjectSpec, rerun_item: WorkItem
     override = rerun_item.inputs.get("dataset_override") if isinstance(rerun_item.inputs, dict) else None
     if not isinstance(override, dict):
         return False
-    frozen = {"disease", "disease_subtype", "organism", "tissue", "cell_type", "disease_stage", "desired_phenotype"}
+    frozen = FROZEN_CONTEXT_DIMENSIONS
     context_keys = {key: value for key, value in old_context.items() if key in frozen}
     allowed_keys = {"preferred_dataset_accessions", "excluded_dataset_accessions"}
     return bool(context_keys) and set(override) <= allowed_keys
@@ -1093,12 +1201,14 @@ def _frozen_context_unchanged(project: ResearchProjectSpec, rerun_item: WorkItem
 
 __all__ = [
     "CLAIM_DOWNGRADE_POLICY_RULE",
+    "CONTEXT_SPLIT_POLICY_RULE",
     "DATASET_SWITCH_POLICY_RULE",
     "DOMAIN_REPAIR_POLICY",
     "EVIDENCE_DEPENDENCE_POLICY_RULE",
     "EVIDENCE_EXCLUSION_POLICY_RULE",
     "EVIDENCE_SUPPLEMENT_POLICY_RULE",
     "FINDING_TO_ACTION",
+    "FROZEN_CONTEXT_DIMENSIONS",
     "OVERLAY_ACTIONS",
     "build_fork_revision",
     "fork_affected_item_ids",

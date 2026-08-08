@@ -43,7 +43,7 @@
 - Europe PMC 检索/全文持久缓存；LLM 重排与跨度抽取结果按“语料快照 + 模型 + 提示版本”缓存，回放时仍执行原文 span 校验；
 - Reviewer 使用归一化载荷缓存：运行内 ID 归一为位置 token，缓存命中后映射回当前 ID 并重新校验；单条非法 finding 只被跳过，不再丢弃整轮有效结果；
 - Reviewer 专属超时 240s、重试 1 次，避免 90s×3 无效等待后落入确定性回退；
-- 远程验收（UC，agenttest/gpu03）：冷启动约 28 分钟 → 工具层全缓存后阶段二 55s；冷、暖、热三次独立运行的 Top10 排序完全一致，终态均为 completed_with_gaps、0 blocking、2 gaps。
+- 远程验收（UC）：冷启动约 28 分钟 → 工具层全缓存后阶段二 55s；冷、暖、热三次独立运行的 Top10 排序完全一致，终态均为 completed_with_gaps、0 blocking、2 gaps。
 
 ## 2. 已完成的可靠性控制面
 
@@ -115,6 +115,14 @@ typed transient failure
 - Reviewer 只接收当前 active artifact 集；每次评审提交生成 ReviewTarget，绑定评审时刻的输入闭包 snapshot digest、result digest 与 active artifact 逻辑 ID；
 - worker lease 支持 heartbeat 续期与过期回收；孤儿/过期 lease（含 RUNNING attempt 行）恢复时被回收并重试，中断的 attempt 行保留为审计记录；
 - 中断边界验收：attempt/head/review 任一边界模拟中断后恢复，已完成步骤不重复执行、旧版本不丢失，缺失的 ReviewTarget 由恢复逻辑幂等重建。
+
+### 2.6 类型化领域修复：同范围上下文拆分与 overlay 断言
+
+- DomainFinding.category 与 FINDING_TO_ACTION 对齐为同一封闭集合（新增 gene_mapping_overreach、evidence_dependence、missing_provenance、context_split_needed），合同层不再允许策略映射之外的 finding 类别进入修复流程；
+- 新增 SPLIT_CONTEXT_SAME_SCOPE 修复（R2、checkpoint 审批）：当冲突证据可确定性映射到冻结 TaskSpec 内的不同子上下文时，overlay 将每条证据重新绑定到其子上下文（context 合并 + context_split_by/reason 审计标记），证据保持 active，不删除任何一侧；子上下文必须等于或收窄冻结值，更宽泛值被拒绝；
+- 冲突检测器优先尝试上下文拆分：同一基因 opposing-direction 证据带不同 tissue/cell_type 子上下文时输出 context_split_needed（替代直接排除）；无可用子上下文时仍走 conflicting_evidence 到 EXCLUDE；
+- overlay 可执行断言：EXCLUDE 只能隔离已存在于派生证据集的证据（missing row 拒绝应用，isolated_only/retained_in_source 写入审计），SUPPLEMENT 必须携带非空 reason 且只能引用已存在证据，DOWNGRADE 只允许降至 INFERRED、拒绝任何升级与已 INFERRED 的 no-op；
+- 自主性契约：AUTONOMOUS 项目不再提出 checkpoint 必须审批的 R2 修复（dataset switch / exclusion / context split），避免“提出后暂停、恢复时校验失败”的死锁；这类 finding 保留为文档化阻塞缺口并以 completed_with_gaps 收尾，CHECKPOINTED/SUPERVISED 项目行为不变。
 
 ## 3. 已完成的产品接口
 

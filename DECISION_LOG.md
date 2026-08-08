@@ -2,6 +2,15 @@
 
 Cross-module contracts, workflow choices, model boundaries and scientific-safety decisions are recorded here. Accepted decisions must not be changed silently in a feature branch.
 
+## 2026-08-08 - 类型化领域修复：上下文拆分与 overlay 可执行断言
+
+- **Status:** accepted
+- 决策：把“上下文错误”细化为两种确定性处置——子上下文仍在冻结 TaskSpec 内时走 SPLIT_CONTEXT_SAME_SCOPE（R2/checkpoint，重新绑定证据上下文，不删除），完全在范围外时走 EXCLUDE_EVIDENCE（隔离引用、保留源证据）。
+- 子上下文门控为字符串级收窄关系（等于或包含于冻结值），是保守启发式；不接受更宽泛或跨维度值，宁可不修复也不猜。
+- 决策：AUTONOMOUS 项目不提出任何 CHECKPOINT_REQUIRED 修复；之前“R2 提议 → WAITING_REVIEW → resume 校验失败”的组合视为缺陷，本次以策略层门控消除。
+- 决策：overlay 不允许删除证据记录；EXCLUDE 仅从 active 引用移除并写 isolated_only/retained_in_source，SUPPLEMENT 必须带 reason，DOWNGRADE 固定目标 INFERRED 且拒绝 no-op/升级。
+- 验收：新增 6 项策略/overlay 测试（原因与来源校验、自主性门控、同范围拆分提议与执行、升级/缺失/no-op 拒绝、冲突拆分检测、checkpointed 拆分端到端），全套测试需在远程验收环境通过。
+
 ## 2026-08-08 - WorkItemHead/ArtifactHead CAS 与确定性恢复
 
 - **Status:** accepted
@@ -9,7 +18,7 @@ Cross-module contracts, workflow choices, model boundaries and scientific-safety
 - 产物注册同时写 ArtifactVersion 不可变版本行与 ArtifactHead（CAS active 指针）；旧版本保留且可读，Reviewer 只读取 active artifact 集。
 - 每次评审提交写 ReviewTarget，snapshot digest 只包含评审项输入闭包（结果/评审/产物），下游报告完成后 digest 不漂移，恢复可幂等重建缺失 target。
 - Worker lease 增加 heartbeat 续期与过期回收；孤儿/过期 lease（含 RUNNING attempt 行）恢复时回收并重试，中断 attempt 保留审计。
-- 验收（gpu03/agenttest）：新增 6 项测试覆盖 CAS 冲突、幂等重放、版本台账、heartbeat、镜像修复不重跑、过期 lease 回收、ReviewTarget 重建；全套测试通过。
+- 验收（远程验收环境）：新增 6 项测试覆盖 CAS 冲突、幂等重放、版本台账、heartbeat、镜像修复不重跑、过期 lease 回收、ReviewTarget 重建；全套测试通过。
 
 ## 2026-08-08 - Product-speed cache layers
 
@@ -18,7 +27,7 @@ Cross-module contracts, workflow choices, model boundaries and scientific-safety
 - Literature LLM rerank/extract results persist under corpus-snapshot + model + prompt-version keys; replay still requires exact source spans.
 - Reviewer LLM findings cache uses a normalized payload (per-run ids become positional tokens); replay maps tokens back to current ids and re-validates. A single invalid finding is skipped instead of discarding the whole review round.
 - Reviewer uses a dedicated 240s read timeout with one retry; the previous 90s x 3 budget wasted ~4 minutes before deterministic fallback.
-- Acceptance on gpu03/agenttest: fresh UC project warm stage-2 run is 55s; cold/warm/hot runs produce identical Top-10 rankings with completed_with_gaps, 0 blocking, 2 gaps.
+- Acceptance (remote acceptance environment): fresh UC project warm stage-2 run is 55s; cold/warm/hot runs produce identical Top-10 rankings with completed_with_gaps, 0 blocking, 2 gaps.
 
 ## 2026-08-01 - Versioned schemas are module boundaries
 

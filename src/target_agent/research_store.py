@@ -71,6 +71,10 @@ from .research_repair import (
 
 T = TypeVar("T", bound=BaseModel)
 _SAFE_COMPONENT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+# Integrity whitelists are derived from the policy layer so a new typed
+# domain repair cannot silently fail the store's consistency gates.
+DOMAIN_REPAIR_ACTION_VALUES = frozenset(action.value for action in DOMAIN_REPAIR_POLICY)
+OVERLAY_REVISION_OPERATIONS = DOMAIN_REPAIR_ACTION_VALUES - {RepairAction.SWITCH_DATASET_SAME_CONTEXT.value}
 
 
 class ProjectBusyError(RuntimeError):
@@ -1316,7 +1320,7 @@ class ResearchProjectStore:
                         if work_item_result_digest(normalized) != work_item_result_digest(restored):
                             raise ValueError("restore fork target result was not restored")
             else:
-                domain_repair = request.action.value in {"switch_dataset_same_context", "supplement_evidence", "exclude_evidence", "downgrade_claim"}
+                domain_repair = request.action.value in DOMAIN_REPAIR_ACTION_VALUES
                 if not domain_repair:
                     if request.failure_class != FailureClass.TRANSIENT or request.action != RepairAction.RERUN_SUBGRAPH_SAME_INPUTS:
                         raise ValueError("plan revision is not backed by an eligible same-input transient request")
@@ -1387,9 +1391,7 @@ class ResearchProjectStore:
                         for key in ("preferred_dataset_accessions", "excluded_dataset_accessions")
                         if directive_payload.get(key) is not None
                     }
-                elif revision.operation in {
-                    "supplement_evidence", "exclude_evidence", "downgrade_claim",
-                } and request is not None:
+                elif revision.operation in OVERLAY_REVISION_OPERATIONS and request is not None:
                     if item.rerun_of_item_id == request.target_work_item_id:
                         if item.module != "domain_overlay":
                             raise ValueError("overlay revision must replace the target with the domain_overlay module")
@@ -1404,10 +1406,7 @@ class ResearchProjectStore:
                         and directive.input_overrides.get(source.item_id) is not None
                     ) or (
                         revision.fork_branch_id is None
-                        and revision.operation in {
-                            "switch_dataset_same_context", "supplement_evidence",
-                            "exclude_evidence", "downgrade_claim",
-                        }
+                        and revision.operation in DOMAIN_REPAIR_ACTION_VALUES
                     )
                     if not allowed_override or item.inputs != expected_inputs:
                         raise ValueError("plan revision changes work-item content beyond retry metadata")
@@ -1420,7 +1419,7 @@ class ResearchProjectStore:
             source = results.get(request.target_work_item_id)
             if source is None or work_item_result_digest(source) != request.trigger_result_digest:
                 raise ValueError("repair request source result digest mismatch")
-            domain_repair_source = request.action.value in {"switch_dataset_same_context", "supplement_evidence", "exclude_evidence", "downgrade_claim"}
+            domain_repair_source = request.action.value in DOMAIN_REPAIR_ACTION_VALUES
             if domain_repair_source:
                 if source.input_digest != request.input_digest:
                     raise ValueError("repair request source input digest mismatch")
@@ -1488,7 +1487,7 @@ class ResearchProjectStore:
                     for row in verification
                 )
             )
-            domain_resolution = request.action.value in {"switch_dataset_same_context", "supplement_evidence", "exclude_evidence", "downgrade_claim"}
+            domain_resolution = request.action.value in DOMAIN_REPAIR_ACTION_VALUES
             if resolution.status == RepairResolutionStatus.RESOLVED:
                 if not verified or (not domain_resolution and root_result.input_digest != request.input_digest):
                     raise ValueError("resolved repair lacks identical-input independent verification")

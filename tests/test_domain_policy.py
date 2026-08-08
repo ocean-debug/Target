@@ -89,6 +89,7 @@ class FakeFindingTargetModule:
             repair_modes=(
                 "same_input_retry", "alternate_dataset",
                 "supplement_evidence", "exclude_evidence", "downgrade_claim",
+                "split_context_same_scope",
             ),
         )
         self.findings = findings
@@ -249,13 +250,14 @@ class FakeFindingReportModule:
 
 
 def _finding(category: str, related_ids: list[str], finding_id: str | None = None,
-             message: str = "typed finding", severity: str = "blocking") -> dict:
+             message: str = "typed finding", severity: str = "blocking",
+             subject: dict | None = None) -> dict:
     return {
         "finding_id": finding_id or f"finding-{category}-{len(related_ids)}",
         "category": category,
         "severity": severity,
         "related_ids": related_ids,
-        "subject": {},
+        "subject": subject or {},
         "message": message,
     }
 
@@ -282,7 +284,8 @@ def _runtime(tmp_path: Path, findings: list[dict], autonomy_mode: AutonomyMode):
 
 # ---------------------------------------------------------------- unit policy
 
-def _propose_one(tmp_path, registry, project, plan, finding):
+def _propose_one(tmp_path, registry, project, plan, finding,
+                 autonomy_mode: AutonomyMode = AutonomyMode.AUTONOMOUS):
     module = registry.get("target_discovery")
     module.findings = [finding]
     context = _work_item("target_discovery", "target_discovery")
@@ -307,8 +310,9 @@ def _propose_one(tmp_path, registry, project, plan, finding):
         ),
     ]
     return propose_domain_repair(
-        project=project, base_plan=plan, plan=plan, results={"target_discovery": result},
-        assessments=assessments, artifacts=[], revisions=[], registry=registry,
+        project=_project(autonomy_mode=autonomy_mode), base_plan=plan, plan=plan,
+        results={"target_discovery": result}, assessments=assessments,
+        artifacts=[], revisions=[], registry=registry,
     )
 
 
@@ -349,6 +353,7 @@ def test_policy_maps_blocking_findings_to_typed_requests(tmp_path):
     exclusion = _propose_one(
         tmp_path, registry, project, plan,
         _finding("context_mismatch", ["ev-genetics"], finding_id="finding-context"),
+        autonomy_mode=AutonomyMode.CHECKPOINTED,
     )
     assert exclusion is not None
     assert exclusion.action == RepairAction.EXCLUDE_EVIDENCE
@@ -366,6 +371,236 @@ def test_policy_maps_blocking_findings_to_typed_requests(tmp_path):
     assert dependence.authorization == RepairAuthorization.AUTOMATIC
     assert dependence.directive_payload["claim_id"] == "claim-overstated"
     assert dependence.directive_payload["to_class"] == "INFERRED"
+
+
+def _execute_overlay(tmp_path, registry, project, source, overlay_input):
+    item = _work_item(
+        "domain_overlay_replacement", "domain_overlay",
+        rerun_of_item_id="target_discovery",
+        repair_request_id="repair-000000000000000000000001",
+        inputs={"source_item_id": "target_discovery", "domain_overlay": overlay_input},
+    )
+    module = registry.get("domain_overlay")
+    return module.execute(type("Ctx", (), {
+        "item": item, "output_dir": tmp_path, "project": project, "project_dir": tmp_path,
+        "cache_dir": tmp_path / "cache", "settings": _settings(tmp_path),
+        "prior_results": {"target_discovery": source}, "artifacts": [],
+    })()).result
+
+
+def test_supplement_and_exclusion_require_reason_and_existing_evidence(tmp_path):
+    registry = _registry([])
+    project = _project()
+    plan = ResearchPlan(
+        project_id=project.project_id, planner_backend="deterministic_test",
+        rationale="policy unit test",
+        items=[
+            _work_item("target_discovery", "target_discovery"),
+            _work_item("independent_review", "independent_review", ["target_discovery"]),
+            _work_item("research_report", "research_report", ["independent_review"]),
+        ],
+    )
+    no_reason = _propose_one(
+        tmp_path, registry, project, plan,
+        _finding("coverage_gap", ["ev-literature"], finding_id="finding-no-reason",
+                 message="   ", subject={"reason": "  "}),
+    )
+    assert no_reason is None
+    missing_source = _propose_one(
+        tmp_path, registry, project, plan,
+        _finding("context_mismatch", ["ev-missing"], finding_id="finding-missing"),
+        autonomy_mode=AutonomyMode.CHECKPOINTED,
+    )
+    assert missing_source is None
+
+
+def test_autonomous_mode_never_proposes_checkpoint_required_repairs(tmp_path):
+    registry = _registry([])
+    project = _project()
+    plan = ResearchPlan(
+        project_id=project.project_id, planner_backend="deterministic_test",
+        rationale="policy unit test",
+        items=[
+            _work_item("target_discovery", "target_discovery"),
+            _work_item("independent_review", "independent_review", ["target_discovery"]),
+            _work_item("research_report", "research_report", ["independent_review"]),
+        ],
+    )
+    finding = _finding("context_mismatch", ["ev-genetics"], finding_id="finding-context")
+    assert _propose_one(
+        tmp_path, registry, project, plan, finding,
+        autonomy_mode=AutonomyMode.AUTONOMOUS,
+    ) is None
+    assert _propose_one(
+        tmp_path, registry, project, plan, finding,
+        autonomy_mode=AutonomyMode.CHECKPOINTED,
+    ) is not None
+
+
+def test_context_split_proposal_validates_same_scope_subcontexts(tmp_path):
+    registry = _registry([])
+    project = _project()
+    plan = ResearchPlan(
+        project_id=project.project_id, planner_backend="deterministic_test",
+        rationale="policy unit test",
+        items=[
+            _work_item("target_discovery", "target_discovery"),
+            _work_item("independent_review", "independent_review", ["target_discovery"]),
+            _work_item("research_report", "research_report", ["independent_review"]),
+        ],
+    )
+    split = _propose_one(
+        tmp_path, registry, project, plan,
+        _finding(
+            "context_split_needed", ["ev-genetics", "ev-omics"],
+            finding_id="finding-split",
+            subject={
+                "context_dimension": "tissue",
+                "evidence_contexts": {
+                    "ev-genetics": {"tissue": "colon mucosa"},
+                    "ev-omics": {"tissue": "colon epithelium"},
+                },
+                "reason": "distinct same-scope tissues",
+            },
+        ),
+        autonomy_mode=AutonomyMode.CHECKPOINTED,
+    )
+    assert split is not None
+    assert split.action == RepairAction.SPLIT_CONTEXT_SAME_SCOPE
+    assert split.risk == RepairRisk.R2_SCIENTIFIC_METHOD_CHANGE
+    assert split.authorization == RepairAuthorization.CHECKPOINT_REQUIRED
+    assert split.directive_payload["context_dimension"] == "tissue"
+    assert split.directive_payload["evidence_contexts"]["ev-genetics"] == {"tissue": "colon mucosa"}
+
+    broader = _propose_one(
+        tmp_path, registry, project, plan,
+        _finding(
+            "context_split_needed", ["ev-genetics"],
+            finding_id="finding-split-broad",
+            subject={
+                "context_dimension": "tissue",
+                "evidence_contexts": {"ev-genetics": {"tissue": "gut"}},
+                "reason": "broader tissue must be refused",
+            },
+        ),
+        autonomy_mode=AutonomyMode.CHECKPOINTED,
+    )
+    assert broader is None
+
+
+def test_overlay_refuses_upgrade_noop_and_missing_evidence(tmp_path):
+    registry = _registry([])
+    project = _project()
+    module = registry.get("target_discovery")
+    module.findings = []
+    context = _work_item("target_discovery", "target_discovery")
+    source = module.execute(type("Ctx", (), {
+        "item": context, "output_dir": tmp_path, "project": project, "project_dir": tmp_path,
+        "cache_dir": tmp_path / "cache", "settings": _settings(tmp_path),
+        "prior_results": {}, "artifacts": [],
+    })()).result
+
+    upgrade = _execute_overlay(
+        tmp_path, registry, project, source,
+        {"operation": "downgrade_claim", "claim_id": "claim-overstated",
+         "to_class": "OBSERVED", "finding_id": "finding-upgrade"},
+    )
+    assert upgrade.outputs["domain_overlay_applied"] is False
+    assert any("never upgrades" in problem for problem in upgrade.outputs["domain_overlay_problems"])
+
+    noop = _execute_overlay(
+        tmp_path, registry, project, source,
+        {"operation": "downgrade_claim", "claim_id": "claim-rank",
+         "to_class": "INFERRED", "finding_id": "finding-noop"},
+    )
+    assert noop.outputs["domain_overlay_applied"] is False
+    assert any("already INFERRED" in problem for problem in noop.outputs["domain_overlay_problems"])
+
+    missing = _execute_overlay(
+        tmp_path, registry, project, source,
+        {"operation": "exclude_evidence", "evidence_refs": ["ev-genetics", "ev-missing"],
+         "reason": "flagged", "finding_id": "finding-missing"},
+    )
+    assert missing.outputs["domain_overlay_applied"] is False
+    assert any("missing from the derived evidence set" in problem for problem in missing.outputs["domain_overlay_problems"])
+    assert "ev-genetics" in missing.evidence_refs
+
+
+def test_conflict_with_distinct_subcontexts_emits_split_finding():
+    evidence = [
+        {"evidence_id": "ev-up", "gene_symbol": "GENE1", "effect_direction": "increase",
+         "context": {"tissue": "colon mucosa"}},
+        {"evidence_id": "ev-down", "gene_symbol": "GENE1", "effect_direction": "decrease",
+         "context": {"tissue": "colon epithelium"}},
+    ]
+    findings = TargetDiscoveryModule._deterministic_evidence_findings([], evidence)
+    split = next(row for row in findings if row["category"] == "context_split_needed")
+    assert split["finding_id"] == "finding-context-split-ev-up-ev-down"
+    assert split["subject"]["context_dimension"] == "tissue"
+    assert split["subject"]["evidence_contexts"]["ev-up"] == {"tissue": "colon mucosa"}
+    assert split["subject"]["evidence_contexts"]["ev-down"] == {"tissue": "colon epithelium"}
+
+
+def test_checkpointed_context_split_applies_and_releases(tmp_path):
+    findings = [
+        _finding(
+            "context_split_needed", ["ev-genetics", "ev-omics"],
+            finding_id="finding-split",
+            subject={
+                "context_dimension": "tissue",
+                "evidence_contexts": {
+                    "ev-genetics": {"tissue": "colon mucosa"},
+                    "ev-omics": {"tissue": "colon epithelium"},
+                },
+                "reason": "distinct same-scope tissues",
+            },
+        ),
+    ]
+    runtime, settings = _runtime(tmp_path, findings, AutonomyMode.CHECKPOINTED)
+    project = _project("project-split", autonomy_mode=AutonomyMode.CHECKPOINTED)
+    service = ResearchProjectService(runtime)
+
+    first = runtime.run(project)
+    assert first["status"] == ProjectStatus.NEEDS_INPUT.value
+    store = ResearchProjectStore(settings.projects_dir, project.project_id)
+    plan = store.load_plan()
+    service.accept_checkpoint(
+        project_id=project.project_id, target_id=plan.plan_id,
+        actor="reviewer", rationale="Plan is in scope.", resume=True,
+    )
+    request = store.read_repair_requests()[0]
+    assert request.action == RepairAction.SPLIT_CONTEXT_SAME_SCOPE
+
+    service.decide_repair(
+        project_id=project.project_id,
+        repair_request_id=request.repair_request_id,
+        trigger_snapshot_digest=request.trigger_snapshot_digest,
+        approve=True, actor="reviewer",
+        rationale="Approve same-scope context split.", resume=True,
+    )
+    store = ResearchProjectStore(settings.projects_dir, project.project_id)
+    state = store.load_state()
+    assert state.status == ProjectStatus.WAITING_REVIEW
+    release_target = service.snapshot(project.project_id)["next_actions"][0]["target_id"]
+    service.accept_checkpoint(
+        project_id=project.project_id, target_id=release_target,
+        actor="reviewer", rationale="Release after verified split.", resume=True,
+    )
+    assert store.load_state().status == ProjectStatus.COMPLETED.value
+
+    store = ResearchProjectStore(settings.projects_dir, project.project_id)
+    resolutions = store.read_repair_resolutions()
+    assert len(resolutions) == 1
+    assert resolutions[0].status == RepairResolutionStatus.RESOLVED
+    results = store.load_work_item_results()
+    overlay = next(row for row in results.values() if row.module == "domain_overlay")
+    assert overlay.outputs["domain_overlay_applied"] is True
+    assert len(overlay.outputs["context_splits"]) == 1
+    evidence = {row["evidence_id"]: row for row in overlay.outputs["evidence_items"]}
+    assert evidence["ev-genetics"]["context"]["tissue"] == "colon mucosa"
+    assert evidence["ev-omics"]["context"]["tissue"] == "colon epithelium"
+    assert "ev-genetics" in overlay.evidence_refs and "ev-omics" in overlay.evidence_refs
+    store.assert_integrity()
 
 
 def test_deterministic_evidence_gates_direction_and_independence():

@@ -25,7 +25,7 @@ from .research_contracts import (
     WorkItemStatus,
 )
 from .research_projection import DomainActivityProjection, project_trace_event
-from .research_repair import classify_exception, work_item_result_digest
+from .research_repair import CLAIM_DOWNGRADE_TARGET_CLASS, classify_exception, work_item_result_digest
 from .settings import Settings
 
 
@@ -345,6 +345,62 @@ def _apply_dataset_override(
     return merged
 
 
+def _evidence_context_value(row: dict[str, Any], dimension: str) -> str:
+    """Read a sub-context value from a durable evidence row, preferring the
+    nested 'context' object emitted by EvidenceItem serialization."""
+    nested = row.get("context")
+    if isinstance(nested, dict):
+        value = nested.get(dimension)
+        if value is not None:
+            return str(value).strip()
+    value = row.get(dimension)
+    return str(value).strip() if value is not None else ""
+
+
+def _context_split_for_conflict(
+    evidence_items: list[dict[str, Any]], related: list[str],
+) -> dict[str, Any] | None:
+    """When opposing-direction evidence maps to distinct same-scope sub-contexts,
+    emit a typed context-split finding instead of excluding either side.
+
+    The deterministic policy layer later verifies that every proposed
+    sub-context narrows the frozen TaskSpec; if it does not, the proposal is
+    skipped and the conflict remains a documented blocking gap.
+    """
+    by_id = {
+        str(row.get("evidence_id") or ""): row
+        for row in evidence_items if isinstance(row, dict)
+    }
+    rows = [by_id[eid] for eid in related if eid in by_id]
+    if len(rows) != len(related):
+        return None
+    for dimension in ("tissue", "cell_type"):
+        values: dict[str, str] = {}
+        for row in rows:
+            value = _evidence_context_value(row, dimension)
+            if not value:
+                break
+            values[str(row.get("evidence_id") or "")] = value
+        if len(values) == len(rows) and len(set(values.values())) > 1:
+            return {
+                "finding_id": f"finding-context-split-{related[0]}-{related[1]}",
+                "category": "context_split_needed",
+                "severity": "blocking",
+                "related_ids": list(values),
+                "subject": {
+                    "context_dimension": dimension,
+                    "evidence_contexts": {
+                        eid: {dimension: value} for eid, value in values.items()
+                    },
+                },
+                "message": (
+                    f"{dimension} context differs across opposing-direction evidence; "
+                    "re-bind each evidence to its same-scope sub-context instead of excluding it."
+                ),
+            }
+    return None
+
+
 class TargetDiscoveryModule:
     descriptor = ModuleDescriptor(
         name="target_discovery",
@@ -355,6 +411,7 @@ class TargetDiscoveryModule:
         repair_modes=(
             "same_input_retry", "alternate_dataset",
             "supplement_evidence", "exclude_evidence", "downgrade_claim",
+            "split_context_same_scope",
         ),
     )
 
@@ -678,6 +735,10 @@ class TargetDiscoveryModule:
         for gene, by_direction in directions.items():
             if "increase" in by_direction and "decrease" in by_direction:
                 related = [by_direction["increase"][0], by_direction["decrease"][0]]
+                split = _context_split_for_conflict(evidence_items, related)
+                if split is not None:
+                    findings.append(split)
+                    continue
                 findings.append({
                     "finding_id": f"finding-direction-{gene.lower()}".replace(" ", "-"),
                     "category": "conflicting_evidence",
@@ -863,7 +924,10 @@ class DomainOverlayModule:
         ),
         input_types=("object",), output_types=("object",),
         execution_policy="deterministic_policy", side_effect_free=True, replay_safe=True,
-        repair_modes=("supplement_evidence", "exclude_evidence", "downgrade_claim"),
+        repair_modes=(
+            "supplement_evidence", "exclude_evidence", "downgrade_claim",
+            "split_context_same_scope",
+        ),
     )
 
     def execute(self, context: ModuleContext) -> ModuleExecution:
@@ -887,16 +951,27 @@ class DomainOverlayModule:
                 dict(row) for row in (outputs.get("derived_claims") or [])
                 if isinstance(row, dict)
             ]
+            to_class = str(overlay.get("to_class") or "")
             matched = False
-            for row in claims:
-                if str(row.get("claim_id") or "") == claim_id:
-                    row["claim_class"] = str(overlay.get("to_class") or "INFERRED")
-                    row["causal_interpretation_removed"] = True
-                    row["overlay_finding_id"] = overlay.get("finding_id")
-                    matched = True
-            if not matched:
-                problems.append("The downgrade target claim is not present in derived claims.")
+            if to_class != CLAIM_DOWNGRADE_TARGET_CLASS:
+                problems.append(
+                    "Downgrade target class is not the deterministic INFERRED class; "
+                    "the overlay never upgrades a claim."
+                )
             else:
+                for row in claims:
+                    if str(row.get("claim_id") or "") == claim_id:
+                        if str(row.get("claim_class") or "") == to_class:
+                            problems.append("Downgrade target claim is already INFERRED; no-op refused.")
+                        else:
+                            row["claim_class"] = to_class
+                            row["causal_interpretation_removed"] = True
+                            row["overlay_finding_id"] = overlay.get("finding_id")
+                            matched = True
+                        break
+                if not matched and not problems:
+                    problems.append("The downgrade target claim is not present in derived claims.")
+            if matched:
                 outputs["derived_claims"] = claims
                 applied.append({
                     "operation": operation,
@@ -923,14 +998,29 @@ class DomainOverlayModule:
                     "operation": operation,
                     "evidence_ids": eligible,
                     "lane": overlay.get("lane"),
+                    "reason": overlay.get("reason"),
                     "finding_id": overlay.get("finding_id"),
                 })
         elif operation == "exclude_evidence":
             known = set(evidence_refs)
-            excluded = [str(value) for value in (overlay.get("evidence_refs") or []) if str(value) in known]
-            if not excluded:
-                problems.append("Exclusion references no evidence present in the result.")
-            else:
+            evidence_ids = {
+                str(row.get("evidence_id") or "")
+                for row in (outputs.get("evidence_items") or []) if isinstance(row, dict)
+            }
+            requested = [str(value) for value in (overlay.get("evidence_refs") or []) if value]
+            missing_rows = [eid for eid in requested if eid not in evidence_ids]
+            inactive_rows = [eid for eid in requested if eid in evidence_ids and eid not in known]
+            excluded = [eid for eid in requested if eid in known]
+            if not requested:
+                problems.append("Exclusion references no evidence ids.")
+            if missing_rows:
+                problems.append(
+                    "Exclusion references evidence ids missing from the derived evidence set; "
+                    "source records cannot be isolated without being deleted."
+                )
+            if inactive_rows and not missing_rows:
+                problems.append("Exclusion references evidence ids that are not active in the result.")
+            if excluded and not missing_rows and not inactive_rows:
                 excluded_set = set(excluded)
                 evidence_refs = [eid for eid in evidence_refs if eid not in excluded_set]
                 applied.append({
@@ -938,7 +1028,65 @@ class DomainOverlayModule:
                     "evidence_refs": excluded,
                     "reason": overlay.get("reason"),
                     "finding_id": overlay.get("finding_id"),
+                    "isolated_only": True,
+                    "retained_in_source": True,
                 })
+        elif operation == "split_context_same_scope":
+            dimension = str(overlay.get("context_dimension") or "").strip()
+            evidence_contexts = overlay.get("evidence_contexts")
+            reason = str(overlay.get("reason") or "").strip()
+            if not dimension or not isinstance(evidence_contexts, dict) or not evidence_contexts or not reason:
+                problems.append("Context split requires a dimension, evidence contexts and a reason.")
+            else:
+                known = {
+                    str(row.get("evidence_id") or "")
+                    for row in (outputs.get("evidence_items") or []) if isinstance(row, dict)
+                }
+                active = set(evidence_refs)
+                scoped: dict[str, dict[str, str]] = {}
+                for raw_eid, raw_sub in evidence_contexts.items():
+                    eid = str(raw_eid or "").strip()
+                    if not eid or eid not in known or eid not in active:
+                        continue
+                    if not isinstance(raw_sub, dict) or set(raw_sub) != {dimension}:
+                        continue
+                    value = str(raw_sub.get(dimension) or "").strip()
+                    if value:
+                        scoped[eid] = {dimension: value}
+                if not scoped:
+                    problems.append("Context split references no active evidence with a valid sub-context.")
+                else:
+                    for row in outputs.get("evidence_items") or []:
+                        if not isinstance(row, dict):
+                            continue
+                        eid = str(row.get("evidence_id") or "")
+                        if eid not in scoped:
+                            continue
+                        prior = row.get("context")
+                        row["context"] = {
+                            **(prior if isinstance(prior, dict) else {}),
+                            **scoped[eid],
+                        }
+                        row["context_split_by"] = overlay.get("finding_id")
+                        row["context_split_reason"] = reason
+                    splits = outputs.get("context_splits")
+                    if not isinstance(splits, list):
+                        splits = []
+                    splits.append({
+                        "operation": operation,
+                        "context_dimension": dimension,
+                        "evidence_contexts": scoped,
+                        "reason": reason,
+                        "finding_id": overlay.get("finding_id"),
+                    })
+                    outputs["context_splits"] = splits
+                    applied.append({
+                        "operation": operation,
+                        "context_dimension": dimension,
+                        "evidence_refs": sorted(scoped),
+                        "finding_id": overlay.get("finding_id"),
+                        "reason": reason,
+                    })
         else:
             problems.append(f"Unknown domain overlay operation: {operation or '<empty>'}")
         if applied and not problems:

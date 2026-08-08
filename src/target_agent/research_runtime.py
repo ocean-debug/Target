@@ -1097,6 +1097,7 @@ class ResearchProjectRuntime:
                             "downgrade_claim": "derived_claims",
                             "supplement_evidence": "evidence_refs",
                             "exclude_evidence": "evidence_refs",
+                            "split_context_same_scope": "evidence_refs",
                         }.get(request.action.value, "derived_layer"),
                         payload=request.directive_payload,
                         expected_risk=request.risk,
