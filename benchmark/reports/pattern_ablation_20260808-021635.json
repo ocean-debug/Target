@@ -1,0 +1,524 @@
+{
+  "generated_at": "2026-08-08T02:16:35Z",
+  "offline": {
+    "mode": "offline",
+    "diseases_total": 18,
+    "diseases_with_hints": 18,
+    "coverage": 1.0,
+    "avg_hints": 3.0,
+    "plan_valid": 18,
+    "plan_failures": [],
+    "top_patterns": [
+      {
+        "pattern_id": "pattern-ad-microglia-celltype",
+        "diseases": 18
+      },
+      {
+        "pattern_id": "pattern-perturbseq-cellstate-first",
+        "diseases": 12
+      },
+      {
+        "pattern_id": "pattern-sceqtl-celltype-specific",
+        "diseases": 7
+      },
+      {
+        "pattern_id": "pattern-asthma-il33-epithelial",
+        "diseases": 5
+      },
+      {
+        "pattern_id": "pattern-ibd-genetics-to-drug",
+        "diseases": 4
+      },
+      {
+        "pattern_id": "pattern-cad-lipid-genetics-to-drug",
+        "diseases": 3
+      },
+      {
+        "pattern_id": "pattern-t2d-multiancestry-genetics-first",
+        "diseases": 2
+      },
+      {
+        "pattern_id": "pattern-ra-druggable-genome",
+        "diseases": 1
+      },
+      {
+        "pattern_id": "pattern-pd-mr-perturbation",
+        "diseases": 1
+      },
+      {
+        "pattern_id": "pattern-trait-mechanism-gene-program",
+        "diseases": 1
+      }
+    ],
+    "diseases": [
+      {
+        "disease_id": "MONDO_0005101",
+        "disease": "ulcerative colitis",
+        "tissue": "rectum",
+        "cell_type": "T cell",
+        "hint_count": 3,
+        "pattern_ids": [
+          "pattern-ibd-genetics-to-drug",
+          "pattern-ad-microglia-celltype",
+          "pattern-perturbseq-cellstate-first"
+        ],
+        "plan_ok": true,
+        "plan": {
+          "step_count": 6,
+          "step_ids": [
+            "bulk",
+            "genetics",
+            "literature",
+            "review",
+            "ranking",
+            "report"
+          ],
+          "first_tool": "bulk_expression_analysis",
+          "backend": "deterministic:v2.2 (Step API not configured)"
+        }
+      },
+      {
+        "disease_id": "MONDO_0005011",
+        "disease": "Crohn disease",
+        "tissue": "ileum",
+        "cell_type": "macrophage",
+        "hint_count": 3,
+        "pattern_ids": [
+          "pattern-ibd-genetics-to-drug",
+          "pattern-ad-microglia-celltype",
+          "pattern-cad-lipid-genetics-to-drug"
+        ],
+        "plan_ok": true,
+        "plan": {
+          "step_count": 6,
+          "step_ids": [
+            "bulk",
+            "genetics",
+            "literature",
+            "review",
+            "ranking",
+            "report"
+          ],
+          "first_tool": "bulk_expression_analysis",
+          "backend": "deterministic:v2.2 (Step API not configured)"
+        }
+      },
+      {
+        "disease_id": "MONDO_0008383",
+        "disease": "rheumatoid arthritis",
+        "tissue": "synovium",
+        "cell_type": "fibroblast",
+        "hint_count": 3,
+        "pattern_ids": [
+          "pattern-ra-druggable-genome",
+          "pattern-ad-microglia-celltype",
+          "pattern-perturbseq-cellstate-first"
+        ],
+        "plan_ok": true,
+        "plan": {
+          "step_count": 6,
+          "step_ids": [
+            "bulk",
+            "genetics",
+            "literature",
+            "review",
+            "ranking",
+            "report"
+          ],
+          "first_tool": "bulk_expression_analysis",
+          "backend": "deterministic:v2.2 (Step API not configured)"
+        }
+      },
+      {
+        "disease_id": "MONDO_0007915",
+        "disease": "systemic lupus erythematosus",
+        "tissue": "blood",
+        "cell_type": "B cell",
+        "hint_count": 3,
+        "pattern_ids": [
+          "pattern-ad-microglia-celltype",
+          "pattern-perturbseq-cellstate-first",
+          "pattern-sceqtl-celltype-specific"
+        ],
+        "plan_ok": true,
+        "plan": {
+          "step_count": 6,
+          "step_ids": [
+            "bulk",
+            "genetics",
+            "literature",
+            "review",
+            "ranking",
+            "report"
+          ],
+          "first_tool": "bulk_expression_analysis",
+          "backend": "deterministic:v2.2 (Step API not configured)"
+        }
+      },
+      {
+        "disease_id": "MONDO_0005301",
+        "disease": "multiple sclerosis",
+        "tissue": "brain",
+        "cell_type": "microglia",
+        "hint_count": 3,
+        "pattern_ids": [
+          "pattern-ad-microglia-celltype",
+          "pattern-perturbseq-cellstate-first",
+          "pattern-sceqtl-celltype-specific"
+        ],
+        "plan_ok": true,
+        "plan": {
+          "step_count": 6,
+          "step_ids": [
+            "bulk",
+            "genetics",
+            "literature",
+            "review",
+            "ranking",
+            "report"
+          ],
+          "first_tool": "bulk_expression_analysis",
+          "backend": "deterministic:v2.2 (Step API not configured)"
+        }
+      },
+      {
+        "disease_id": "MONDO_0005147",
+        "disease": "type 1 diabetes mellitus",
+        "tissue": "pancreatic islet",
+        "cell_type": "beta cell",
+        "hint_count": 3,
+        "pattern_ids": [
+          "pattern-t2d-multiancestry-genetics-first",
+          "pattern-sceqtl-celltype-specific",
+          "pattern-ad-microglia-celltype"
+        ],
+        "plan_ok": true,
+        "plan": {
+          "step_count": 6,
+          "step_ids": [
+            "bulk",
+            "genetics",
+            "literature",
+            "review",
+            "ranking",
+            "report"
+          ],
+          "first_tool": "bulk_expression_analysis",
+          "backend": "deterministic:v2.2 (Step API not configured)"
+        }
+      },
+      {
+        "disease_id": "MONDO_0005083",
+        "disease": "psoriasis",
+        "tissue": "skin",
+        "cell_type": "keratinocyte",
+        "hint_count": 3,
+        "pattern_ids": [
+          "pattern-ad-microglia-celltype",
+          "pattern-perturbseq-cellstate-first",
+          "pattern-sceqtl-celltype-specific"
+        ],
+        "plan_ok": true,
+        "plan": {
+          "step_count": 6,
+          "step_ids": [
+            "bulk",
+            "genetics",
+            "literature",
+            "review",
+            "ranking",
+            "report"
+          ],
+          "first_tool": "bulk_expression_analysis",
+          "backend": "deterministic:v2.2 (Step API not configured)"
+        }
+      },
+      {
+        "disease_id": "MONDO_0004975",
+        "disease": "Alzheimer disease",
+        "tissue": "brain",
+        "cell_type": "neuron",
+        "hint_count": 3,
+        "pattern_ids": [
+          "pattern-ad-microglia-celltype",
+          "pattern-cad-lipid-genetics-to-drug",
+          "pattern-ibd-genetics-to-drug"
+        ],
+        "plan_ok": true,
+        "plan": {
+          "step_count": 6,
+          "step_ids": [
+            "bulk",
+            "genetics",
+            "literature",
+            "review",
+            "ranking",
+            "report"
+          ],
+          "first_tool": "bulk_expression_analysis",
+          "backend": "deterministic:v2.2 (Step API not configured)"
+        }
+      },
+      {
+        "disease_id": "MONDO_0005180",
+        "disease": "Parkinson disease",
+        "tissue": "substantia nigra",
+        "cell_type": "dopaminergic neuron",
+        "hint_count": 3,
+        "pattern_ids": [
+          "pattern-pd-mr-perturbation",
+          "pattern-ad-microglia-celltype",
+          "pattern-cad-lipid-genetics-to-drug"
+        ],
+        "plan_ok": true,
+        "plan": {
+          "step_count": 6,
+          "step_ids": [
+            "bulk",
+            "genetics",
+            "literature",
+            "review",
+            "ranking",
+            "report"
+          ],
+          "first_tool": "bulk_expression_analysis",
+          "backend": "deterministic:v2.2 (Step API not configured)"
+        }
+      },
+      {
+        "disease_id": "MONDO_0004976",
+        "disease": "amyotrophic lateral sclerosis",
+        "tissue": "spinal cord",
+        "cell_type": "motor neuron",
+        "hint_count": 3,
+        "pattern_ids": [
+          "pattern-ad-microglia-celltype",
+          "pattern-perturbseq-cellstate-first",
+          "pattern-sceqtl-celltype-specific"
+        ],
+        "plan_ok": true,
+        "plan": {
+          "step_count": 6,
+          "step_ids": [
+            "bulk",
+            "genetics",
+            "literature",
+            "review",
+            "ranking",
+            "report"
+          ],
+          "first_tool": "bulk_expression_analysis",
+          "backend": "deterministic:v2.2 (Step API not configured)"
+        }
+      },
+      {
+        "disease_id": "MONDO_0005061",
+        "disease": "lung adenocarcinoma",
+        "tissue": "lung",
+        "cell_type": "epithelial cell",
+        "hint_count": 3,
+        "pattern_ids": [
+          "pattern-ad-microglia-celltype",
+          "pattern-asthma-il33-epithelial",
+          "pattern-perturbseq-cellstate-first"
+        ],
+        "plan_ok": true,
+        "plan": {
+          "step_count": 6,
+          "step_ids": [
+            "bulk",
+            "genetics",
+            "literature",
+            "review",
+            "ranking",
+            "report"
+          ],
+          "first_tool": "bulk_expression_analysis",
+          "backend": "deterministic:v2.2 (Step API not configured)"
+        }
+      },
+      {
+        "disease_id": "MONDO_0004989",
+        "disease": "breast carcinoma",
+        "tissue": "breast",
+        "cell_type": "epithelial cell",
+        "hint_count": 3,
+        "pattern_ids": [
+          "pattern-ad-microglia-celltype",
+          "pattern-asthma-il33-epithelial",
+          "pattern-perturbseq-cellstate-first"
+        ],
+        "plan_ok": true,
+        "plan": {
+          "step_count": 6,
+          "step_ids": [
+            "bulk",
+            "genetics",
+            "literature",
+            "review",
+            "ranking",
+            "report"
+          ],
+          "first_tool": "bulk_expression_analysis",
+          "backend": "deterministic:v2.2 (Step API not configured)"
+        }
+      },
+      {
+        "disease_id": "MONDO_0005575",
+        "disease": "colorectal cancer",
+        "tissue": "colon",
+        "cell_type": "epithelial cell",
+        "hint_count": 3,
+        "pattern_ids": [
+          "pattern-ad-microglia-celltype",
+          "pattern-asthma-il33-epithelial",
+          "pattern-perturbseq-cellstate-first"
+        ],
+        "plan_ok": true,
+        "plan": {
+          "step_count": 6,
+          "step_ids": [
+            "bulk",
+            "genetics",
+            "literature",
+            "review",
+            "ranking",
+            "report"
+          ],
+          "first_tool": "bulk_expression_analysis",
+          "backend": "deterministic:v2.2 (Step API not configured)"
+        }
+      },
+      {
+        "disease_id": "MONDO_0005105",
+        "disease": "melanoma",
+        "tissue": "skin",
+        "cell_type": "melanocyte",
+        "hint_count": 3,
+        "pattern_ids": [
+          "pattern-ad-microglia-celltype",
+          "pattern-perturbseq-cellstate-first",
+          "pattern-sceqtl-celltype-specific"
+        ],
+        "plan_ok": true,
+        "plan": {
+          "step_count": 6,
+          "step_ids": [
+            "bulk",
+            "genetics",
+            "literature",
+            "review",
+            "ranking",
+            "report"
+          ],
+          "first_tool": "bulk_expression_analysis",
+          "backend": "deterministic:v2.2 (Step API not configured)"
+        }
+      },
+      {
+        "disease_id": "MONDO_0005148",
+        "disease": "type 2 diabetes mellitus",
+        "tissue": "pancreatic islet",
+        "cell_type": "beta cell",
+        "hint_count": 3,
+        "pattern_ids": [
+          "pattern-t2d-multiancestry-genetics-first",
+          "pattern-sceqtl-celltype-specific",
+          "pattern-ad-microglia-celltype"
+        ],
+        "plan_ok": true,
+        "plan": {
+          "step_count": 6,
+          "step_ids": [
+            "bulk",
+            "genetics",
+            "literature",
+            "review",
+            "ranking",
+            "report"
+          ],
+          "first_tool": "bulk_expression_analysis",
+          "backend": "deterministic:v2.2 (Step API not configured)"
+        }
+      },
+      {
+        "disease_id": "MONDO_0007027",
+        "disease": "non-alcoholic steatohepatitis",
+        "tissue": "liver",
+        "cell_type": "hepatocyte",
+        "hint_count": 3,
+        "pattern_ids": [
+          "pattern-trait-mechanism-gene-program",
+          "pattern-ad-microglia-celltype",
+          "pattern-perturbseq-cellstate-first"
+        ],
+        "plan_ok": true,
+        "plan": {
+          "step_count": 6,
+          "step_ids": [
+            "bulk",
+            "genetics",
+            "literature",
+            "review",
+            "ranking",
+            "report"
+          ],
+          "first_tool": "bulk_expression_analysis",
+          "backend": "deterministic:v2.2 (Step API not configured)"
+        }
+      },
+      {
+        "disease_id": "MONDO_0004979",
+        "disease": "asthma",
+        "tissue": "lung",
+        "cell_type": "airway epithelial cell",
+        "hint_count": 3,
+        "pattern_ids": [
+          "pattern-asthma-il33-epithelial",
+          "pattern-ad-microglia-celltype",
+          "pattern-perturbseq-cellstate-first"
+        ],
+        "plan_ok": true,
+        "plan": {
+          "step_count": 6,
+          "step_ids": [
+            "bulk",
+            "genetics",
+            "literature",
+            "review",
+            "ranking",
+            "report"
+          ],
+          "first_tool": "bulk_expression_analysis",
+          "backend": "deterministic:v2.2 (Step API not configured)"
+        }
+      },
+      {
+        "disease_id": "MONDO_0005002",
+        "disease": "chronic obstructive pulmonary disease",
+        "tissue": "lung",
+        "cell_type": "airway epithelial cell",
+        "hint_count": 3,
+        "pattern_ids": [
+          "pattern-ad-microglia-celltype",
+          "pattern-ibd-genetics-to-drug",
+          "pattern-asthma-il33-epithelial"
+        ],
+        "plan_ok": true,
+        "plan": {
+          "step_count": 6,
+          "step_ids": [
+            "bulk",
+            "genetics",
+            "literature",
+            "review",
+            "ranking",
+            "report"
+          ],
+          "first_tool": "bulk_expression_analysis",
+          "backend": "deterministic:v2.2 (Step API not configured)"
+        }
+      }
+    ]
+  }
+}

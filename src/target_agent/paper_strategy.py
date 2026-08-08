@@ -26,6 +26,22 @@ from .contracts import utc_now
 PATTERN_CONTRACT_VERSION = "0.1.0"
 _LANE_TOKEN = re.compile(r"[a-z0-9]+")
 _CJK_TOKEN = re.compile(r"[\u4e00-\u9fff]+")
+# Generic tokens that make disease-keyword matching degenerate (e.g. every
+# disease name containing the word "disease" would match every pattern).
+_DISEASE_STOP_TOKENS = frozenset({
+    "disease", "diseases", "disorder", "disorders", "syndrome", "syndromes",
+    "type", "cell", "cells", "human", "patient", "patients", "study", "studies",
+    "and", "the", "of", "in", "a", "an", "with", "for", "or", "to", "is", "are",
+})
+
+
+def _disease_tokens(text: str) -> set[str]:
+    """Disease tokens that carry signal; digits and generic words are removed."""
+    tokens = _tokens(text)
+    return {
+        token for token in tokens
+        if token not in _DISEASE_STOP_TOKENS and not token.isdigit() and len(token) > 1
+    }
 
 
 def _tokens(text: str) -> set[str]:
@@ -281,22 +297,26 @@ def _score_pattern(
 ) -> tuple[float, list[str]]:
     score = 0.0
     reasons: list[str] = []
+    disease_hits: set[str] = set()
+    query_hits: set[str] = set()
     if disease_tokens:
-        disease_hay = _tokens(" ".join([pattern.disease_class, *pattern.disease_keywords]))
-        hits = disease_tokens & disease_hay
-        if hits:
-            score += 3.0 * len(hits)
-            reasons.append(f"disease keywords matched: {sorted(hits)}")
+        disease_hay = _disease_tokens(" ".join([pattern.disease_class, *pattern.disease_keywords]))
+        disease_hits = disease_tokens & disease_hay
+        if disease_hits:
+            score += 3.0 * len(disease_hits)
+            reasons.append(f"disease keywords matched: {sorted(disease_hits)}")
     if query_tokens:
         hay = _tokens(" ".join([
             pattern.name, pattern.disease_class, *pattern.applicability,
             pattern.mixed_method_rationale, *pattern.boundary_notes,
             *[link.link_type for link in pattern.evidence_links],
         ]))
-        hits = query_tokens & hay
-        if hits:
-            score += 1.0 * len(hits)
+        query_hits = query_tokens & hay
+        if query_hits:
+            score += 1.0 * len(query_hits)
             reasons.append("query terms matched pattern text")
+    if not disease_hits and not query_hits:
+        return -1.0, ["no disease or query match"]
     if lanes_available is not None:
         missing = set(pattern.required_lanes) - lanes_available
         if not missing:
@@ -382,7 +402,7 @@ class PatternStore:
         min_score: float = 0.0,
     ) -> list[PatternHit]:
         query_tokens = _tokens(query)
-        disease_tokens = _tokens(disease or "")
+        disease_tokens = _disease_tokens(disease or "")
         available = {str(lane).lower() for lane in lanes_available} if lanes_available is not None else None
         scored: list[PatternHit] = []
         for pattern in self._load():
