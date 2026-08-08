@@ -305,7 +305,8 @@ typed transient failure
 
 - 会话式干预（P2.13）：`POST /api/projects/<id>/sessions/<session_id>/interventions` 用显式、确定性的动作路由（`accept_checkpoint` / `decide_repair` / `decide_fork`）执行审批，自然语言只作为 rationale 写入决策；决策仍由 ResearchProjectService 写入项目账本，会话仅追加记录用户指令与结果视图；批准类动作自动排队恢复执行。
 - Web 工作台新增“研究会话”面板：选择项目自动创建会话、消息气泡展示、发送/询问 Agent、按 next_actions 一键“批准/拒绝检查点、修复、回退”并记录到会话；前端资产测试同步扩展。
+- 会话补充输入闭环（P2.14）：干预动作新增 `propose_fork`，会话内提交按工作项的 JSON `input_overrides` → 走不可变 fork + redo + 人工批准 + 自动重跑；spec/plan 仍不可原地修改。Web 工作台在 `needs_input` 状态显示“补充输入并重跑”面板，解析 JSON 后经干预端点发起回退。
 ### 13.2 边界
 - 会话是“视图”，计划、结果、证据、决策与发布仍以项目账本为唯一真相；Agent 回答永不写入科学状态。
 - 自然语言批准/拒绝已通过干预端点接入 checkpoint 流程；会话内“补充输入”（为检查点补字段后继续）尚未接入，仍通过现有 decisions/repairs/fork API 操作。
-- “补充输入”（会话内为检查点补字段后继续）与 MCP 会话工具属于下一增量。
+- 多角色会话（研究者/审稿人/管理员）与 MCP 会话工具属于下一增量。

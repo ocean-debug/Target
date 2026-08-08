@@ -476,6 +476,11 @@ def create_app(
         target_id = str(payload.get("target_id") or "").strip() or None
         approve = payload.get("approve")
         snapshot_digest = str(payload.get("snapshot_digest") or "").strip() or None
+        mode = str(payload.get("mode") or "").strip() or None
+        rollback_to_attempt_id = str(payload.get("rollback_to_attempt_id") or "").strip() or None
+        input_overrides = payload.get("input_overrides")
+        if input_overrides is not None and not isinstance(input_overrides, dict):
+            return jsonify({"error": "input_overrides must be a JSON object"}), 400
         if not action or not rationale or not target_id:
             return jsonify({"error": "action, rationale and target_id are required"}), 400
         try:
@@ -488,6 +493,9 @@ def create_app(
                 target_id=target_id,
                 approve=approve,
                 snapshot_digest=snapshot_digest,
+                mode=mode,
+                rollback_to_attempt_id=rollback_to_attempt_id,
+                input_overrides=input_overrides,
             )
         except ResearchProjectNotFound:
             return jsonify({"error": "session or project not found"}), 404

@@ -216,6 +216,10 @@ Interventions close the loop from inside a session:
 carry `approve`; repair additionally carries `snapshot_digest`). The decision is
 persisted to the project ledger and, for approvals, the runtime resumes
 automatically; the session records the user instruction and the decision result.
+`propose_fork` supplements missing input without mutating the frozen
+spec/plan: `{action:"propose_fork", target_id:"<work_item_id>", mode:"redo",
+input_overrides:{...}}` creates an immutable fork branch that waits for the
+same session's approve/reject decision before rerunning affected steps.
 
 The optional MCP server exposes the same durable project service to Codex, SciForge,
 OpenScience, Wisp and other MCP hosts over stdio or the official Streamable HTTP transport:

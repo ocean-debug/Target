@@ -55,9 +55,10 @@
 - `ResearchSessionService`：创建/列表/追加消息/`ask_agent` 确定性快照摘要，明确 `source_bound=false`，不产生也不修改科学状态。
 - Web API 四端点（create/list/read/post）；测试覆盖账本往返、篡改、404/400 与摘要确定性。
 - 会话式干预（P2.13）：`POST /api/projects/<id>/sessions/<session_id>/interventions` 显式路由 `accept_checkpoint` / `decide_repair` / `decide_fork`；自然语言作为决策 rationale，决策写入项目账本，会话只记录指令与结果视图；批准类动作自动排队恢复。Web 工作台新增会话面板（消息、询问 Agent、一键批准/拒绝），前端不猜测动作类型。
+- 会话补充输入闭环（P2.14）：`propose_fork` 干预动作接受 `input_overrides`（按工作项 JSON），走不可变 fork + redo + 人工批准 + 自动重跑；工作台 `needs_input` 状态提供“补充输入并重跑”面板。
 ## 4. 下一步增量（按价值排序）
 
-1. **补充输入闭环**：会话内为检查点补充缺失上下文/字段后继续；多角色会话（研究者/审稿人/管理员）与只读分享视图。
+1. **多角色与分享视图**：研究者/审稿人/管理员角色会话、只读分享包（OpenAI4S 式）与 MCP 会话工具。
 3. **部署与密钥管理**：Docker/单命令启动、OS keyring 密钥（Wisp 式）、只读分享包（OpenAI4S 式）。
 4. **多用户与配额**：认证、多租户、资源配额（P2 平台化，仅在真实多用户部署需要时做）。
 5. **对齐数据（P3，最后）**：以已评审 CaseRecord 与论文策略模式为来源生成 Planner SFT / Reviewer 偏好对，训练 Reviewer/Planner 小模型并做 blind benchmark 消融。

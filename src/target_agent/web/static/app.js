@@ -849,9 +849,29 @@ async function sendSessionMessage(askAgent) {
 function renderSessionActions(snap) {
   const host = $('session-actions');
   host.innerHTML = '';
+  const state = snap.state || {};
+  if (state.status === 'needs_input' && state.current_item_id) {
+    const supplementBtn = document.createElement('button');
+    supplementBtn.className = 'ghost';
+    supplementBtn.type = 'button';
+    supplementBtn.textContent = '补充输入并重跑';
+    supplementBtn.title = `目标工作项：${state.current_item_id}`;
+    supplementBtn.addEventListener('click', () => {
+      const box = $('session-supplement');
+      box.classList.toggle('hidden');
+      if (!box.classList.contains('hidden')) {
+        box.dataset.targetItem = state.current_item_id;
+        $('session-supplement-json').focus();
+      }
+    });
+    host.appendChild(supplementBtn);
+  }
   const actions = snap.next_actions || [];
   if (!actions.length) {
-    host.innerHTML = '<span class="muted">当前没有待办审批</span>';
+    const hint = document.createElement('span');
+    hint.className = 'muted';
+    hint.textContent = state.status === 'needs_input' ? '等待补充输入后重跑' : '当前没有待办审批';
+    host.appendChild(hint);
     return;
   }
   const intro = document.createElement('span');
@@ -922,7 +942,51 @@ async function runSessionIntervention(snap, action, approve) {
   await loadSessions(currentProjectId);
   setTimeout(pollProject, 300);
 }
-// ---------- init ----------
+
+async function runSessionSupplement() {
+  if (!currentProjectId || !currentSessionId) {
+    toast('请先选择项目与会话', 'error');
+    return;
+  }
+  const box = $('session-supplement');
+  const targetItem = box.dataset.targetItem;
+  if (!targetItem) {
+    toast('请先点击“补充输入并重跑”', 'error');
+    return;
+  }
+  let overrides = null;
+  const raw = $('session-supplement-json').value.trim();
+  if (raw) {
+    try { overrides = JSON.parse(raw); } catch (_) {
+      toast('补充输入必须是合法 JSON', 'error');
+      return;
+    }
+  }
+  const rationale = $('session-input').value.trim() || '在会话中补充输入并重跑该工作项。';
+  try {
+    await api(`/api/projects/${currentProjectId}/sessions/${currentSessionId}/interventions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'propose_fork',
+        rationale,
+        actor: 'researcher',
+        target_id: targetItem,
+        mode: 'redo',
+        input_overrides: overrides,
+      }),
+    });
+    box.classList.add('hidden');
+    box.dataset.targetItem = '';
+    $('session-supplement-json').value = '';
+    $('session-input').value = '';
+    toast('已发起补充输入回退，等待批准');
+  } catch (error) {
+    toast(error.message, 'error');
+  }
+  await loadSessions(currentProjectId);
+  setTimeout(pollProject, 300);
+}// ---------- init ----------
 
 async function init() {
   refreshCapabilities();
@@ -944,6 +1008,7 @@ async function init() {
   });
   $('session-send').addEventListener('click', () => sendSessionMessage(false));
   $('session-ask').addEventListener('click', () => sendSessionMessage(true));
+  $('session-supplement-run').addEventListener('click', runSessionSupplement);
   $('fork-mode').addEventListener('change', () => {
     if (currentSnapshot) renderForkAttempts(currentSnapshot);
   });

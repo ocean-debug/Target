@@ -256,7 +256,7 @@ def test_session_intervention_web_endpoint_queues_resume(tmp_path, monkeypatch):
 
     calls = {}
 
-    def fake_intervene(self, project_id, session_id, *, action, rationale, actor, target_id, approve, snapshot_digest):
+    def fake_intervene(self, project_id, session_id, *, action, rationale, actor, target_id, approve, snapshot_digest, mode=None, rollback_to_attempt_id=None, input_overrides=None):
         calls.update(
             project_id=project_id,
             session_id=session_id,
@@ -307,3 +307,156 @@ def test_session_intervention_web_endpoint_queues_resume(tmp_path, monkeypatch):
     assert payload["resume_queued"] is True
     assert calls["action"] == "accept_checkpoint"
     assert payload["status_url"] == f"/api/projects/{project.project_id}"
+
+def test_session_intervention_forwards_propose_fork_supplement(tmp_path, monkeypatch):
+    runtime, project = _completed_runtime(tmp_path)
+    service = ResearchSessionService(runtime)
+    session_id = service.create(project.project_id, title="补充输入")["session"]["session_id"]
+
+    captured = {}
+
+    def fake_propose_fork(*, project_id, target_work_item_id, mode, rationale, actor, rollback_to_attempt_id, input_overrides):
+        captured.update(
+            project_id=project_id,
+            target_work_item_id=target_work_item_id,
+            mode=mode,
+            rationale=rationale,
+            actor=actor,
+            rollback_to_attempt_id=rollback_to_attempt_id,
+            input_overrides=input_overrides,
+        )
+        return {
+            "state": {
+                "status": "waiting_review",
+                "checkpoint_kind": "fork",
+                "checkpoint_target_id": "branch-abcdefabcdef123456",
+                "current_item_id": target_work_item_id,
+            }
+        }
+
+    monkeypatch.setattr(service.projects_service, "propose_fork", fake_propose_fork)
+    result = service.intervene(
+        project.project_id,
+        session_id,
+        action="propose_fork",
+        rationale="补充目标组织为结肠",
+        actor="researcher",
+        target_id="target_discovery",
+        input_overrides={"target_discovery": {"tissue": "colon"}},
+    )
+    assert captured == {
+        "project_id": project.project_id,
+        "target_work_item_id": "target_discovery",
+        "mode": "redo",
+        "rationale": "补充目标组织为结肠",
+        "actor": "researcher",
+        "rollback_to_attempt_id": None,
+        "input_overrides": {"target_discovery": {"tissue": "colon"}},
+    }
+    assert result["fork"] == {
+        "branch_id": "branch-abcdefabcdef123456",
+        "mode": "redo",
+        "target_work_item_id": "target_discovery",
+        "status": "proposed",
+    }
+    assert [m["kind"] for m in result["messages"]] == ["intervention", "intervention_result"]
+    assert "branch-abcdefabcdef123456" in result["messages"][1]["text"]
+    assert result["messages"][1]["references"][-1] == "branch:branch-abcdefabcdef123456"
+
+
+def test_session_intervention_rejects_bad_supplement_payloads(tmp_path):
+    runtime, project = _completed_runtime(tmp_path)
+    service = ResearchSessionService(runtime)
+    session_id = service.create(project.project_id, title="错误补充")["session"]["session_id"]
+
+    with pytest.raises(ValueError, match="target_id"):
+        service.intervene(project.project_id, session_id, action="propose_fork", rationale="x")
+    with pytest.raises(ValueError, match="mode"):
+        service.intervene(
+            project.project_id,
+            session_id,
+            action="propose_fork",
+            rationale="x",
+            target_id="target_discovery",
+            mode="rewrite",
+        )
+    with pytest.raises(ValueError, match="input_overrides"):
+        service.intervene(
+            project.project_id,
+            session_id,
+            action="propose_fork",
+            rationale="x",
+            target_id="target_discovery",
+            input_overrides=["not", "a", "dict"],
+        )
+    assert service.messages(project.project_id, session_id)["messages"] == []
+
+
+def test_session_intervention_web_endpoint_propose_fork_no_resume(tmp_path, monkeypatch):
+    from target_agent.research_session import ResearchSessionService
+
+    research_runtime, _ = fake_research_runtime(tmp_path)
+    client = create_app(
+        fake_target_runtime(tmp_path),
+        research_runtime=research_runtime,
+    ).test_client()
+    project = research_project("project-session-web")
+    assert client.post("/api/projects", json=project.model_dump(mode="json")).status_code == 202
+    _wait_for_project(client, project.project_id)
+    session_id = client.post(
+        f"/api/projects/{project.project_id}/sessions", json={"title": "补充输入"}
+    ).get_json()["session"]["session_id"]
+
+    calls = {}
+
+    def fake_intervene(self, project_id, session_id, *, action, rationale, actor, target_id, approve, snapshot_digest, mode, rollback_to_attempt_id, input_overrides):
+        calls.update(action=action, mode=mode, input_overrides=input_overrides)
+        return {
+            "project_id": project_id,
+            "session_id": session_id,
+            "messages": [
+                {
+                    "message_id": "msg-user",
+                    "role": "user",
+                    "kind": "intervention",
+                    "text": rationale,
+                    "source_bound": False,
+                },
+                {
+                    "message_id": "msg-result",
+                    "role": "system",
+                    "kind": "intervention_result",
+                    "text": "已发起补充输入回退",
+                    "references": [f"branch:{'branch-abcdefabcdef123456'}"],
+                    "source_bound": False,
+                },
+            ],
+            "fork": {
+                "branch_id": "branch-abcdefabcdef123456",
+                "mode": mode,
+                "target_work_item_id": target_id,
+                "status": "proposed",
+            },
+        }
+
+    monkeypatch.setattr(ResearchSessionService, "intervene", fake_intervene)
+    response = client.post(
+        f"/api/projects/{project.project_id}/sessions/{session_id}/interventions",
+        json={
+            "action": "propose_fork",
+            "rationale": "补充目标组织",
+            "actor": "researcher",
+            "target_id": "target_discovery",
+            "mode": "redo",
+            "input_overrides": {"target_discovery": {"tissue": "colon"}},
+        },
+    )
+    assert response.status_code == 202
+    payload = response.get_json()
+    assert payload["resume_queued"] is False
+    assert payload["fork"]["branch_id"] == "branch-abcdefabcdef123456"
+    assert calls == {
+        "action": "propose_fork",
+        "mode": "redo",
+        "input_overrides": {"target_discovery": {"tissue": "colon"}},
+    }

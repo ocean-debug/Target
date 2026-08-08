@@ -161,5 +161,7 @@ def test_workbench_assets_are_utf8_chinese_and_demo_oriented():
     assert "研究会话" in html
     assert "interventions" in script
     assert "runSessionIntervention" in script
+    assert "session-supplement" in html
+    assert "runSessionSupplement" in script
     assert chr(0xFFFD) not in combined
     assert "读取" not in combined

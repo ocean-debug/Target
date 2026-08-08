@@ -217,12 +217,15 @@ class ResearchSessionService:
         target_id: str | None = None,
         approve: bool | None = None,
         snapshot_digest: str | None = None,
+        mode: str | None = None,
+        rollback_to_attempt_id: str | None = None,
+        input_overrides: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Execute one structured control-plane action and record it in the session.
 
         Only explicit, deterministic actions are routed here (accept_checkpoint,
-        decide_repair, decide_fork). Natural-language text is carried as the
-        decision rationale; the decision itself is written by
+        decide_repair, decide_fork, propose_fork). Natural-language text is
+        carried as the decision rationale; the decision itself is written by
         ResearchProjectService into the durable project ledger, which remains
         the system of record. The session only records the instruction and the
         outcome view.
@@ -268,6 +271,69 @@ class ResearchSessionService:
                 actor=actor,
                 rationale=rationale,
             )
+        elif action == "propose_fork":
+            if not target_id:
+                raise ValueError("target_id is required for propose_fork")
+            fork_mode = str(mode or "redo")
+            if fork_mode not in {"redo", "restore"}:
+                raise ValueError("mode must be redo or restore")
+            if input_overrides is not None and not isinstance(input_overrides, dict):
+                raise ValueError("input_overrides must be a JSON object")
+            snapshot = self.projects_service.propose_fork(
+                project_id=project_id,
+                target_work_item_id=target_id,
+                mode=fork_mode,
+                rationale=rationale,
+                actor=actor,
+                rollback_to_attempt_id=rollback_to_attempt_id or None,
+                input_overrides=input_overrides or None,
+            )
+            state = snapshot.get("state") or {}
+            branch_id = str(state.get("checkpoint_target_id") or "")
+            user_message = self.store.append_message(
+                project_id,
+                SessionMessage(
+                    message_id=new_id("msg"),
+                    session_id=session_id,
+                    project_id=project_id,
+                    role="user",
+                    text=rationale,
+                    kind="intervention",
+                    references=[f"project:{project_id}"],
+                    source_bound=False,
+                ),
+            )
+            result_text = (
+                f"已发起补充输入回退：分支 {branch_id}（{fork_mode}），"
+                f"目标工作项 {target_id}；回退需要批准，批准后自动重跑受影响步骤。"
+            )
+            result_message = self.store.append_message(
+                project_id,
+                SessionMessage(
+                    message_id=new_id("msg"),
+                    session_id=session_id,
+                    project_id=project_id,
+                    role="system",
+                    text=result_text,
+                    kind="intervention_result",
+                    references=[f"project:{project_id}", f"branch:{branch_id}"],
+                    source_bound=False,
+                ),
+            )
+            return {
+                "project_id": project_id,
+                "session_id": session_id,
+                "messages": [
+                    user_message.model_dump(mode="json"),
+                    result_message.model_dump(mode="json"),
+                ],
+                "fork": {
+                    "branch_id": branch_id,
+                    "mode": fork_mode,
+                    "target_work_item_id": target_id,
+                    "status": "proposed",
+                },
+            }
         else:
             raise ValueError(f"unsupported intervention action: {action!r}")
 

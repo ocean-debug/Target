@@ -78,6 +78,12 @@
           <div class="session-main">
             <div id="session-messages" class="session-messages"><p class="muted">等待选择会话…</p></div>
             <div id="session-actions" class="session-actions"></div>
+            <div id="session-supplement" class="session-supplement hidden">
+              <div class="subhead"><h3>补充输入并重跑</h3></div>
+              <p class="muted">项目需要更多输入。按工作项填写 JSON 覆盖，系统将发起一次需人工批准的 redo 回退（项目账本不可变，不做原地修改）。</p>
+              <textarea id="session-supplement-json" rows="4" placeholder="{&quot;target_discovery&quot;:{&quot;tissue&quot;:&quot;colon&quot;}}"></textarea>
+              <div class="mode-row"><button id="session-supplement-run" class="primary" type="button">提交补充输入并重跑</button></div>
+            </div>
             <div class="session-input-row">
               <textarea id="session-input" rows="2" placeholder="询问项目进展；若使用下方审批按钮，请先在这里写下审批理由"></textarea>
               <div class="session-buttons">
