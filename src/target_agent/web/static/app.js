@@ -11,7 +11,9 @@ async function api(path, options) {
   let payload = null;
   try { payload = await response.json(); } catch (_) { payload = null; }
   if (!response.ok) {
-    throw new Error(payload && payload.error ? payload.error : `HTTP ${response.status}`);
+    const err = new Error(payload && payload.error ? payload.error : `HTTP ${response.status}`);
+    if (payload && payload.review_notes) err.review_notes = payload.review_notes;
+    throw err;
   }
   return payload;
 }
@@ -245,6 +247,8 @@ async function selectProject(projectId) {
 
 // ---------- create project ----------
 
+let draftQuestion = null; // { goal_question, task_question, original_question }
+
 function buildProjectSpec() {
   const value = (id) => $(id).value.trim();
   const disease = value('disease');
@@ -263,7 +267,7 @@ function buildProjectSpec() {
     target_task_spec: {
       contract_version: '2.2.0',
       task_type: 'disease_to_target',
-      question: `Which mechanisms and drug targets are supported by public evidence for ${disease}?`,
+      question: draftQuestion ? draftQuestion.task_question : `Which mechanisms and drug targets are supported by public evidence for ${disease}?`,
       context: {
         disease,
         disease_subtype: subtype || null,
@@ -286,7 +290,7 @@ function buildProjectSpec() {
     title: `${disease} target discovery`,
     domain: 'disease_target_discovery',
     goal: {
-      question: `Which mechanisms and drug targets are supported by public evidence for ${disease}?`,
+      question: draftQuestion ? draftQuestion.goal_question : `Which mechanisms and drug targets are supported by public evidence for ${disease}?`,
       success_criteria: ['Every released conclusion is traceable to a durable artifact.'],
       deliverables: ['A reviewed research report with explicit evidence gaps.'],
       constraints: ['Only public data and allowlisted tools may be used.'],
@@ -299,6 +303,46 @@ function buildProjectSpec() {
   };
 }
 
+async function draftFromQuestion() {
+  const question = $('research-question-input').value.trim();
+  if (!question) { toast('请先输入研究问题', 'error'); return; }
+  const hints = {};
+  const diseaseHint = $('disease').value.trim();
+  if (diseaseHint) hints.disease = diseaseHint;
+  try {
+    const draft = await api('/api/questions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question, hints }),
+    });
+    const fields = draft.extracted || {};
+    const set = (id, value) => { if (value) $(id).value = value; };
+    set('disease', fields.disease);
+    set('subtype', fields.disease_subtype);
+    set('tissue', fields.tissue);
+    set('cell', fields.cell_type);
+    set('stage', fields.disease_stage);
+    set('organism', fields.organism);
+    set('phenotype', fields.desired_phenotype);
+    const spec = draft.spec || {};
+    const goal = spec.goal || {};
+    const task = (spec.context && spec.context.target_task_spec) || {};
+    draftQuestion = {
+      goal_question: goal.question || question,
+      task_question: task.question || goal.question || question,
+      original_question: draft.question || question,
+    };
+    const notes = draft.review_notes || [];
+    const badge = draft.needs_review ? '[需人工确认]' : '[可直接创建]';
+    $('draft-review-notes').textContent = badge + ' ' + notes.join('; ');
+    toast('AI 已解析问题，请确认表单后创建项目');
+  } catch (error) {
+    if (error && error.message && error.review_notes) {
+      $('draft-review-notes').textContent = '需要补充信息: ' + error.review_notes;
+    }
+    toast(error.message || '解析失败', 'error');
+  }
+}
 async function createProject() {
   if (!$('disease').value.trim()) {
     toast('请填写疾病名称', 'error');
@@ -688,6 +732,7 @@ async function init() {
   await loadProjects();
   $('refresh-projects').addEventListener('click', loadProjects);
   $('create').addEventListener('click', createProject);
+  $('draft-from-question').addEventListener('click', draftFromQuestion);
   $('propose-fork').addEventListener('click', proposeFork);
   $('fork-mode').addEventListener('change', () => {
     if (currentSnapshot) renderForkAttempts(currentSnapshot);

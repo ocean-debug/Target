@@ -82,7 +82,16 @@ LLM_PROVIDER=step STEP_API_KEY=... target-agent llm-smoke-test
 LLM_PROVIDER=openai OPENAI_BASE_URL=https://.../v1 OPENAI_API_KEY=... OPENAI_MODEL=... target-agent llm-smoke-test
 ```
 
-3. 初始化一个研究项目（疾病 → 靶点 → 证据包）：
+3. 用自然语言提出研究问题，生成可审阅的项目草案（推荐入口，不会自动执行）：
+
+```bash
+target-agent ask --question "In lung adenocarcinoma, which druggable targets are supported by public evidence?" --disease "lung adenocarcinoma"
+# 审阅输出中的 review_notes / needs_review；确认后落为不可变项目：
+target-agent ask --question "In lung adenocarcinoma, which druggable targets are supported by public evidence?" --disease "lung adenocarcinoma" --create --output ./my-project/project.yaml
+target-agent project-run --input ./my-project/project.yaml
+```
+
+也可以直接用结构化字段初始化项目：
 
 ```bash
 target-agent init --output ./my-project --disease "ulcerative colitis" --tissue colon

@@ -28,6 +28,8 @@
         </div>
         <div>
           <div class="subhead"><h3>新建项目</h3></div>
+          <label class="span-2">研究问题（自然语言）<textarea id="research-question-input" rows="2" placeholder="例如：在肺腺癌中，哪些可成药靶点有公共证据支持？"></textarea></label>
+          <div class="mode-row"><button id="draft-from-question" class="ghost" type="button">AI 解读并填入表单</button><span id="draft-review-notes" class="muted"></span></div>
           <div class="form-grid">
             <label>疾病名称<input id="disease" value="lung adenocarcinoma" required></label>
             <label>疾病亚型<input id="subtype" placeholder="可选，如 EGFR 突变"></label>

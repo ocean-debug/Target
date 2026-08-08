@@ -251,4 +251,18 @@ typed transient failure
 - 提名分数是排序优先级，不代表论文科学质量，也不自动进入模式库或 RAG 语料。
 - 标题信号只做初步召回，理由供人审核对；最终 gold 判定依据全文/摘要的完整评审。
 - RAG 缺口疾病（UC/银屑病）为下一批 curation 的优先补位方向，但不保证提名中必有对应论文。
+## 10. 自然语言问题录入（P2.9，2026-08-08）
+
+### 10.1 已完成
+- `src/target_agent/question_intake.py`：把自由文本研究问题转成“可审阅的项目草案”，不保留、不执行任何东西。
+- 提取门控：显式 hints > 策展疾病库匹配（规范名 + MONDO/EFO ontology）> LLM 提案 > 缺失；缺失字段保持缺失，不虚构组织/细胞类型/阶段/表型。
+- 库上下文只作为 `library_context_suggestion` 提示，绝不注入项目；疾病不在库中、字段缺失/低置信、LLM 不可用都会标记 `needs_review` 并给出 review_notes。
+- 凭据拦截：问题文本含 `sk-...` 类 token 时直接拒绝；无疾病可建立时返回 `QuestionNeedsInput`（Web 422 / CLI 退出）。
+- 入口：CLI `target-agent ask --question ... [--disease/--tissue/--phenotype/--create/--output]`；Web `POST /api/questions` 返回草案，工作台“新建项目”区新增自然语言提问 + “AI 解读并填入表单”。
+- 测试：`tests/test_question_intake.py` 覆盖库疾病识别、无 LLM 回退、hints 优先、LLM 字段采纳与问题改写、LLM 故障回退、缺疾病拒绝、凭据拒绝、Web 端点与 CLI 打印。
+
+### 10.2 边界
+- 草案不是最终研究目标：用户必须审阅 review_notes，创建后才成为不可变项目。
+- LLM 只做结构化建议；疾病规范化和上下文门控由确定性代码决定。
+- `--create` 只 reserve 项目，不执行任何研究步骤。
 

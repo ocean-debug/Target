@@ -328,6 +328,28 @@ def create_app(
             return jsonify({"error": "artifact not found"}), 404
         return send_file(path, as_attachment=name.endswith((".md", ".json", ".jsonl", ".csv")))
 
+    @app.post("/api/questions")
+    def draft_project_from_question():
+        """Turn a natural-language question into a reviewable draft spec (never executes)."""
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict) or not isinstance(payload.get("question"), str) or not payload["question"].strip():
+            return jsonify({"error": "request body must include a non-empty question string"}), 400
+        hints = payload.get("hints")
+        if hints is not None and not isinstance(hints, dict):
+            return jsonify({"error": "hints must be a JSON object"}), 400
+        from .llm import StepClient
+        from .question_intake import QuestionNeedsInput, build_draft
+
+        try:
+            draft = build_draft(
+                payload["question"].strip(),
+                hints=hints or {},
+                client=StepClient.from_settings(runtime.settings),
+                project_id=payload.get("project_id"),
+            )
+        except QuestionNeedsInput as exc:
+            return jsonify({"error": "question needs input", "review_notes": str(exc)}), 422
+        return jsonify(draft.model_dump(mode="json")), 200
     @app.post("/api/projects")
     def create_project():
         payload = request.get_json(silent=True)

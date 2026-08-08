@@ -4,6 +4,14 @@ Cross-module contracts, workflow choices, model boundaries and scientific-safety
 
 
 
+
+## 2026-08-08 - 自然语言问题录入（P2.9）
+
+- **Status:** accepted
+- 决策：产品入口接受自然语言研究问题，但只生成可审阅草案（draft），绝不自动创建或执行项目；创建前必须由人确认 `needs_review` 与 `review_notes`。
+- 决策：字段优先级固定为 显式 hints > 策展疾病库（规范名/ontology）> LLM 提案 > 缺失；库默认上下文只作为 suggestion 出现在 review_notes，禁止自动注入，避免把 benchmark 上下文误当真实生物学上下文。
+- 决策：LLM 只输出结构化 brief 并经 Pydantic 校验；不可用/非法时确定性回退，问题文本含凭据类 token 或无法建立疾病时直接拒绝（CLI 非零退出 / Web 422）。
+- 决策：入口同时提供 CLI `ask` 与 Web `POST /api/questions`；`--create` 仅 reserve 不可变项目，与执行完全分离。
 ## 2026-08-08 - Gold 论文提名工具（P2.8）
 
 - **Status:** accepted

@@ -300,6 +300,19 @@ def main() -> None:
     serve.add_argument("--runtime", choices=["legacy", "langgraph"], default="langgraph")
     serve.add_argument("--dev", action="store_true", help="Use Flask's development server")
 
+    ask_cmd = sub.add_parser("ask", help="Turn a natural-language research question into a reviewable project draft")
+    ask_cmd.add_argument("--question", required=True)
+    ask_cmd.add_argument("--disease", help="Authoritative hint; overrides extraction")
+    ask_cmd.add_argument("--subtype")
+    ask_cmd.add_argument("--tissue")
+    ask_cmd.add_argument("--cell-type")
+    ask_cmd.add_argument("--stage")
+    ask_cmd.add_argument("--phenotype")
+    ask_cmd.add_argument("--organism", default="Homo sapiens")
+    ask_cmd.add_argument("--project-id")
+    ask_cmd.add_argument("--autonomy", choices=["checkpointed", "autonomous", "supervised"], default="checkpointed")
+    ask_cmd.add_argument("--output", type=Path, help="Write the draft spec as YAML")
+    ask_cmd.add_argument("--create", action="store_true", help="Reserve the draft as an immutable project without executing it")
     init_cmd = sub.add_parser("init", help="Scaffold a durable target-research project workspace")
     init_cmd.add_argument("--output", type=Path, required=True)
     init_cmd.add_argument("--project-id")
@@ -741,6 +754,61 @@ def main() -> None:
         else:
             from waitress import serve as waitress_serve
             waitress_serve(app, host=args.host, port=args.port, threads=settings.web_workers)
+    elif args.command == "ask":
+        from .llm import StepClient
+        from .question_intake import QuestionNeedsInput, build_draft, reserve_draft
+
+        client = StepClient.from_settings(settings)
+        hints = {
+            "disease": args.disease,
+            "disease_subtype": args.subtype,
+            "tissue": args.tissue,
+            "cell_type": args.cell_type,
+            "disease_stage": args.stage,
+            "desired_phenotype": args.phenotype,
+            "organism": args.organism,
+        }
+        try:
+            draft = build_draft(
+                args.question,
+                hints=hints,
+                client=client,
+                project_id=args.project_id,
+                autonomy_mode=args.autonomy,
+            )
+        except QuestionNeedsInput as exc:
+            raise SystemExit(f"question intake needs input: {exc}")
+        payload = {
+            "draft_version": draft.draft_version,
+            "question": draft.question,
+            "disease_resolution": draft.disease_resolution,
+            "extracted": draft.extracted,
+            "confidence": draft.confidence,
+            "sources": draft.sources,
+            "needs_review": draft.needs_review,
+            "review_notes": draft.review_notes,
+            "spec": draft.spec,
+        }
+        if args.output:
+            output = args.output.expanduser().resolve()
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_text(
+                yaml.safe_dump(draft.spec, allow_unicode=True, sort_keys=False), encoding="utf-8",
+            )
+            payload["output"] = str(output)
+        if args.create:
+            reserved = reserve_draft(draft, settings)
+            project_id = draft.spec["project_id"]
+            payload["created"] = True
+            payload["project_id"] = project_id
+            payload["next"] = [
+                "target-agent serve --port 8888  # approve checkpoints and view results in the workbench",
+                "target-agent project-export --project-id " + project_id + " --output " + project_id + ".target-project.zip",
+            ]
+            if args.output:
+                payload["next"].insert(0, "target-agent project-run --input " + str(args.output.expanduser().resolve()))
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+
     elif args.command == "init":
         service = ResearchProjectService(ResearchProjectRuntime(settings=settings))
         spec = service.build_disease_project(

@@ -469,6 +469,7 @@ Pattern 中的 `data_integration` 将被转换为 `EvidenceLink` 建议，供 `e
 13. 论文摘要 RAG（P2.6）：PaperRagStore 存储有界摘要分块（paper_strategy/rag/chunks.jsonl + MANIFEST），确定性词法检索（疾病/查询/数据可得性/年份/期刊），PlannerFewShotBuilder.build_paper_evidence 注入两端 Planner，ResearchPlan.paper_evidence 持久化，planner_paper_evidence trace，Web 新增“论文证据（RAG）”面板；仅存摘要、不存全文。
 14. 论文RAG入图与盲测RAG覆盖率（P2.7）：机制证据图新增 strategy_paper 节点与 paper_strategy_hint 边（strategy_only/not_evidence、weight=0、不进入 lane_coverage/pattern_links/排名）；pattern_ablation 新增 --rag 离线分析；runner 新增 paper_rag_graph_projection 单元检查；队友 PR 12 上下文关系基准（145 例）经审查并入产品分支。
 15. Gold 论文提名工具（P2.8）：`gold_nomination.py` 对候选语料做确定性 advisory 提名（期刊权重、查询桶、标题证据层信号、RAG 缺口疾病加分、基础生物学惩罚），输出 `paper_strategy/nominations.jsonl` + 逐行 SHA-256 manifest；CLI `target-agent pattern nominate`；提名不写 curation 台账，gold 判定仍由双人 `pattern curate` 完成。
+16. 自然语言问题录入（P2.9）：`question_intake.py` 把研究问题转为可审阅项目草案（hints > 策展疾病库 > LLM > 缺失，缺失不虚构；库上下文仅作 suggestion）；CLI `target-agent ask` + Web `POST /api/questions`；凭据/无疾病直接拒绝，`--create` 仅 reserve 不执行。
 
 ### 延后（P3，按团队决定最后再做）
 
