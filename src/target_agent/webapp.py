@@ -21,6 +21,7 @@ from .research_contracts import (
 )
 from .research_runtime import ResearchProjectRuntime
 from .research_service import ResearchDecisionError, ResearchProjectNotFound, ResearchProjectService
+from .research_session import ResearchSessionService
 from .research_store import ResearchProjectStore
 from .runtime import TargetDiscoveryRuntime
 
@@ -68,6 +69,7 @@ def create_app(
         runtime = LangGraphRuntime()
     research_runtime = research_runtime or ResearchProjectRuntime(settings=runtime.settings)
     research_service = ResearchProjectService(research_runtime)
+    session_service = ResearchSessionService(research_runtime)
     kernel_manager = KernelManager(runtime.settings)
     static_dir = Path(__file__).with_name("web") / "static"
     app = Flask(__name__, static_folder=str(static_dir), static_url_path="/static")
@@ -406,6 +408,59 @@ def create_app(
             return jsonify({"projects": research_service.list_projects()})
         except Exception as exc:
             return jsonify({"error": str(exc)}), 500
+
+    @app.post("/api/projects/<project_id>/sessions")
+    def create_session(project_id: str):
+        project_id = _safe_project_id(project_id)
+        payload = request.get_json(silent=True) or {}
+        try:
+            return jsonify(session_service.create(project_id, title=payload.get("title"))), 201
+        except ResearchProjectNotFound:
+            return jsonify({"error": "project not found"}), 404
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+
+    @app.get("/api/projects/<project_id>/sessions")
+    def list_sessions(project_id: str):
+        project_id = _safe_project_id(project_id)
+        try:
+            return jsonify(session_service.list(project_id))
+        except ResearchProjectNotFound:
+            return jsonify({"error": "project not found"}), 404
+
+    @app.get("/api/projects/<project_id>/sessions/<session_id>")
+    def read_session(project_id: str, session_id: str):
+        project_id = _safe_project_id(project_id)
+        if not session_id or Path(session_id).name != session_id:
+            return jsonify({"error": "invalid session id"}), 400
+        try:
+            return jsonify(session_service.messages(project_id, session_id))
+        except ResearchProjectNotFound:
+            return jsonify({"error": "session or project not found"}), 404
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+
+    @app.post("/api/projects/<project_id>/sessions/<session_id>/messages")
+    def post_session_message(project_id: str, session_id: str):
+        project_id = _safe_project_id(project_id)
+        if not session_id or Path(session_id).name != session_id:
+            return jsonify({"error": "invalid session id"}), 400
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            return jsonify({"error": "request body must be a JSON object"}), 400
+        text = str(payload.get("text") or "").strip()
+        ask_agent = bool(payload.get("ask_agent", False))
+        actor = str(payload.get("actor") or "researcher").strip()
+        if not text:
+            return jsonify({"error": "text is required"}), 400
+        try:
+            return jsonify(session_service.post_message(
+                project_id, session_id, text, ask_agent=ask_agent, actor=actor,
+            ))
+        except ResearchProjectNotFound:
+            return jsonify({"error": "session or project not found"}), 404
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
 
     @app.post("/api/projects/<project_id>/resume")
     def resume_project(project_id: str):

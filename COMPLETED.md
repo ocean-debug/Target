@@ -294,3 +294,16 @@ typed transient failure
 ### 12.2 边界
 - HTTP MCP 仍是本地/可信网络绑定（默认 127.0.0.1）；认证与多租户属于后续平台化增量。
 - 不暴露任意 shell/模型生成代码执行，工具面与 stdio 完全一致。
+
+## 13. 研究会话层（P2.12，2026-08-08）
+
+### 13.1 已完成
+- `ResearchSession` / `SessionMessage` 契约与 `ResearchSessionStore`：项目目录内 append-only JSONL 会话账本；每条消息带内容 SHA-256，读取时校验，篡改即报错。
+- `ResearchSessionService`：创建/列出会话、追加消息、`ask_agent` 返回当前项目快照的确定性摘要；摘要明确 `source_bound=false`，是只读视图，永不创建或修改科学状态。
+- Web API：`POST/GET /api/projects/<id>/sessions`、`GET /api/projects/<id>/sessions/<id>`、`POST /api/projects/<id>/sessions/<id>/messages`；项目不存在返回 404，空文本/非法 ID 返回 400。
+- 测试：`tests/test_research_session.py` 覆盖账本往返、篡改检测、服务层错误路径、确定性摘要与 Web 四端点；远程全套 401 passed / 0 failed / 2 skipped。
+
+### 13.2 边界
+- 会话是“视图”，计划、结果、证据、决策与发布仍以项目账本为唯一真相；Agent 回答永不写入科学状态。
+- 对话式干预（自然语言批准/拒绝/补充输入）尚未接入 checkpoint 流程，仍通过现有 decisions/repairs API 操作。
+- 前端工作台会话面板与 MCP 会话工具属于下一增量。

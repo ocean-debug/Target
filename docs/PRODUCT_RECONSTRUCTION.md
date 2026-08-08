@@ -48,9 +48,15 @@
 - 新增 `_serve()` 帮助函数与 `tests/test_mcp_http.py`（stdio 与 streamable-http 参数路由、server 可运行性）。
 - 意义：Target 现在可作为 HTTP MCP 服务嵌入 OpenScience/Wisp/SciForge 等科研工作台，不需要宿主理解内部存储。
 
+
+### P2.12 研究会话层（已完成，2026-08-08）
+
+- 项目目录内 append-only JSONL 会话账本：`SessionMessage` 带内容 SHA-256，读取时校验篡改；会话不是系统真相，计划/证据/决策仍在项目账本。
+- `ResearchSessionService`：创建/列表/追加消息/`ask_agent` 确定性快照摘要，明确 `source_bound=false`，不产生也不修改科学状态。
+- Web API 四端点（create/list/read/post）；测试覆盖账本往返、篡改、404/400 与摘要确定性。
 ## 4. 下一步增量（按价值排序）
 
-1. **研究会话层（聊天式工作台）**：把项目控制台升级为可对话工作区——用户随时提问、要求解释中间证据、在 checkpoint 用自然语言批准/拒绝/补充输入；会话是视图，项目账本仍是系统真相。
+1. **会话式干预闭环**：把 checkpoint 批准/拒绝/补充输入接到会话，让用户用自然语言完成干预；Web 工作台增加会话面板。
 3. **部署与密钥管理**：Docker/单命令启动、OS keyring 密钥（Wisp 式）、只读分享包（OpenAI4S 式）。
 4. **多用户与配额**：认证、多租户、资源配额（P2 平台化，仅在真实多用户部署需要时做）。
 5. **对齐数据（P3，最后）**：以已评审 CaseRecord 与论文策略模式为来源生成 Planner SFT / Reviewer 偏好对，训练 Reviewer/Planner 小模型并做 blind benchmark 消融。

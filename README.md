@@ -203,6 +203,12 @@ endpoint pages through a safe projection of the authoritative child Trace: domai
 coverage and source IDs are visible while candidates, evidence text and ranking values remain in the
 checksum-bound scientific artifacts. `checkpointed` projects require plan and release acceptance;
 `supervised` projects additionally require each work-item acceptance.
+The research session surface adds `POST /api/projects/{project_id}/sessions`,
+`GET /api/projects/{project_id}/sessions`, `GET /api/projects/{project_id}/sessions/{session_id}`
+and `POST /api/projects/{project_id}/sessions/{session_id}/messages`. Sessions are
+append-only conversation views over a durable project: messages carry content SHA-256,
+and `ask_agent` returns a deterministic snapshot summary explicitly marked
+`source_bound=false` — the session can never create or mutate scientific state.
 
 The optional MCP server exposes the same durable project service to Codex, SciForge,
 OpenScience, Wisp and other MCP hosts over stdio or the official Streamable HTTP transport:
